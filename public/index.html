@@ -470,9 +470,71 @@
         ::-webkit-scrollbar-thumb:hover {
             background: #1a1c1f;
         }
+
+        /* ADDED: Password overlay styles (overlay only, no removals) */
+        #loginOverlay {
+            position: fixed;
+            inset: 0;
+            z-index: 2000;
+            background: #202225;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #loginCard {
+            width: 320px;
+            background: #2f3136;
+            border: 1px solid #202225;
+            border-radius: 8px;
+            padding: 20px;
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            text-align: center;
+        }
+        #loginCard h2 {
+            margin-bottom: 12px;
+            font-size: 18px;
+        }
+        #passwordInput {
+            width: 100%;
+            padding: 10px;
+            border-radius: 6px;
+            border: none;
+            outline: none;
+            background: #40444b;
+            color: #fff;
+            margin-top: 8px;
+        }
+        #loginBtn {
+            width: 100%;
+            margin-top: 12px;
+            padding: 10px;
+            border: none;
+            border-radius: 6px;
+            background: #5865f2;
+            color: #fff;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        #loginBtn:hover { background: #4752c4; }
+        #errorMsg {
+            margin-top: 8px;
+            color: #ed4245;
+            min-height: 18px;
+        }
     </style>
 </head>
 <body>
+    <!-- ADDED: Password overlay (blocks UI until correct password) -->
+    <div id="loginOverlay">
+        <div id="loginCard">
+            <h2>Enter password</h2>
+            <input type="password" id="passwordInput" placeholder="Password">
+            <button id="loginBtn">Login</button>
+            <div id="errorMsg"></div>
+        </div>
+    </div>
+
     <div class="notifications" id="notifications"></div>
 
     <div class="container">
@@ -525,6 +587,32 @@
     </div>
 
     <script>
+        // ADDED: Password gate logic (no removals from existing code)
+        (function setupPasswordGate() {
+            const overlay = document.getElementById('loginOverlay');
+            const input = document.getElementById('passwordInput');
+            const btn = document.getElementById('loginBtn');
+            const errorMsg = document.getElementById('errorMsg');
+
+            function unlock() {
+                overlay.style.display = 'none';
+            }
+
+            function tryLogin() {
+                const val = input.value.trim();
+                if (val === 'classic') {
+                    unlock();
+                } else {
+                    errorMsg.textContent = 'Incorrect password';
+                }
+            }
+
+            btn.addEventListener('click', tryLogin);
+            input.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') tryLogin();
+            });
+        })();
+
         const WS_URL = window.location.protocol === 'https:' ? `wss://${window.location.host}` : `ws://${window.location.hostname}:${window.location.port || 3000}`;
         const state = {currentChannel:'general',currentChatType:'channel',currentPrivateChat:null,username:'',ws:null,connected:false,messages:{},privateMessages:{},users:[],typingUsers:{},privateChats:{}};
         const messageArea=document.getElementById('messageArea'),messageInput=document.getElementById('messageInput'),sendBtn=document.getElementById('sendBtn'),channelList=document.getElementById('channelList'),dmList=document.getElementById('dmList'),currentChannelEl=document.getElementById('currentChannel'),usernameDisplay=document.getElementById('usernameDisplay'),userAvatar=document.getElementById('userAvatar'),connectionStatus=document.getElementById('connectionStatus'),userList=document.getElementById('userList'),typingIndicator=document.getElementById('typingIndicator'),notifications=document.getElementById('notifications');
