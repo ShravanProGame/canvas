@@ -1,5 +1,5 @@
 {
-  "name": "simple-chat-app",
+  "name": "canvas",
   "version": "1.0.0",
   "description": "A simple Discord-like chat application with WebSocket support",
   "main": "server.js",
