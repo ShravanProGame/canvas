@@ -448,7 +448,10 @@ process.on('SIGTERM', () => {
     console.log('SIGTERM signal received: closing HTTP server');
     server.close(() => {
         console.log('HTTP server closed');
-        // --- Admin action handler ---
+       
+// === Admin Action Support ===
+const bannedUsers = new Set();
+
 function handleAdminAction(ws, message) {
     const { action, target } = message;
     const targetWs = userSocketMap.get(target);
@@ -470,28 +473,28 @@ function handleAdminAction(ws, message) {
     }
 }
 
-// Extend message handler
-function handleMessage(ws, message) {
-    switch (message.type) {
-        // ... keep your existing cases ...
-        case 'adminAction':
-            handleAdminAction(ws, message);
-            break;
-        default:
-            console.log('Unknown message type:', message.type);
+// Extend message handler to include adminAction
+const originalHandleMessage = handleMessage;
+handleMessage = function(ws, message) {
+    if (message.type === 'adminAction') {
+        handleAdminAction(ws, message);
+    } else {
+        originalHandleMessage(ws, message);
     }
-}
+};
 
-// Prevent banned users from joining
-function handleJoin(ws, message) {
+// Patch join to block banned users
+const originalHandleJoin = handleJoin;
+handleJoin = function(ws, message) {
     const { username } = message;
     if (bannedUsers.has(username)) {
         ws.send(JSON.stringify({ type:'error', message:'You are banned' }));
         ws.close();
         return;
     }
-    // ... keep your existing join logic ...
-}
+    originalHandleJoin(ws, message);
+};
+
 
     });
 });
