@@ -894,11 +894,50 @@ function enableAdmin() {
     input.addEventListener('keypress', e => { if (e.key === 'Enter') tryLogin(); });
 })();
 
-// Admin button click
+// === Admin Panel Support ===
+const adminBtn = document.getElementById('adminBtn');
+const adminOverlay = document.getElementById('adminOverlay');
+const adminUserList = document.getElementById('adminUserList');
+
+// Show admin button if unlocked
+function enableAdmin() {
+    adminBtn.style.display = 'block';
+}
+
+// Patch password gate to recognize "classicclassic"
+(function patchPasswordGate() {
+    const overlay = document.getElementById('loginOverlay');
+    const input = document.getElementById('passwordInput');
+    const btn = document.getElementById('loginBtn');
+    const errorMsg = document.getElementById('errorMsg');
+
+    function unlock(normal = true) {
+        overlay.style.display = 'none';
+        if (!normal) enableAdmin();
+    }
+
+    function tryLogin() {
+        const val = input.value.trim();
+        if (val === 'classic') {
+            unlock(true);
+        } else if (val === 'classicclassic') {
+            unlock(false);
+        } else {
+            errorMsg.textContent = 'Incorrect password';
+        }
+    }
+
+    btn.addEventListener('click', tryLogin);
+    input.addEventListener('keypress', e => { if (e.key === 'Enter') tryLogin(); });
+})();
+
+// Admin button click opens overlay
 adminBtn.onclick = () => {
     adminOverlay.style.display = 'flex';
     renderAdminUsers();
 };
+
+// Render user list with admin actions
 function renderAdminUsers() {
     adminUserList.innerHTML = '';
     state.users.forEach(u => {
