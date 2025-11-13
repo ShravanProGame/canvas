@@ -448,6 +448,51 @@ process.on('SIGTERM', () => {
     console.log('SIGTERM signal received: closing HTTP server');
     server.close(() => {
         console.log('HTTP server closed');
+        // --- Admin action handler ---
+function handleAdminAction(ws, message) {
+    const { action, target } = message;
+    const targetWs = userSocketMap.get(target);
+    if (!targetWs) return;
+
+    switch (action) {
+        case 'timeout':
+            targetWs.send(JSON.stringify({ type:'adminNotice', message:'You have been timed out by admin' }));
+            break;
+        case 'kick':
+            targetWs.send(JSON.stringify({ type:'adminNotice', message:'You have been kicked by admin' }));
+            targetWs.close();
+            break;
+        case 'ban':
+            bannedUsers.add(target);
+            targetWs.send(JSON.stringify({ type:'adminNotice', message:'You have been banned by admin' }));
+            targetWs.close();
+            break;
+    }
+}
+
+// Extend message handler
+function handleMessage(ws, message) {
+    switch (message.type) {
+        // ... keep your existing cases ...
+        case 'adminAction':
+            handleAdminAction(ws, message);
+            break;
+        default:
+            console.log('Unknown message type:', message.type);
+    }
+}
+
+// Prevent banned users from joining
+function handleJoin(ws, message) {
+    const { username } = message;
+    if (bannedUsers.has(username)) {
+        ws.send(JSON.stringify({ type:'error', message:'You are banned' }));
+        ws.close();
+        return;
+    }
+    // ... keep your existing join logic ...
+}
+
     });
 });
 
