@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -365,8 +366,10 @@
             cursor: pointer;
             font-weight: 500;
             margin-left: 8px;
-            transition: background 0.
-                    .send-btn:hover {
+            transition: background 0.2s;
+        }
+
+        .send-btn:hover {
             background: #4752c4;
         }
 
@@ -456,6 +459,23 @@
             background: #c03537;
         }
 
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #2f3136;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #202225;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #1a1c1f;
+        }
+
         /* Password overlay styles */
         #loginOverlay {
             position: fixed;
@@ -508,60 +528,44 @@
             min-height: 18px;
         }
 
-        /* Admin panel styles */
-        #adminOverlay {
-            position: fixed;
-            inset: 0;
-            z-index: 3000;
-            background: rgba(0,0,0,0.7);
-            display: none;
+        /* Animated typing dots */
+        .typing-dots {
+            display: inline-flex;
+            gap: 4px;
             align-items: center;
-            justify-content: center;
         }
-        #adminCard {
-            width: 400px;
-            background: #2f3136;
-            border: 1px solid #202225;
-            border-radius: 8px;
-            padding: 20px;
+        .typing-dot {
+            width: 6px;
+            height: 6px;
+            background: #72767d;
+            border-radius: 50%;
+            animation: typing-bounce 1.2s infinite ease-in-out;
+        }
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typing-bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+
+        /* Unread badges */
+        .unread-badge {
+            background: #ed4245;
             color: #fff;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-        }
-        #adminCard h2 {
-            margin-bottom: 12px;
-            font-size: 18px;
-        }
-        .admin-user {
-            display: flex;
-            justify-content: space-between;
-            padding: 6px 0;
-            border-bottom: 1px solid #202225;
-        }
-        .admin-actions button {
+            font-size: 11px;
+            font-weight: 600;
+            border-radius: 10px;
+            padding: 2px 6px;
             margin-left: 6px;
-            padding: 4px 8px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
-        }
-        .btn-timeout { background: #ffb020; color: #000; }
-        .btn-kick { background: #ed4245; color: #fff; }
-        .btn-ban { background: #000; color: #fff; }
-        #adminBtn {
-            background: #5865f2;
-            color: #fff;
-            border: none;
-            padding: 6px 12px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
             display: none;
+        }
+        .channel.unread .unread-badge {
+            display: inline-block;
         }
     </style>
 </head>
 <body>
-    <!-- Password overlay -->
+    <!-- Password overlay (blocks UI until correct password) -->
     <div id="loginOverlay">
         <div id="loginCard">
             <h2>Enter password</h2>
@@ -571,22 +575,12 @@
         </div>
     </div>
 
-    <!-- Admin overlay -->
-    <div id="adminOverlay">
-        <div id="adminCard">
-            <h2>Admin Panel</h2>
-            <div id="adminUserList"></div>
-            <button onclick="document.getElementById('adminOverlay').style.display='none'">Close</button>
-        </div>
-    </div>
-
     <div class="notifications" id="notifications"></div>
 
     <div class="container">
         <div class="sidebar">
             <div class="server-header">My Server</div>
             <div class="channels" id="channelList">
-                <!-- channels unchanged -->
                 <div class="channel-section">
                     <div class="section-header">Channels</div>
                     <div class="channel active" data-channel="general">
@@ -617,7 +611,6 @@
                     <div class="username" id="usernameDisplay">User</div>
                     <div class="connection-status" id="connectionStatus"></div>
                 </div>
-                <button id="adminBtn">Admin</button>
             </div>
         </div>
 
@@ -637,16 +630,248 @@
     </div>
 
     <script>
-        // existing chat JS here ...
-
-        // === Admin Panel Support ===
-        const adminBtn = document.getElementById('adminBtn');
-        const adminOverlay = document.getElementById('adminOverlay');
-        const adminUserList = document.getElementById('adminUserList');
-
-        function enableAdmin() { adminBtn.style.display = 'block'; }
-
-        (function patchPasswordGate() {
+        // Password gate logic
+        (function setupPasswordGate() {
             const overlay = document.getElementById('loginOverlay');
             const input = document.getElementById('passwordInput');
-            const btn = document.getElementById('login
+            const btn = document.getElementById('loginBtn');
+            const errorMsg = document.getElementById('errorMsg');
+
+            function unlock() {
+                overlay.style.display = 'none';
+            }
+
+            function tryLogin() {
+                const val = input.value.trim();
+                if (val === 'classic') {
+                    unlock();
+                } else {
+                    errorMsg.textContent = 'Incorrect password';
+                }
+            }
+
+            btn.addEventListener('click', tryLogin);
+            input.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') tryLogin();
+            });
+        })();
+
+        const WS_URL = window.location.protocol === 'https:' ? `wss://${window.location.host}` : `ws://${window.location.hostname}:${window.location.port || 3000}`;
+        const state = {
+            currentChannel:'general',
+            currentChatType:'channel',
+            currentPrivateChat:null,
+            username:'',
+            ws:null,
+            connected:false,
+            messages:{},
+            privateMessages:{},
+            users:[],
+            typingUsers:{},
+            privateChats:{},
+            unreadCounts:{},          // channel unread counts
+            unreadDMCounts:{}         // DM unread counts keyed by chatId
+        };
+        const messageArea=document.getElementById('messageArea'),
+              messageInput=document.getElementById('messageInput'),
+              sendBtn=document.getElementById('sendBtn'),
+              channelList=document.getElementById('channelList'),
+              dmList=document.getElementById('dmList'),
+              currentChannelEl=document.getElementById('currentChannel'),
+              usernameDisplay=document.getElementById('usernameDisplay'),
+              userAvatar=document.getElementById('userAvatar'),
+              connectionStatus=document.getElementById('connectionStatus'),
+              userList=document.getElementById('userList'),
+              typingIndicator=document.getElementById('typingIndicator'),
+              notifications=document.getElementById('notifications');
+        let typingTimeout;
+
+        function init(){const n=prompt('Enter your username:','User')||'User';state.username=n;usernameDisplay.textContent=n;userAvatar.textContent=n.charAt(0).toUpperCase();connectWebSocket()}
+
+        function connectWebSocket(){try{state.ws=new WebSocket(WS_URL)}catch(e){setTimeout(connectWebSocket,3000);return}state.ws.onopen=()=>{state.connected=true;connectionStatus.classList.add('connected');sendBtn.disabled=false;send({type:'join',username:state.username});send({type:'getHistory',channel:state.currentChannel})};state.ws.onmessage=e=>{try{handleServerMessage(JSON.parse(e.data))}catch(er){}};state.ws.onclose=()=>{state.connected=false;connectionStatus.classList.remove('connected');sendBtn.disabled=true;setTimeout(connectWebSocket,3000)};state.ws.onerror=e=>{}}
+
+        function handleServerMessage(d){switch(d.type){case'message':addMessageToChannel(d.message);break;case'history':loadHistory(d.channel,d.messages);break;case'userList':updateUserList(d.users);break;case'typing':handleTypingIndicator(d);break;case'privateChatRequest':showPrivateChatRequest(d.from);break;case'privateChatAccepted':handlePrivateChatAccepted(d.chatId,d.with);break;case'privateChatRejected':alert(`${d.by} declined`);break;case'privateMessage':addPrivateMessage(d.message);break;case'privateHistory':loadPrivateHistory(d.chatId,d.messages);break}}
+
+        function send(d){if(state.ws&&state.ws.readyState===WebSocket.OPEN)state.ws.send(JSON.stringify(d))}
+
+        function showPrivateChatRequest(from){const n=document.createElement('div');n.className='notification';n.innerHTML=`<div class="notification-header">Private Chat Request</div><div class="notification-body">${from} wants to chat</div><div class="notification-actions"><button class="notification-btn btn-accept">Accept</button><button class="notification-btn btn-decline">Decline</button></div>`;n.querySelector('.btn-accept').onclick=()=>{send({type:'privateChatResponse',from,accepted:true});n.remove()};n.querySelector('.btn-decline').onclick=()=>{send({type:'privateChatResponse',from,accepted:false});n.remove()};notifications.appendChild(n)}
+
+        function handlePrivateChatAccepted(chatId,withUser){state.privateChats[chatId]=withUser;addDMToList(chatId,withUser);switchToPrivateChat(chatId,withUser)}
+
+        function addDMToList(chatId,username){
+            if(document.querySelector(`[data-chat-id="${chatId}"]`))return;
+            const d=document.createElement('div');
+            d.className='channel private';
+            d.dataset.chatId=chatId;
+            d.innerHTML=`<span class="channel-name">${username}</span><span class="unread-badge">0</span><button class="close-dm">×</button>`;
+            d.querySelector('.close-dm').onclick=e=>{e.stopPropagation();d.remove();delete state.privateChats[chatId];delete state.privateMessages[chatId];delete state.unreadDMCounts[chatId];if(state.currentPrivateChat===chatId)switchChannel('general')};
+            d.onclick=()=>switchToPrivateChat(chatId,username);
+            dmList.appendChild(d);
+        }
+
+        function switchToPrivateChat(chatId,username){
+            state.currentChatType='private';
+            state.currentPrivateChat=chatId;
+            state.currentChannel=username;
+            currentChannelEl.textContent=username;
+            currentChannelEl.classList.add('private');
+            messageInput.placeholder=`Message @${username}`;
+            document.querySelectorAll('.channel').forEach(c=>c.classList.remove('active'));
+            const dm=document.querySelector(`[data-chat-id="${chatId}"]`);
+            if(dm)dm.classList.add('active');
+            if(!state.privateMessages[chatId])send({type:'getPrivateHistory',chatId});else renderMessages();
+            state.typingUsers={};updateTypingIndicator();
+            resetUnreadDM(chatId); // clear DM unread
+        }
+
+        function requestPrivateChat(username){if(username===state.username)return;send({type:'privateChatRequest',targetUsername:username})}
+
+        function addMessage(){
+            const t=messageInput.value.trim();
+            if(!t||!state.connected)return;
+            if(state.currentChatType==='private')send({type:'privateMessage',chatId:state.currentPrivateChat,text:t,targetUsername:state.privateChats[state.currentPrivateChat]});
+            else send({type:'message',channel:state.currentChannel,text:t});
+            messageInput.value='';stopTyping()
+        }
+
+        function addMessageToChannel(m){
+            if(!state.messages[m.channel])state.messages[m.channel]=[];
+            state.messages[m.channel].push(m);
+            if(m.channel===state.currentChannel&&state.currentChatType==='channel'){renderMessages()}
+            else{incrementUnreadChannel(m.channel)}
+        }
+
+        function addPrivateMessage(m){
+            if(!state.privateMessages[m.chatId])state.privateMessages[m.chatId]=[];
+            state.privateMessages[m.chatId].push(m);
+            if(m.chatId===state.currentPrivateChat&&state.currentChatType==='private'){renderMessages()}
+            else{incrementUnreadDM(m.chatId)}
+        }
+
+        function loadHistory(c,m){state.messages[c]=m;if(c===state.currentChannel&&state.currentChatType==='channel')renderMessages()}
+        function loadPrivateHistory(c,m){state.privateMessages[c]=m;if(c===state.currentPrivateChat&&state.currentChatType==='private')renderMessages()}
+
+        function renderMessages(){
+            let msgs=state.currentChatType==='private'?state.privateMessages[state.currentPrivateChat]||[]:state.messages[state.currentChannel]||[];
+            messageArea.innerHTML='';
+            msgs.forEach(m=>{
+                const d=document.createElement('div');
+                d.className='message';
+                d.innerHTML=`<div class="message-avatar">${m.author.charAt(0).toUpperCase()}</div><div class="message-content"><div class="message-header"><span class="message-author">${m.author}</span><span class="message-timestamp">${formatTime(new Date(m.timestamp))}</span></div><div class="message-text">${m.text}</div></div>`;
+                messageArea.appendChild(d)
+            });
+            messageArea.scrollTop=messageArea.scrollHeight
+        }
+
+        function updateUserList(users){
+            state.users=users;userList.innerHTML='';
+            users.forEach(u=>{
+                if(u===state.username)return;
+                const el=document.createElement('div');
+                el.className='user-list-item';
+                el.innerHTML=`<span class="user-name">${u}</span><button class="dm-btn">DM</button>`;
+                el.querySelector('.dm-btn').onclick=()=>requestPrivateChat(u);
+                userList.appendChild(el)
+            })
+        }
+
+        function handleTypingIndicator(d){
+            if(state.currentChatType==='private'){
+                if(d.isPrivate&&d.username===state.privateChats[state.currentPrivateChat]){
+                    d.isTyping?state.typingUsers[d.username]=true:delete state.typingUsers[d.username];
+                    updateTypingIndicator()
+                }
+            }else{
+                if(d.channel===state.currentChannel&&!d.isPrivate){
+                    d.isTyping?state.typingUsers[d.username]=true:delete state.typingUsers[d.username];
+                    updateTypingIndicator()
+                }
+            }
+        }
+
+        function updateTypingIndicator(){
+            const t=Object.keys(state.typingUsers);
+            if(t.length===0){typingIndicator.innerHTML='';return;}
+            const label=t.length===1?`${t[0]} is typing`:`${t.length} people are typing`;
+            typingIndicator.innerHTML=`<span>${label}</span><span class="typing-dots"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></span>`;
+        }
+
+        function startTyping(){
+            if(!state.connected)return;
+            if(state.currentChatType==='private')send({type:'typing',channel:state.currentPrivateChat,isTyping:true,isPrivate:true,targetUsername:state.privateChats[state.currentPrivateChat]});
+            else send({type:'typing',channel:state.currentChannel,isTyping:true});
+            clearTimeout(typingTimeout);typingTimeout=setTimeout(stopTyping,3000)
+        }
+
+        function stopTyping(){
+            if(!state.connected)return;
+            if(state.currentChatType==='private')send({type:'typing',channel:state.currentPrivateChat,isTyping:false,isPrivate:true,targetUsername:state.privateChats[state.currentPrivateChat]});
+            else send({type:'typing',channel:state.currentChannel,isTyping:false})
+        }
+
+        function formatTime(d){return d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0')}
+
+        function switchChannel(c){
+            state.currentChatType='channel';
+            state.currentPrivateChat=null;
+            state.currentChannel=c;
+            currentChannelEl.textContent=c;
+            currentChannelEl.classList.remove('private');
+            messageInput.placeholder=`Message #${c}`;
+            document.querySelectorAll('.channel').forEach(ch=>{ch.classList.remove('active');if(ch.dataset.channel===c)ch.classList.add('active')});
+            if(!state.messages[c])send({type:'getHistory',channel:c});else renderMessages();
+            state.typingUsers={};updateTypingIndicator();
+            resetUnreadChannel(c); // clear channel unread
+        }
+
+        sendBtn.onclick=e=>{e.preventDefault();addMessage()};
+        messageInput.onkeypress=e=>{if(e.key==='Enter'){e.preventDefault();addMessage()}};
+        messageInput.oninput=()=>{messageInput.value.length>0?startTyping():stopTyping()};
+        channelList.onclick=e=>{const c=e.target.closest('.channel');if(c&&c.dataset.channel)switchChannel(c.dataset.channel)};
+        init();
+
+        // Unread counters: channels
+        function incrementUnreadChannel(channel){
+            if(state.currentChatType==='channel' && state.currentChannel===channel) return;
+            state.unreadCounts[channel]=(state.unreadCounts[channel]||0)+1;
+            updateUnreadBadgeChannel(channel);
+        }
+        function resetUnreadChannel(channel){
+            state.unreadCounts[channel]=0;
+            updateUnreadBadgeChannel(channel);
+        }
+        function updateUnreadBadgeChannel(channel){
+            const wrapper=document.querySelector(`.channel[data-channel="${channel}"]`);
+            const badge=wrapper?wrapper.querySelector('.unread-badge'):null;
+            if(!badge||!wrapper) return;
+            const count=state.unreadCounts[channel]||0;
+            badge.textContent=count;
+            if(count>0){wrapper.classList.add('unread');}else{wrapper.classList.remove('unread');}
+        }
+
+        // Unread counters: DMs (by chatId)
+        function incrementUnreadDM(chatId){
+            if(state.currentChatType==='private' && state.currentPrivateChat===chatId) return;
+            state.unreadDMCounts[chatId]=(state.unreadDMCounts[chatId]||0)+1;
+            updateUnreadBadgeDM(chatId);
+        }
+        function resetUnreadDM(chatId){
+            state.unreadDMCounts[chatId]=0;
+            updateUnreadBadgeDM(chatId);
+        }
+        function updateUnreadBadgeDM(chatId){
+            const wrapper=document.querySelector(`.channel.private[data-chat-id="${chatId}"]`);
+            const badge=wrapper?wrapper.querySelector('.unread-badge'):null;
+            if(!badge||!wrapper) return;
+            const count=state.unreadDMCounts[chatId]||0;
+            badge.textContent=count;
+            if(count>0){wrapper.classList.add('unread');}else{wrapper.classList.remove('unread');}
+        }
+    </script>
+</body>
+</html>
+
+
+
+
+
