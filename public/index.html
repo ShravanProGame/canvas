@@ -522,6 +522,34 @@
             color: #ed4245;
             min-height: 18px;
         }
+
+        /* ADDED: Animated typing dots */
+        .typing-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: #72767d;
+            font-style: italic;
+        }
+        .typing-dots {
+            display: inline-flex;
+            gap: 4px;
+            align-items: center;
+        }
+        .typing-dot {
+            width: 6px;
+            height: 6px;
+            background: #72767d;
+            border-radius: 50%;
+            animation: typing-bounce 1.2s infinite ease-in-out;
+        }
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typing-bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
     </style>
 </head>
 <body>
@@ -634,7 +662,7 @@
         function renderMessages(){let msgs=state.currentChatType==='private'?state.privateMessages[state.currentPrivateChat]||[]:state.messages[state.currentChannel]||[];messageArea.innerHTML='';msgs.forEach(m=>{const d=document.createElement('div');d.className='message';d.innerHTML=`<div class="message-avatar">${m.author.charAt(0).toUpperCase()}</div><div class="message-content"><div class="message-header"><span class="message-author">${m.author}</span><span class="message-timestamp">${formatTime(new Date(m.timestamp))}</span></div><div class="message-text">${m.text}</div></div>`;messageArea.appendChild(d)});messageArea.scrollTop=messageArea.scrollHeight}
         function updateUserList(users){state.users=users;userList.innerHTML='';users.forEach(u=>{if(u===state.username)return;const el=document.createElement('div');el.className='user-list-item';el.innerHTML=`<span class="user-name">${u}</span><button class="dm-btn">DM</button>`;el.querySelector('.dm-btn').onclick=()=>requestPrivateChat(u);userList.appendChild(el)})}
         function handleTypingIndicator(d){if(state.currentChatType==='private'){if(d.isPrivate&&d.username===state.privateChats[state.currentPrivateChat]){d.isTyping?state.typingUsers[d.username]=true:delete state.typingUsers[d.username];updateTypingIndicator()}}else{if(d.channel===state.currentChannel&&!d.isPrivate){d.isTyping?state.typingUsers[d.username]=true:delete state.typingUsers[d.username];updateTypingIndicator()}}}
-        function updateTypingIndicator(){const t=Object.keys(state.typingUsers);typingIndicator.textContent=t.length===0?'':t.length===1?`${t[0]} is typing...`:`${t.length} people are typing...`}
+        function updateTypingIndicator(){const t=Object.keys(state.typingUsers);if(t.length===0){typingIndicator.innerHTML='';return;}const label=t.length===1?`${t[0]} is typing`:`${t.length} people are typing`;typingIndicator.innerHTML=`<span>${label}</span><span class="typing-dots"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></span>`}
         function startTyping(){if(!state.connected)return;if(state.currentChatType==='private')send({type:'typing',channel:state.currentPrivateChat,isTyping:true,isPrivate:true,targetUsername:state.privateChats[state.currentPrivateChat]});else send({type:'typing',channel:state.currentChannel,isTyping:true});clearTimeout(typingTimeout);typingTimeout=setTimeout(stopTyping,3000)}
         function stopTyping(){if(!state.connected)return;if(state.currentChatType==='private')send({type:'typing',channel:state.currentPrivateChat,isTyping:false,isPrivate:true,targetUsername:state.privateChats[state.currentPrivateChat]});else send({type:'typing',channel:state.currentChannel,isTyping:false})}
         function formatTime(d){return d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0')}
