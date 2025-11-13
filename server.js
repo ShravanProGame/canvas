@@ -448,55 +448,8 @@ process.on('SIGTERM', () => {
     console.log('SIGTERM signal received: closing HTTP server');
     server.close(() => {
         console.log('HTTP server closed');
-       
-// === Admin Action Support ===
-const bannedUsers = new Set();
-
-function handleAdminAction(ws, message) {
-    const { action, target } = message;
-    const targetWs = userSocketMap.get(target);
-    if (!targetWs) return;
-
-    switch (action) {
-        case 'timeout':
-            targetWs.send(JSON.stringify({ type:'adminNotice', message:'You have been timed out by admin' }));
-            break;
-        case 'kick':
-            targetWs.send(JSON.stringify({ type:'adminNotice', message:'You have been kicked by admin' }));
-            targetWs.close();
-            break;
-        case 'ban':
-            bannedUsers.add(target);
-            targetWs.send(JSON.stringify({ type:'adminNotice', message:'You have been banned by admin' }));
-            targetWs.close();
-            break;
-    }
-}
-
-// Extend message handler to include adminAction
-const originalHandleMessage = handleMessage;
-handleMessage = function(ws, message) {
-    if (message.type === 'adminAction') {
-        handleAdminAction(ws, message);
-    } else {
-        originalHandleMessage(ws, message);
-    }
-};
-
-// Patch join to block banned users
-const originalHandleJoin = handleJoin;
-handleJoin = function(ws, message) {
-    const { username } = message;
-    if (bannedUsers.has(username)) {
-        ws.send(JSON.stringify({ type:'error', message:'You are banned' }));
-        ws.close();
-        return;
-    }
-    originalHandleJoin(ws, message);
-};
-
-
     });
 });
+
 
 
