@@ -867,99 +867,10 @@
             badge.textContent=count;
             if(count>0){wrapper.classList.add('unread');}else{wrapper.classList.remove('unread');}
         }
-        // --- Admin panel support ---
-const adminBtn = document.getElementById('adminBtn');
-const adminOverlay = document.getElementById('adminOverlay');
-const adminUserList = document.getElementById('adminUserList');
-
-// Show admin button if unlocked
-function enableAdmin() {
-    adminBtn.style.display = 'block';
-}
-
-// Hook into password gate
-(function patchPasswordGate() {
-    const input = document.getElementById('passwordInput');
-    const btn = document.getElementById('loginBtn');
-    const errorMsg = document.getElementById('errorMsg');
-
-    function tryLogin() {
-        const val = input.value.trim();
-        if (val === 'classicclassic') {
-            document.getElementById('loginOverlay').style.display = 'none';
-            enableAdmin();
-        }
-    }
-    btn.addEventListener('click', tryLogin);
-    input.addEventListener('keypress', e => { if (e.key === 'Enter') tryLogin(); });
-})();
-
-// === Admin Panel Support ===
-const adminBtn = document.getElementById('adminBtn');
-const adminOverlay = document.getElementById('adminOverlay');
-const adminUserList = document.getElementById('adminUserList');
-
-// Show admin button if unlocked
-function enableAdmin() {
-    adminBtn.style.display = 'block';
-}
-
-// Patch password gate to recognize "classicclassic"
-(function patchPasswordGate() {
-    const overlay = document.getElementById('loginOverlay');
-    const input = document.getElementById('passwordInput');
-    const btn = document.getElementById('loginBtn');
-    const errorMsg = document.getElementById('errorMsg');
-
-    function unlock(normal = true) {
-        overlay.style.display = 'none';
-        if (!normal) enableAdmin();
-    }
-
-    function tryLogin() {
-        const val = input.value.trim();
-        if (val === 'classic') {
-            unlock(true);
-        } else if (val === 'classicclassic') {
-            unlock(false);
-        } else {
-            errorMsg.textContent = 'Incorrect password';
-        }
-    }
-
-    btn.addEventListener('click', tryLogin);
-    input.addEventListener('keypress', e => { if (e.key === 'Enter') tryLogin(); });
-})();
-
-// Admin button click opens overlay
-adminBtn.onclick = () => {
-    adminOverlay.style.display = 'flex';
-    renderAdminUsers();
-};
-
-// Render user list with admin actions
-function renderAdminUsers() {
-    adminUserList.innerHTML = '';
-    state.users.forEach(u => {
-        if (u === state.username) return;
-        const div = document.createElement('div');
-        div.className = 'admin-user';
-        div.innerHTML = `<span>${u}</span>
-            <span class="admin-actions">
-                <button class="btn-timeout">Timeout</button>
-                <button class="btn-kick">Kick</button>
-                <button class="btn-ban">Ban</button>
-            </span>`;
-        div.querySelector('.btn-timeout').onclick = () => send({type:'adminAction',action:'timeout',target:u});
-        div.querySelector('.btn-kick').onclick = () => send({type:'adminAction',action:'kick',target:u});
-        div.querySelector('.btn-ban').onclick = () => send({type:'adminAction',action:'ban',target:u});
-        adminUserList.appendChild(div);
-    });
-}
-
     </script>
 </body>
 </html>
+
 
 
 
