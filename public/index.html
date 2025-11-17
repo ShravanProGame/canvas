@@ -1016,21 +1016,32 @@
 
         function kickUser(username) {
             if (confirm(`Kick ${username}? They will be redirected to: ${adminSettings.redirectUrl}`)) {
-                showAdminNotification(`🚪 Kicked ${username}`, 'User has been kicked from the server');
+                send({
+                    type: 'adminKick',
+                    targetUsername: username,
+                    redirectUrl: adminSettings.redirectUrl
+                });
                 console.log(`[ADMIN] Kicked user: ${username}`);
             }
         }
 
         function timeoutUser(username) {
             if (confirm(`Timeout ${username} for ${adminSettings.timeoutDuration} seconds?`)) {
-                showAdminNotification(`⏰ Timed out ${username}`, `User muted for ${adminSettings.timeoutDuration} seconds`);
+                send({
+                    type: 'adminTimeout',
+                    targetUsername: username,
+                    duration: adminSettings.timeoutDuration
+                });
                 console.log(`[ADMIN] Timed out user: ${username} for ${adminSettings.timeoutDuration}s`);
             }
         }
 
         function banUser(username) {
             if (confirm(`Ban ${username}? This action is permanent!`)) {
-                showAdminNotification(`🔨 Banned ${username}`, 'User has been permanently banned');
+                send({
+                    type: 'adminBan',
+                    targetUsername: username
+                });
                 console.log(`[ADMIN] Banned user: ${username}`);
             }
         }
@@ -1082,9 +1093,41 @@
               notifications=document.getElementById('notifications');
         let typingTimeout;
 
-        function init(){const n=prompt('Enter your username:','User')||'User';state.username=n;usernameDisplay.textContent=n;userAvatar.textContent=n.charAt(0).toUpperCase();connectWebSocket()}
+        function init(){const n=prompt('Enter your username:','User')||'User';state.username=n;usernameDisplay.textContent=n;userAvatar.textContent=n.charAt(0).toUpperCase();connectWebSocket();}
 
-        function connectWebSocket(){try{state.ws=new WebSocket(WS_URL)}catch(e){setTimeout(connectWebSocket,3000);return}state.ws.onopen=()=>{state.connected=true;connectionStatus.classList.add('connected');sendBtn.disabled=false;send({type:'join',username:state.username});send({type:'getHistory',channel:state.currentChannel})};state.ws.onmessage=e=>{try{handleServerMessage(JSON.parse(e.data))}catch(er){}};state.ws.onclose=()=>{state.connected=false;connectionStatus.classList.remove('connected');sendBtn.disabled=true;setTimeout(connectWebSocket,3000)};state.ws.onerror=e=>{}}
+        // Handle server responses for admin actions
+        function handleAdminServerMessage(d) {
+            switch(d.type) {
+                case 'kicked':
+                    alert(d.message);
+                    setTimeout(() => {
+                        window.location.href = d.redirectUrl;
+                    }, 1000);
+                    break;
+                case 'timedOut':
+                    showAdminNotification('⏰ Timed Out', d.message);
+                    break;
+                case 'timeoutEnded':
+                    showAdminNotification('✅ Timeout Ended', d.message);
+                    break;
+                case 'banned':
+                    alert(d.message);
+                    setTimeout(() => {
+                        window.location.href = 'https://google.com';
+                    }, 1000);
+                    break;
+                case 'adminActionSuccess':
+                    const actions = {
+                        kick: '🚪 User Kicked',
+                        timeout: '⏰ User Timed Out', 
+                        ban: '🔨 User Banned'
+                    };
+                    showAdminNotification(actions[d.action], `Action completed on ${d.target}`);
+                    break;
+            }
+        }
+
+        function connectWebSocket(){try{state.ws=new WebSocket(WS_URL)}catch(e){setTimeout(connectWebSocket,3000);return}state.ws.onopen=()=>{state.connected=true;connectionStatus.classList.add('connected');sendBtn.disabled=false;send({type:'join',username:state.username,isAdmin:isAdmin});send({type:'getHistory',channel:state.currentChannel})};state.ws.onmessage=e=>{try{const data=JSON.parse(e.data);handleServerMessage(data);handleAdminServerMessage(data);}catch(er){}};state.ws.onclose=()=>{state.connected=false;connectionStatus.classList.remove('connected');sendBtn.disabled=true;setTimeout(connectWebSocket,3000)};state.ws.onerror=e=>{}}
 
         function handleServerMessage(d){switch(d.type){case'message':addMessageToChannel(d.message);break;case'history':loadHistory(d.channel,d.messages);break;case'userList':updateUserList(d.users);break;case'typing':handleTypingIndicator(d);break;case'privateChatRequest':showPrivateChatRequest(d.from);break;case'privateChatAccepted':handlePrivateChatAccepted(d.chatId,d.with);break;case'privateChatRejected':alert(`${d.by} declined`);break;case'privateMessage':addPrivateMessage(d.message);break;case'privateHistory':loadPrivateHistory(d.chatId,d.messages);break}}
 
