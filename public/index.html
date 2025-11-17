@@ -5,125 +5,823 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Canvas</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; height: 100vh; overflow: hidden; background: #36393f; }
-        .container { display: flex; height: 100vh; }
-        .sidebar { width: 240px; background: #2f3136; display: flex; flex-direction: column; }
-        .server-header { height: 48px; padding: 0 16px; display: flex; align-items: center; border-bottom: 1px solid #202225; color: #fff; font-weight: 600; font-size: 15px; }
-        .channels { flex: 1; overflow-y: auto; padding: 8px; }
-        .channel-section { margin-bottom: 16px; }
-        .section-header { color: #96989d; font-size: 12px; font-weight: 600; text-transform: uppercase; margin-bottom: 4px; padding: 0 8px; }
-        .channel { padding: 8px 12px; margin: 2px 0; border-radius: 4px; color: #96989d; cursor: pointer; display: flex; align-items: center; justify-content: space-between; font-size: 14px; transition: all 0.15s; }
-        .channel:hover { background: #3a3c42; color: #dcddde; }
-        .channel.active { background: #404249; color: #fff; }
-        .channel-name { display: flex; align-items: center; }
-        .channel-name::before { content: '#'; margin-right: 6px; font-weight: 600; color: #72767d; }
-        .channel.private .channel-name::before { content: '👤'; }
-        .close-dm { opacity: 0; background: transparent; border: none; color: #96989d; cursor: pointer; padding: 2px 6px; border-radius: 3px; font-size: 16px; transition: all 0.15s; }
-        .channel:hover .close-dm { opacity: 1; }
-        .close-dm:hover { background: #ed4245; color: #fff; }
-        .online-users { padding: 8px; border-top: 1px solid #202225; max-height: 200px; overflow-y: auto; }
-        .online-header { color: #96989d; font-size: 12px; font-weight: 600; text-transform: uppercase; margin-bottom: 8px; }
-        .user-list-item { padding: 4px 8px; color: #96989d; font-size: 14px; display: flex; align-items: center; justify-content: space-between; border-radius: 4px; transition: background 0.15s; }
-        .user-list-item:hover { background: #3a3c42; }
-        .user-name { display: flex; align-items: center; }
-        .user-name::before { content: '●'; color: #3ba55d; margin-right: 6px; }
-        .dm-btn { opacity: 0; background: #5865f2; color: #fff; border: none; padding: 2px 8px; border-radius: 3px; font-size: 11px; cursor: pointer; transition: all 0.15s; }
-        .user-list-item:hover .dm-btn { opacity: 1; }
-        .dm-btn:hover { background: #4752c4; }
-        .user-area { height: 52px; background: #292b2f; padding: 0 8px; display: flex; align-items: center; border-top: 1px solid #202225; cursor: pointer; transition: background 0.15s; }
-        .user-area:hover { background: #2a2d31; }
-        .user-info { display: flex; align-items: center; flex: 1; }
-        .user-avatar { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 600; margin-right: 8px; position: relative; }
-        .admin-badge { position: absolute; bottom: -2px; right: -2px; width: 14px; height: 14px; background: #faa61a; border-radius: 50%; display: none; align-items: center; justify-content: center; font-size: 8px; border: 2px solid #292b2f; }
-        .admin-badge.show { display: flex; }
-        .username { color: #fff; font-size: 14px; font-weight: 500; }
-        .connection-status { width: 8px; height: 8px; border-radius: 50%; background: #ed4245; margin-left: 8px; }
-        .connection-status.connected { background: #3ba55d; }
-        .main-content { flex: 1; display: flex; flex-direction: column; background: #36393f; }
-        .chat-header { height: 48px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #202225; color: #fff; }
-        .channel-name-header { font-weight: 600; font-size: 16px; }
-        .channel-name-header::before { content: '#'; margin-right: 4px; color: #72767d; }
-        .channel-name-header.private::before { content: '👤'; }
-        .typing-indicator { font-size: 12px; color: #72767d; font-style: italic; display: inline-flex; align-items: center; gap: 6px; }
-        .messages { flex: 1; overflow-y: auto; padding: 16px; }
-        .message { display: flex; padding: 4px 0; margin-bottom: 12px; }
-        .message:hover { background: #32353b; margin: 0 -16px 12px; padding: 4px 16px; }
-        .message-avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 600; margin-right: 16px; flex-shrink: 0; }
-        .message-content { flex: 1; }
-        .message-header { display: flex; align-items: baseline; margin-bottom: 4px; }
-        .message-author { color: #fff; font-weight: 500; font-size: 15px; margin-right: 8px; }
-        .message-timestamp { color: #72767d; font-size: 12px; }
-        .message-text { color: #dcddde; font-size: 15px; line-height: 1.4; word-wrap: break-word; }
-        .input-area { padding: 16px; }
-        .input-wrapper { background: #40444b; border-radius: 8px; padding: 12px; display: flex; align-items: center; }
-        .message-input { flex: 1; background: none; border: none; color: #dcddde; font-size: 15px; outline: none; }
-        .message-input::placeholder { color: #72767d; }
-        .send-btn { background: #5865f2; color: #fff; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: 500; margin-left: 8px; transition: background 0.2s; }
-        .send-btn:hover { background: #4752c4; }
-        .send-btn:disabled { background: #4e5058; cursor: not-allowed; }
-        .notifications { position: fixed; top: 16px; right: 16px; z-index: 1000; display: flex; flex-direction: column; gap: 12px; max-width: 400px; }
-        .notification { background: #2f3136; border: 1px solid #202225; border-radius: 8px; padding: 16px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4); animation: slideIn 0.3s ease; }
-        @keyframes slideIn { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-        .notification-header { color: #fff; font-weight: 600; font-size: 14px; margin-bottom: 8px; }
-        .notification-body { color: #dcddde; font-size: 14px; margin-bottom: 12px; }
-        .notification-actions { display: flex; gap: 8px; }
-        .notification-btn { flex: 1; padding: 8px; border: none; border-radius: 4px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
-        .btn-accept { background: #3ba55d; color: #fff; }
-        .btn-accept:hover { background: #2d7d46; }
-        .btn-decline { background: #ed4245; color: #fff; }
-        .btn-decline:hover { background: #c03537; }
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #2f3136; }
-        ::-webkit-scrollbar-thumb { background: #202225; border-radius: 4px; }
-        #loginOverlay { position: fixed; inset: 0; z-index: 2000; background: #202225; display: flex; align-items: center; justify-content: center; }
-        #loginCard { width: 320px; background: #2f3136; border: 1px solid #202225; border-radius: 8px; padding: 20px; color: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.4); text-align: center; }
-        #loginCard h2 { margin-bottom: 12px; font-size: 18px; }
-        #passwordInput { width: 100%; padding: 10px; border-radius: 6px; border: none; outline: none; background: #40444b; color: #fff; margin-top: 8px; }
-        #loginBtn { width: 100%; margin-top: 12px; padding: 10px; border: none; border-radius: 6px; background: #5865f2; color: #fff; cursor: pointer; font-weight: 600; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            height: 100vh;
+            overflow: hidden;
+            background: #36393f;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        .sidebar {
+            width: 240px;
+            background: #2f3136;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .server-header {
+            height: 48px;
+            padding: 0 16px;
+            display: flex;
+            align-items: center;
+            border-bottom: 1px solid #202225;
+            color: #fff;
+            font-weight: 600;
+            font-size: 15px;
+        }
+
+        .channels {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+        }
+
+        .channel-section {
+            margin-bottom: 16px;
+        }
+
+        .section-header {
+            color: #96989d;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+            padding: 0 8px;
+        }
+
+        .channel {
+            padding: 8px 12px;
+            margin: 2px 0;
+            border-radius: 4px;
+            color: #96989d;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 14px;
+            transition: all 0.15s;
+            position: relative;
+        }
+
+        .channel:hover {
+            background: #3a3c42;
+            color: #dcddde;
+        }
+
+        .channel.active {
+            background: #404249;
+            color: #fff;
+        }
+
+        .channel-name {
+            display: flex;
+            align-items: center;
+        }
+
+        .channel-name::before {
+            content: '#';
+            margin-right: 6px;
+            font-weight: 600;
+            color: #72767d;
+        }
+
+        .channel.private .channel-name::before {
+            content: '👤';
+            margin-right: 6px;
+        }
+
+        .close-dm {
+            opacity: 0;
+            background: transparent;
+            border: none;
+            color: #96989d;
+            cursor: pointer;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 16px;
+            transition: all 0.15s;
+        }
+
+        .channel:hover .close-dm {
+            opacity: 1;
+        }
+
+        .close-dm:hover {
+            background: #ed4245;
+            color: #fff;
+        }
+
+        .online-users {
+            padding: 8px;
+            border-top: 1px solid #202225;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .online-header {
+            color: #96989d;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .user-list-item {
+            padding: 4px 8px;
+            color: #96989d;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-radius: 4px;
+            transition: background 0.15s;
+        }
+
+        .user-list-item:hover {
+            background: #3a3c42;
+        }
+
+        .user-name {
+            display: flex;
+            align-items: center;
+        }
+
+        .user-name::before {
+            content: '●';
+            color: #3ba55d;
+            margin-right: 6px;
+        }
+
+        .dm-btn {
+            opacity: 0;
+            background: #5865f2;
+            color: #fff;
+            border: none;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .user-list-item:hover .dm-btn {
+            opacity: 1;
+        }
+
+        .dm-btn:hover {
+            background: #4752c4;
+        }
+
+        .user-area {
+            height: 52px;
+            background: #292b2f;
+            padding: 0 8px;
+            display: flex;
+            align-items: center;
+            border-top: 1px solid #202225;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .user-area:hover {
+            background: #2a2d31;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            flex: 1;
+        }
+
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-weight: 600;
+            margin-right: 8px;
+            position: relative;
+        }
+
+        .admin-badge {
+            position: absolute;
+            bottom: -2px;
+            right: -2px;
+            width: 14px;
+            height: 14px;
+            background: #faa61a;
+            border-radius: 50%;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-size: 8px;
+            border: 2px solid #292b2f;
+        }
+
+        .admin-badge.show {
+            display: flex;
+        }
+
+        .username {
+            color: #fff;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .connection-status {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ed4245;
+            margin-left: 8px;
+        }
+
+        .connection-status.connected {
+            background: #3ba55d;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #36393f;
+        }
+
+        .chat-header {
+            height: 48px;
+            padding: 0 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #202225;
+            color: #fff;
+        }
+
+        .channel-name-header {
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        .channel-name-header::before {
+            content: '#';
+            margin-right: 4px;
+            color: #72767d;
+        }
+
+        .channel-name-header.private::before {
+            content: '👤';
+        }
+
+        .typing-indicator {
+            font-size: 12px;
+            color: #72767d;
+            font-style: italic;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+
+        .message {
+            display: flex;
+            padding: 4px 0;
+            margin-bottom: 12px;
+        }
+
+        .message:hover {
+            background: #32353b;
+            margin: 0 -16px 12px;
+            padding: 4px 16px;
+        }
+
+        .message-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-weight: 600;
+            margin-right: 16px;
+            flex-shrink: 0;
+        }
+
+        .message-content {
+            flex: 1;
+        }
+
+        .message-header {
+            display: flex;
+            align-items: baseline;
+            margin-bottom: 4px;
+        }
+
+        .message-author {
+            color: #fff;
+            font-weight: 500;
+            font-size: 15px;
+            margin-right: 8px;
+        }
+
+        .message-timestamp {
+            color: #72767d;
+            font-size: 12px;
+        }
+
+        .message-text {
+            color: #dcddde;
+            font-size: 15px;
+            line-height: 1.4;
+            word-wrap: break-word;
+        }
+
+        .input-area {
+            padding: 16px;
+        }
+
+        .input-wrapper {
+            background: #40444b;
+            border-radius: 8px;
+            padding: 12px;
+            display: flex;
+            align-items: center;
+        }
+
+        .message-input {
+            flex: 1;
+            background: none;
+            border: none;
+            color: #dcddde;
+            font-size: 15px;
+            outline: none;
+        }
+
+        .message-input::placeholder {
+            color: #72767d;
+        }
+
+        .send-btn {
+            background: #5865f2;
+            color: #fff;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            margin-left: 8px;
+            transition: background 0.2s;
+        }
+
+        .send-btn:hover {
+            background: #4752c4;
+        }
+
+        .send-btn:active {
+            background: #3c45a5;
+        }
+
+        .send-btn:disabled {
+            background: #4e5058;
+            cursor: not-allowed;
+        }
+
+        .notifications {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-width: 400px;
+        }
+
+        .notification {
+            background: #2f3136;
+            border: 1px solid #202225;
+            border-radius: 8px;
+            padding: 16px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .notification-header {
+            color: #fff;
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        .notification-body {
+            color: #dcddde;
+            font-size: 14px;
+            margin-bottom: 12px;
+        }
+
+        .notification-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .notification-btn {
+            flex: 1;
+            padding: 8px;
+            border: none;
+            border-radius: 4px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-accept {
+            background: #3ba55d;
+            color: #fff;
+        }
+
+        .btn-accept:hover {
+            background: #2d7d46;
+        }
+
+        .btn-decline {
+            background: #ed4245;
+            color: #fff;
+        }
+
+        .btn-decline:hover {
+            background: #c03537;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #2f3136;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #202225;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #1a1c1f;
+        }
+
+        #loginOverlay {
+            position: fixed;
+            inset: 0;
+            z-index: 2000;
+            background: #202225;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #loginCard {
+            width: 320px;
+            background: #2f3136;
+            border: 1px solid #202225;
+            border-radius: 8px;
+            padding: 20px;
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            text-align: center;
+        }
+        #loginCard h2 {
+            margin-bottom: 12px;
+            font-size: 18px;
+        }
+        #passwordInput {
+            width: 100%;
+            padding: 10px;
+            border-radius: 6px;
+            border: none;
+            outline: none;
+            background: #40444b;
+            color: #fff;
+            margin-top: 8px;
+        }
+        #loginBtn {
+            width: 100%;
+            margin-top: 12px;
+            padding: 10px;
+            border: none;
+            border-radius: 6px;
+            background: #5865f2;
+            color: #fff;
+            cursor: pointer;
+            font-weight: 600;
+        }
         #loginBtn:hover { background: #4752c4; }
-        #errorMsg { margin-top: 8px; color: #ed4245; min-height: 18px; }
-        .typing-dots { display: inline-flex; gap: 4px; align-items: center; }
-        .typing-dot { width: 6px; height: 6px; background: #72767d; border-radius: 50%; animation: typing-bounce 1.2s infinite ease-in-out; }
+        #errorMsg {
+            margin-top: 8px;
+            color: #ed4245;
+            min-height: 18px;
+        }
+
+        .typing-dots {
+            display: inline-flex;
+            gap: 4px;
+            align-items: center;
+        }
+        .typing-dot {
+            width: 6px;
+            height: 6px;
+            background: #72767d;
+            border-radius: 50%;
+            animation: typing-bounce 1.2s infinite ease-in-out;
+        }
         .typing-dot:nth-child(2) { animation-delay: 0.2s; }
         .typing-dot:nth-child(3) { animation-delay: 0.4s; }
-        @keyframes typing-bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
-        .unread-badge { background: #ed4245; color: #fff; font-size: 11px; font-weight: 600; border-radius: 10px; padding: 2px 6px; margin-left: 6px; display: none; }
-        .channel.unread .unread-badge { display: inline-block; }
-        #adminPanel { position: fixed; bottom: 60px; left: 8px; width: 360px; background: #2f3136; border: 1px solid #202225; border-radius: 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6); display: none; flex-direction: column; max-height: 500px; z-index: 999; animation: slideUp 0.2s ease; }
-        @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        #adminPanel.show { display: flex; }
-        .admin-header { padding: 16px; border-bottom: 1px solid #202225; display: flex; align-items: center; justify-content: space-between; }
-        .admin-title { color: #fff; font-weight: 600; font-size: 15px; display: flex; align-items: center; gap: 8px; }
-        .admin-close { background: transparent; border: none; color: #96989d; cursor: pointer; font-size: 20px; padding: 4px; transition: color 0.15s; }
-        .admin-close:hover { color: #fff; }
-        .admin-tabs { display: flex; padding: 8px 16px; gap: 8px; border-bottom: 1px solid #202225; }
-        .admin-tab { padding: 6px 12px; background: transparent; border: none; color: #96989d; cursor: pointer; border-radius: 4px; font-size: 13px; font-weight: 500; transition: all 0.15s; }
-        .admin-tab:hover { background: #3a3c42; color: #dcddde; }
-        .admin-tab.active { background: #5865f2; color: #fff; }
-        .admin-content { flex: 1; overflow-y: auto; padding: 12px; }
-        .admin-user-item { display: flex; align-items: center; justify-content: space-between; padding: 10px; background: #40444b; border-radius: 6px; margin-bottom: 8px; transition: background 0.15s; }
-        .admin-user-item:hover { background: #484c52; }
-        .admin-user-info { display: flex; align-items: center; gap: 10px; }
-        .admin-user-avatar { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 600; font-size: 14px; }
-        .admin-user-name { color: #fff; font-weight: 500; font-size: 14px; }
-        .admin-actions { display: flex; gap: 6px; }
-        .admin-btn { padding: 6px 10px; border: none; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.15s; }
-        .admin-btn-kick { background: #faa61a; color: #fff; }
-        .admin-btn-kick:hover { background: #ee8e00; }
-        .admin-btn-timeout { background: #f47b67; color: #fff; }
-        .admin-btn-timeout:hover { background: #e0614d; }
-        .admin-btn-ban { background: #ed4245; color: #fff; }
-        .admin-btn-ban:hover { background: #c03537; }
-        .admin-input-group { margin-bottom: 12px; }
-        .admin-label { color: #96989d; font-size: 12px; font-weight: 600; margin-bottom: 6px; display: block; }
-        .admin-input { width: 100%; padding: 8px 10px; background: #40444b; border: 1px solid #202225; border-radius: 4px; color: #fff; font-size: 13px; outline: none; }
-        .admin-input:focus { border-color: #5865f2; }
-        .admin-submit { width: 100%; padding: 10px; background: #5865f2; color: #fff; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; transition: background 0.15s; }
-        .admin-submit:hover { background: #4752c4; }
-        .admin-section { display: none; }
-        .admin-section.active { display: block; }
-        .admin-empty { text-align: center; color: #72767d; padding: 20px; font-size: 13px; }
+        @keyframes typing-bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+
+        .unread-badge {
+            background: #ed4245;
+            color: #fff;
+            font-size: 11px;
+            font-weight: 600;
+            border-radius: 10px;
+            padding: 2px 6px;
+            margin-left: 6px;
+            display: none;
+        }
+        .channel.unread .unread-badge {
+            display: inline-block;
+        }
+
+        /* Admin Panel Styles */
+        #adminPanel {
+            position: fixed;
+            bottom: 60px;
+            left: 8px;
+            width: 360px;
+            background: #2f3136;
+            border: 1px solid #202225;
+            border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+            display: none;
+            flex-direction: column;
+            max-height: 500px;
+            z-index: 999;
+            animation: slideUp 0.2s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        #adminPanel.show {
+            display: flex;
+        }
+
+        .admin-header {
+            padding: 16px;
+            border-bottom: 1px solid #202225;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .admin-title {
+            color: #fff;
+            font-weight: 600;
+            font-size: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .admin-close {
+            background: transparent;
+            border: none;
+            color: #96989d;
+            cursor: pointer;
+            font-size: 20px;
+            padding: 4px;
+            transition: color 0.15s;
+        }
+
+        .admin-close:hover {
+            color: #fff;
+        }
+
+        .admin-tabs {
+            display: flex;
+            padding: 8px 16px;
+            gap: 8px;
+            border-bottom: 1px solid #202225;
+        }
+
+        .admin-tab {
+            padding: 6px 12px;
+            background: transparent;
+            border: none;
+            color: #96989d;
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.15s;
+        }
+
+        .admin-tab:hover {
+            background: #3a3c42;
+            color: #dcddde;
+        }
+
+        .admin-tab.active {
+            background: #5865f2;
+            color: #fff;
+        }
+
+        .admin-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+        }
+
+        .admin-user-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px;
+            background: #40444b;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            transition: background 0.15s;
+        }
+
+        .admin-user-item:hover {
+            background: #484c52;
+        }
+
+        .admin-user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .admin-user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .admin-user-name {
+            color: #fff;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .admin-actions {
+            display: flex;
+            gap: 6px;
+        }
+
+        .admin-btn {
+            padding: 6px 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 600;
+            transition: all 0.15s;
+        }
+
+        .admin-btn-kick {
+            background: #faa61a;
+            color: #fff;
+        }
+
+        .admin-btn-kick:hover {
+            background: #ee8e00;
+        }
+
+        .admin-btn-timeout {
+            background: #f47b67;
+            color: #fff;
+        }
+
+        .admin-btn-timeout:hover {
+            background: #e0614d;
+        }
+
+        .admin-btn-ban {
+            background: #ed4245;
+            color: #fff;
+        }
+
+        .admin-btn-ban:hover {
+            background: #c03537;
+        }
+
+        .admin-input-group {
+            margin-bottom: 12px;
+        }
+
+        .admin-label {
+            color: #96989d;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            display: block;
+        }
+
+        .admin-input {
+            width: 100%;
+            padding: 8px 10px;
+            background: #40444b;
+            border: 1px solid #202225;
+            border-radius: 4px;
+            color: #fff;
+            font-size: 13px;
+            outline: none;
+        }
+
+        .admin-input:focus {
+            border-color: #5865f2;
+        }
+
+        .admin-submit {
+            width: 100%;
+            padding: 10px;
+            background: #5865f2;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .admin-submit:hover {
+            background: #4752c4;
+        }
+
+        .admin-section {
+            display: none;
+        }
+
+        .admin-section.active {
+            display: block;
+        }
+
+        .admin-empty {
+            text-align: center;
+            color: #72767d;
+            padding: 20px;
+            font-size: 13px;
+        }
     </style>
 </head>
 <body>
@@ -140,7 +838,10 @@
 
     <div id="adminPanel">
         <div class="admin-header">
-            <div class="admin-title"><span>⚡</span><span>Admin Controls</span></div>
+            <div class="admin-title">
+                <span>⚡</span>
+                <span>Admin Controls</span>
+            </div>
             <button class="admin-close" id="adminClose">×</button>
         </div>
         <div class="admin-tabs">
@@ -148,7 +849,9 @@
             <button class="admin-tab" data-tab="settings">Settings</button>
         </div>
         <div class="admin-content">
-            <div class="admin-section active" id="adminUsers"><div id="adminUserList"></div></div>
+            <div class="admin-section active" id="adminUsers">
+                <div id="adminUserList"></div>
+            </div>
             <div class="admin-section" id="adminSettings">
                 <div class="admin-input-group">
                     <label class="admin-label">Redirect URL (for kicks)</label>
@@ -158,7 +861,7 @@
                     <label class="admin-label">Timeout Duration (seconds)</label>
                     <input type="number" class="admin-input" id="timeoutDuration" placeholder="60" value="60">
                 </div>
-                <button class="admin-submit" id="saveSettings">Save Settings</button>
+                <button class="admin-submit" onclick="saveAdminSettings()">Save Settings</button>
             </div>
         </div>
     </div>
@@ -169,9 +872,18 @@
             <div class="channels" id="channelList">
                 <div class="channel-section">
                     <div class="section-header">Channels</div>
-                    <div class="channel active" data-channel="general"><span class="channel-name">general</span><span class="unread-badge">0</span></div>
-                    <div class="channel" data-channel="random"><span class="channel-name">random</span><span class="unread-badge">0</span></div>
-                    <div class="channel" data-channel="gaming"><span class="channel-name">gaming</span><span class="unread-badge">0</span></div>
+                    <div class="channel active" data-channel="general">
+                        <span class="channel-name">general</span>
+                        <span class="unread-badge">0</span>
+                    </div>
+                    <div class="channel" data-channel="random">
+                        <span class="channel-name">random</span>
+                        <span class="unread-badge">0</span>
+                    </div>
+                    <div class="channel" data-channel="gaming">
+                        <span class="channel-name">gaming</span>
+                        <span class="unread-badge">0</span>
+                    </div>
                 </div>
                 <div class="channel-section">
                     <div class="section-header">Direct Messages</div>
@@ -184,7 +896,10 @@
             </div>
             <div class="user-area" id="userArea">
                 <div class="user-info">
-                    <div class="user-avatar" id="userAvatar">U<div class="admin-badge" id="adminBadge">⚡</div></div>
+                    <div class="user-avatar" id="userAvatar">
+                        U
+                        <div class="admin-badge" id="adminBadge">⚡</div>
+                    </div>
                     <div class="username" id="usernameDisplay">User</div>
                     <div class="connection-status" id="connectionStatus"></div>
                 </div>
@@ -207,96 +922,671 @@
     </div>
 
     <script>
-        let isAdmin=false,adminSettings={redirectUrl:'https://google.com',timeoutDuration:60};
-        
-        (function(){
-            const o=document.getElementById('loginOverlay'),i=document.getElementById('passwordInput'),b=document.getElementById('loginBtn'),e=document.getElementById('errorMsg');
-            function unlock(admin=false){o.style.display='none';isAdmin=admin;if(admin)document.getElementById('adminBadge').classList.add('show');}
-            function try Login(){const v=i.value.trim();if(v==='classicclassic')unlock(true);else if(v==='classic')unlock(false);else e.textContent='Incorrect password';}
-            b.addEventListener('click',tryLogin);
-            i.addEventListener('keypress',e=>{if(e.key==='Enter')tryLogin();});
+        let isAdmin = false;
+        let adminSettings = {
+            redirectUrl: 'https://google.com',
+            timeoutDuration: 60
+        };
+
+        // Password gate
+        (function setupPasswordGate() {
+            const overlay = document.getElementById('loginOverlay');
+            const input = document.getElementById('passwordInput');
+            const btn = document.getElementById('loginBtn');
+            const errorMsg = document.getElementById('errorMsg');
+
+            function unlock(admin = false) {
+                overlay.style.display = 'none';
+                isAdmin = admin;
+                if (admin) {
+                    document.getElementById('adminBadge').classList.add('show');
+                }
+            }
+
+            function tryLogin() {
+                const val = input.value.trim();
+                if (val === 'classicclassic') {
+                    unlock(true);
+                } else if (val === 'classic') {
+                    unlock(false);
+                } else {
+                    errorMsg.textContent = 'Incorrect password';
+                }
+            }
+
+            btn.addEventListener('click', tryLogin);
+            input.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') tryLogin();
+            });
         })();
 
-        const adminPanel=document.getElementById('adminPanel'),userArea=document.getElementById('userArea'),adminClose=document.getElementById('adminClose');
-        userArea.addEventListener('click',()=>{if(isAdmin){adminPanel.classList.toggle('show');updateAdminUserList();}});
-        adminClose.addEventListener('click',()=>adminPanel.classList.remove('show'));
-        document.querySelectorAll('.admin-tab').forEach(tab=>{tab.addEventListener('click',()=>{document.querySelectorAll('.admin-tab').forEach(t=>t.classList.remove('active'));document.querySelectorAll('.admin-section').forEach(s=>s.classList.remove('active'));tab.classList.add('active');document.getElementById('admin'+tab.dataset.tab.charAt(0).toUpperCase()+tab.dataset.tab.slice(1)).classList.add('active');});});
-        document.getElementById('saveSettings').addEventListener('click',()=>{adminSettings.redirectUrl=document.getElementById('redirectUrl').value;adminSettings.timeoutDuration=parseInt(document.getElementById('timeoutDuration').value);showNotification('✅ Settings saved','Admin settings have been updated');});
+        // Admin Panel Controls
+        const adminPanel = document.getElementById('adminPanel');
+        const userArea = document.getElementById('userArea');
+        const adminClose = document.getElementById('adminClose');
 
-        function updateAdminUserList(){
-            const list=document.getElementById('adminUserList');
-            list.innerHTML='';
-            state.users.forEach(u=>{if(u===state.username)return;
-                const item=document.createElement('div');
-                item.className='admin-user-item';
-                item.innerHTML=`<div class="admin-user-info"><div class="admin-user-avatar">${u.charAt(0).toUpperCase()}</div><div class="admin-user-name">${u}</div></div><div class="admin-actions"><button class="admin-btn admin-btn-kick" onclick="kickUser('${u}')">Kick</button><button class="admin-btn admin-btn-timeout" onclick="timeoutUser('${u}')">Timeout</button><button class="admin-btn admin-btn-ban" onclick="banUser('${u}')">Ban</button></div>`;
-                list.appendChild(item);
+        userArea.addEventListener('click', () => {
+            if (isAdmin) {
+                adminPanel.classList.toggle('show');
+                updateAdminUserList();
+            }
+        });
+
+        adminClose.addEventListener('click', () => {
+            adminPanel.classList.remove('show');
+        });
+
+        // Admin Tabs
+        document.querySelectorAll('.admin-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.admin-section').forEach(s => s.classList.remove('active'));
+                tab.classList.add('active');
+                document.getElementById('admin' + tab.dataset.tab.charAt(0).toUpperCase() + tab.dataset.tab.slice(1)).classList.add('active');
             });
-            if(state.users.length<=1)list.innerHTML='<div class="admin-empty">No other users online</div>';
-        }
+        });
 
-        function kickUser(u){if(confirm(`Kick ${u}? They will be redirected to: ${adminSettings.redirectUrl}`))send({type:'adminKick',targetUsername:u,redirectUrl:adminSettings.redirectUrl});}
-        function timeoutUser(u){if(confirm(`Timeout ${u} for ${adminSettings.timeoutDuration} seconds?`))send({type:'adminTimeout',targetUsername:u,duration:adminSettings.timeoutDuration});}
-        function banUser(u){if(confirm(`Ban ${u}? This action is permanent!`))send({type:'adminBan',targetUsername:u});}
-        function showNotification(title,msg){const n=document.createElement('div');n.className='notification';n.innerHTML=`<div class="notification-header">${title}</div><div class="notification-body">${msg}</div>`;document.getElementById('notifications').appendChild(n);setTimeout(()=>n.remove(),3000);}
+        function updateAdminUserList() {
+            const userListEl = document.getElementById('adminUserList');
+            userListEl.innerHTML = '';
+            
+            state.users.forEach(username => {
+                if (username === state.username) return;
+                
+                const userItem = document.createElement('div');
+                userItem.className = 'admin-user-item';
+                userItem.innerHTML = `
+                    <div class="admin-user-info">
+                        <div class="admin-user-avatar">${username.charAt(0).toUpperCase()}</div>
+                        <div class="admin-user-name">${username}</div>
+                    </div>
+                    <div class="admin-actions">
+                        <button class="admin-btn admin-btn-kick" onclick="kickUser('${username}')">Kick</button>
+                        <button class="admin-btn admin-btn-timeout" onclick="timeoutUser('${username}')">Timeout</button>
+                        <button class="admin-btn admin-btn-ban" onclick="banUser('${username}')">Ban</button>
+                    </div>
+                `;
+                userListEl.appendChild(userItem);
+            });
 
-        const WS_URL=window.location.protocol==='https:'?`wss://${window.location.host}`:`ws://${window.location.hostname}:${window.location.port||3000}`;
-        const state={currentChannel:'general',currentChatType:'channel',currentPrivateChat:null,username:'',ws:null,connected:false,messages:{},privateMessages:{},users:[],typingUsers:{},privateChats:{},unreadCounts:{},unreadDMCounts:{}};
-        const messageArea=document.getElementById('messageArea'),messageInput=document.getElementById('messageInput'),sendBtn=document.getElementById('sendBtn'),channelList=document.getElementById('channelList'),dmList=document.getElementById('dmList'),currentChannelEl=document.getElementById('currentChannel'),usernameDisplay=document.getElementById('usernameDisplay'),userAvatar=document.getElementById('userAvatar'),connectionStatus=document.getElementById('connectionStatus'),userList=document.getElementById('userList'),typingIndicator=document.getElementById('typingIndicator'),notifications=document.getElementById('notifications');
-        let typingTimeout;
-
-        function init(){const n=prompt('Enter your username:','User')||'User';state.username=n;usernameDisplay.textContent=n;userAvatar.textContent=n.charAt(0).toUpperCase();connectWebSocket();}
-        function connectWebSocket(){try{state.ws=new WebSocket(WS_URL);}catch(e){setTimeout(connectWebSocket,3000);return;}state.ws.onopen=()=>{state.connected=true;connectionStatus.classList.add('connected');sendBtn.disabled=false;send({type:'join',username:state.username,isAdmin:isAdmin});send({type:'getHistory',channel:state.currentChannel});};state.ws.onmessage=e=>{try{handleServerMessage(JSON.parse(e.data));}catch(er){}};state.ws.onclose=()=>{state.connected=false;connectionStatus.classList.remove('connected');sendBtn.disabled=true;setTimeout(connectWebSocket,3000);};state.ws.onerror=e=>{};}
-
-        function handleServerMessage(d){
-            switch(d.type){
-                case'message':addMessageToChannel(d.message);break;
-                case'history':loadHistory(d.channel,d.messages);break;
-                case'userList':updateUserList(d.users);break;
-                case'typing':handleTypingIndicator(d);break;
-                case'privateChatRequest':showPrivateChatRequest(d.from);break;
-                case'privateChatAccepted':handlePrivateChatAccepted(d.chatId,d.with);break;
-                case'privateChatRejected':alert(`${d.by} declined`);break;
-                case'privateMessage':addPrivateMessage(d.message);break;
-                case'privateHistory':loadPrivateHistory(d.chatId,d.messages);break;
-                case'kicked':alert(d.message);setTimeout(()=>window.location.href=d.redirectUrl,1000);break;
-                case'timedOut':showNotification('⏰ Timed Out',d.message);break;
-                case'timeoutEnded':showNotification('✅ Timeout Ended',d.message);break;
-                case'banned':alert(d.message);setTimeout(()=>window.location.href='https://google.com',1000);break;
-                case'adminActionSuccess':const actions={kick:'🚪 User Kicked',timeout:'⏰ User Timed Out',ban:'🔨 User Banned'};showNotification(actions[d.action],`Action completed on ${d.target}`);break;
+            if (state.users.length <= 1) {
+                userListEl.innerHTML = '<div class="admin-empty">No other users online</div>';
             }
         }
 
-        function send(d){if(state.ws&&state.ws.readyState===WebSocket.OPEN)state.ws.send(JSON.stringify(d));}
-        function showPrivateChatRequest(from){const n=document.createElement('div');n.className='notification';n.innerHTML=`<div class="notification-header">Private Chat Request</div><div class="notification-body">${from} wants to chat</div><div class="notification-actions"><button class="notification-btn btn-accept">Accept</button><button class="notification-btn btn-decline">Decline</button></div>`;n.querySelector('.btn-accept').onclick=()=>{send({type:'privateChatResponse',from,accepted:true});n.remove();};n.querySelector('.btn-decline').onclick=()=>{send({type:'privateChatResponse',from,accepted:false});n.remove();};notifications.appendChild(n);}
-        function handlePrivateChatAccepted(chatId,withUser){state.privateChats[chatId]=withUser;addDMToList(chatId,withUser);switchToPrivateChat(chatId,withUser);}
-        function addDMToList(chatId,username){if(document.querySelector(`[data-chat-id="${chatId}"]`))return;const d=document.createElement('div');d.className='channel private';d.dataset.chatId=chatId;d.innerHTML=`<span class="channel-name">${username}</span><span class="unread-badge">0</span><button class="close-dm">×</button>`;d.querySelector('.close-dm').onclick=e=>{e.stopPropagation();d.remove();delete state.privateChats[chatId];delete state.privateMessages[chatId];delete state.unreadDMCounts[chatId];if(state.currentPrivateChat===chatId)switchChannel('general');};d.onclick=()=>switchToPrivateChat(chatId,username);dmList.appendChild(d);}
-        function switchToPrivateChat(chatId,username){state.currentChatType='private';state.currentPrivateChat=chatId;state.currentChannel=username;currentChannelEl.textContent=username;currentChannelEl.classList.add('private');messageInput.placeholder=`Message @${username}`;document.querySelectorAll('.channel').forEach(c=>c.classList.remove('active'));const dm=document.querySelector(`[data-chat-id="${chatId}"]`);if(dm)dm.classList.add('active');if(!state.privateMessages[chatId])send({type:'getPrivateHistory',chatId});else renderMessages();state.typingUsers={};updateTypingIndicator();resetUnreadDM(chatId);}
-        function requestPrivateChat(username){if(username===state.username)return;send({type:'privateChatRequest',targetUsername:username});}
-        function addMessage(){const t=messageInput.value.trim();if(!t||!state.connected)return;if(state.currentChatType==='private')send({type:'privateMessage',chatId:state.currentPrivateChat,text:t,targetUsername:state.privateChats[state.currentPrivateChat]});else send({type:'message',channel:state.currentChannel,text:t});messageInput.value='';stopTyping();}
-        function addMessageToChannel(m){if(!state.messages[m.channel])state.messages[m.channel]=[];state.messages[m.channel].push(m);if(m.channel===state.currentChannel&&state.currentChatType==='channel')renderMessages();else incrementUnreadChannel(m.channel);}
-        function addPrivateMessage(m){if(!state.privateMessages[m.chatId])state.privateMessages[m.chatId]=[];state.privateMessages[m.chatId].push(m);if(m.chatId===state.currentPrivateChat&&state.currentChatType==='private')renderMessages();else incrementUnreadDM(m.chatId);}
-        function loadHistory(c,m){state.messages[c]=m;if(c===state.currentChannel&&state.currentChatType==='channel')renderMessages();}
-        function loadPrivateHistory(c,m){state.privateMessages[c]=m;if(c===state.currentPrivateChat&&state.currentChatType==='private')renderMessages();}
-        function renderMessages(){let msgs=state.currentChatType==='private'?state.privateMessages[state.currentPrivateChat]||[]:state.messages[state.currentChannel]||[];messageArea.innerHTML='';msgs.forEach(m=>{const d=document.createElement('div');d.className='message';d.innerHTML=`<div class="message-avatar">${m.author.charAt(0).toUpperCase()}</div><div class="message-content"><div class="message-header"><span class="message-author">${m.author}</span><span class="message-timestamp">${formatTime(new Date(m.timestamp))}</span></div><div class="message-text">${m.text}</div></div>`;messageArea.appendChild(d);});messageArea.scrollTop=messageArea.scrollHeight;}
-        function updateUserList(users){state.users=users;userList.innerHTML='';users.forEach(u=>{if(u===state.username)return;const el=document.createElement('div');el.className='user-list-item';el.innerHTML=`<span class="user-name">${u}</span><button class="dm-btn">DM</button>`;el.querySelector('.dm-btn').onclick=()=>requestPrivateChat(u);userList.appendChild(el);});if(isAdmin&&adminPanel.classList.contains('show'))updateAdminUserList();}
-        function handleTypingIndicator(d){if(state.currentChatType==='private'){if(d.isPrivate&&d.username===state.privateChats[state.currentPrivateChat]){d.isTyping?state.typingUsers[d.username]=true:delete state.typingUsers[d.username];updateTypingIndicator();}}else{if(d.channel===state.currentChannel&&!d.isPrivate){d.isTyping?state.typingUsers[d.username]=true:delete state.typingUsers[d.username];updateTypingIndicator();}}}
-        function updateTypingIndicator(){const t=Object.keys(state.typingUsers);if(t.length===0){typingIndicator.innerHTML='';return;}const label=t.length===1?`${t[0]} is typing`:`${t.length} people are typing`;typingIndicator.innerHTML=`<span>${label}</span><span class="typing-dots"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></span>`;}
-        function startTyping(){if(!state.connected)return;if(state.currentChatType==='private')send({type:'typing',channel:state.currentPrivateChat,isTyping:true,isPrivate:true,targetUsername:state.privateChats[state.currentPrivateChat]});else send({type:'typing',channel:state.currentChannel,isTyping:true});clearTimeout(typingTimeout);typingTimeout=setTimeout(stopTyping,3000);}
-        function stopTyping(){if(!state.connected)return;if(state.currentChatType==='private')send({type:'typing',channel:state.currentPrivateChat,isTyping:false,isPrivate:true,targetUsername:state.privateChats[state.currentPrivateChat]});else send({type:'typing',channel:state.currentChannel,isTyping:false});}
-        function formatTime(d){return d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');}
-        function switchChannel(c){state.currentChatType='channel';state.currentPrivateChat=null;state.currentChannel=c;currentChannelEl.textContent=c;currentChannelEl.classList.remove('private');messageInput.placeholder=`Message #${c}`;document.querySelectorAll('.channel').forEach(ch=>{ch.classList.remove('active');if(ch.dataset.channel===c)ch.classList.add('active');});if(!state.messages[c])send({type:'getHistory',channel:c});else renderMessages();state.typingUsers={};updateTypingIndicator();resetUnreadChannel(c);}
-        function incrementUnreadChannel(channel){if(state.currentChatType==='channel'&&state.currentChannel===channel)return;state.unreadCounts[channel]=(state.unreadCounts[channel]||0)+1;updateUnreadBadgeChannel(channel);}
-        function resetUnreadChannel(channel){state.unreadCounts[channel]=0;updateUnreadBadgeChannel(channel);}
-        function updateUnreadBadgeChannel(channel){const wrapper=document.querySelector(`.channel[data-channel="${channel}"]`);const badge=wrapper?wrapper.querySelector('.unread-badge'):null;if(!badge||!wrapper)return;const count=state.unreadCounts[channel]||0;badge.textContent=count;if(count>0)wrapper.classList.add('unread');else wrapper.classList.remove('unread');}
-        function incrementUnreadDM(chatId){if(state.currentChatType==='private'&&state.currentPrivateChat===chatId)return;state.unreadDMCounts[chatId]=(state.unreadDMCounts[chatId]||0)+1;updateUnreadBadgeDM(chatId);}
-        function resetUnreadDM(chatId){state.unreadDMCounts[chatId]=0;updateUnreadBadgeDM(chatId);}
-        function updateUnreadBadgeDM(chatId){const wrapper=document.querySelector(`.channel.private[data-chat-id="${chatId}"]`);const badge=wrapper?wrapper.querySelector('.unread-badge'):null;if(!badge||!wrapper)return;const count=state.unreadDMCounts[chatId]||0;badge.textContent=count;if(count>0)wrapper.classList.add('unread');else wrapper.classList.remove('unread');}
+        function kickUser(username) {
+            if (confirm(`Kick ${username}? They will be redirected to: ${adminSettings.redirectUrl}`)) {
+                send({
+                    type: 'adminKick',
+                    targetUsername: username,
+                    redirectUrl: adminSettings.redirectUrl
+                });
+            }
+        }
 
-        sendBtn.onclick=e=>{e.preventDefault();addMessage();};
-        messageInput.onkeypress=e=>{if(e.key==='Enter'){e.preventDefault();addMessage();}};
-        messageInput.oninput=()=>{messageInput.value.length>0?startTyping():stopTyping();};
-        channelList.onclick=e=>{const c=e.target.closest('.channel');if(c&&c.dataset.channel)switchChannel(c.dataset.channel);};
+        function timeoutUser(username) {
+            if (confirm(`Timeout ${username} for ${adminSettings.timeoutDuration} seconds?`)) {
+                send({
+                    type: 'adminTimeout',
+                    targetUsername: username,
+                    duration: adminSettings.timeoutDuration
+                });
+            }
+        }
+
+        function banUser(username) {
+            if (confirm(`Ban ${username}? This action is permanent!`)) {
+                send({
+                    type: 'adminBan',
+                    targetUsername: username
+                });
+            }
+        }
+
+        function saveAdminSettings() {
+            adminSettings.redirectUrl = document.getElementById('redirectUrl').value;
+            adminSettings.timeoutDuration = parseInt(document.getElementById('timeoutDuration').value);
+            showAdminNotification('✅ Settings saved', 'Admin settings have been updated');
+        }
+
+        function showAdminNotification(title, message) {
+            const notification = document.createElement('div');
+            notification.className = 'notification';
+            notification.innerHTML = `
+                <div class="notification-header">${title}</div>
+                <div class="notification-body">${message}</div>
+            `;
+            notifications.appendChild(notification);
+            setTimeout(() => notification.remove(), 3000);
+        }
+
+        // WebSocket and Chat Logic
+        const WS_URL = window.location.protocol === 'https:' ? `wss://${window.location.host}` : `ws://${window.location.hostname}:${window.location.port || 3000}`;
+        const state = {
+            currentChannel: 'general',
+            currentChatType: 'channel',
+            currentPrivateChat: null,
+            username: '',
+            ws: null,
+            connected: false,
+            messages: {},
+            privateMessages: {},
+            users: [],
+            typingUsers: {},
+            privateChats: {},
+            unreadCounts: {},
+            unreadDMCounts: {}
+        };
+
+        const messageArea = document.getElementById('messageArea');
+        const messageInput = document.getElementById('messageInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const channelList = document.getElementById('channelList');
+        const dmList = document.getElementById('dmList');
+        const currentChannelEl = document.getElementById('currentChannel');
+        const usernameDisplay = document.getElementById('usernameDisplay');
+        const userAvatar = document.getElementById('userAvatar');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const userList = document.getElementById('userList');
+        const typingIndicator = document.getElementById('typingIndicator');
+        const notifications = document.getElementById('notifications');
+        let typingTimeout;
+
+        function init() {
+            const username = prompt('Enter your username:', 'User') || 'User';
+            state.username = username;
+            usernameDisplay.textContent = username;
+            userAvatar.textContent = username.charAt(0).toUpperCase();
+            connectWebSocket();
+        }
+
+        function connectWebSocket() {
+            try {
+                state.ws = new WebSocket(WS_URL);
+            } catch (e) {
+                setTimeout(connectWebSocket, 3000);
+                return;
+            }
+
+            state.ws.onopen = () => {
+                state.connected = true;
+                connectionStatus.classList.add('connected');
+                sendBtn.disabled = false;
+                send({ type: 'join', username: state.username, isAdmin: isAdmin });
+                send({ type: 'getHistory', channel: state.currentChannel });
+            };
+
+            state.ws.onmessage = (e) => {
+                try {
+                    const data = JSON.parse(e.data);
+                    handleServerMessage(data);
+                } catch (er) {
+                    console.error('Error handling message:', er);
+                }
+            };
+
+            state.ws.onclose = () => {
+                state.connected = false;
+                connectionStatus.classList.remove('connected');
+                sendBtn.disabled = true;
+                setTimeout(connectWebSocket, 3000);
+            };
+
+            state.ws.onerror = (e) => {
+                console.error('WebSocket error:', e);
+            };
+        }
+
+        function handleServerMessage(data) {
+            switch (data.type) {
+                case 'message':
+                    addMessageToChannel(data.message);
+                    break;
+                case 'history':
+                    loadHistory(data.channel, data.messages);
+                    break;
+                case 'userList':
+                    updateUserList(data.users);
+                    break;
+                case 'typing':
+                    handleTypingIndicator(data);
+                    break;
+                case 'privateChatRequest':
+                    showPrivateChatRequest(data.from);
+                    break;
+                case 'privateChatAccepted':
+                    handlePrivateChatAccepted(data.chatId, data.with);
+                    break;
+                case 'privateChatRejected':
+                    alert(`${data.by} declined`);
+                    break;
+                case 'privateMessage':
+                    addPrivateMessage(data.message);
+                    break;
+                case 'privateHistory':
+                    loadPrivateHistory(data.chatId, data.messages);
+                    break;
+                case 'kicked':
+                    alert(data.message);
+                    setTimeout(() => {
+                        window.location.href = data.redirectUrl;
+                    }, 1000);
+                    break;
+                case 'timedOut':
+                    showAdminNotification('⏰ Timed Out', data.message);
+                    break;
+                case 'timeoutEnded':
+                    showAdminNotification('✅ Timeout Ended', data.message);
+                    break;
+                case 'banned':
+                    alert(data.message);
+                    setTimeout(() => {
+                        window.location.href = 'https://google.com';
+                    }, 1000);
+                    break;
+                case 'adminActionSuccess':
+                    const actions = {
+                        kick: '🚪 User Kicked',
+                        timeout: '⏰ User Timed Out',
+                        ban: '🔨 User Banned'
+                    };
+                    showAdminNotification(actions[data.action], `Action completed on ${data.target}`);
+                    break;
+            }
+        }
+
+        function send(data) {
+            if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+                state.ws.send(JSON.stringify(data));
+            }
+        }
+
+        function showPrivateChatRequest(from) {
+            const notification = document.createElement('div');
+            notification.className = 'notification';
+            notification.innerHTML = `
+                <div class="notification-header">Private Chat Request</div>
+                <div class="notification-body">${from} wants to chat</div>
+                <div class="notification-actions">
+                    <button class="notification-btn btn-accept">Accept</button>
+                    <button class="notification-btn btn-decline">Decline</button>
+                </div>
+            `;
+            notification.querySelector('.btn-accept').onclick = () => {
+                send({ type: 'privateChatResponse', from, accepted: true });
+                notification.remove();
+            };
+            notification.querySelector('.btn-decline').onclick = () => {
+                send({ type: 'privateChatResponse', from, accepted: false });
+                notification.remove();
+            };
+            notifications.appendChild(notification);
+        }
+
+        function handlePrivateChatAccepted(chatId, withUser) {
+            state.privateChats[chatId] = withUser;
+            addDMToList(chatId, withUser);
+            switchToPrivateChat(chatId, withUser);
+        }
+
+        function addDMToList(chatId, username) {
+            if (document.querySelector(`[data-chat-id="${chatId}"]`)) return;
+            
+            const dmEl = document.createElement('div');
+            dmEl.className = 'channel private';
+            dmEl.dataset.chatId = chatId;
+            dmEl.innerHTML = `
+                <span class="channel-name">${username}</span>
+                <span class="unread-badge">0</span>
+                <button class="close-dm">×</button>
+            `;
+            
+            dmEl.querySelector('.close-dm').onclick = (e) => {
+                e.stopPropagation();
+                dmEl.remove();
+                delete state.privateChats[chatId];
+                delete state.privateMessages[chatId];
+                delete state.unreadDMCounts[chatId];
+                if (state.currentPrivateChat === chatId) switchChannel('general');
+            };
+            
+            dmEl.onclick = () => switchToPrivateChat(chatId, username);
+            dmList.appendChild(dmEl);
+        }
+
+        function switchToPrivateChat(chatId, username) {
+            state.currentChatType = 'private';
+            state.currentPrivateChat = chatId;
+            state.currentChannel = username;
+            currentChannelEl.textContent = username;
+            currentChannelEl.classList.add('private');
+            messageInput.placeholder = `Message @${username}`;
+            
+            document.querySelectorAll('.channel').forEach(c => c.classList.remove('active'));
+            const dm = document.querySelector(`[data-chat-id="${chatId}"]`);
+            if (dm) dm.classList.add('active');
+            
+            if (!state.privateMessages[chatId]) {
+                send({ type: 'getPrivateHistory', chatId });
+            } else {
+                renderMessages();
+            }
+            
+            state.typingUsers = {};
+            updateTypingIndicator();
+            resetUnreadDM(chatId);
+        }
+
+        function requestPrivateChat(username) {
+            if (username === state.username) return;
+            send({ type: 'privateChatRequest', targetUsername: username });
+        }
+
+        function addMessage() {
+            const text = messageInput.value.trim();
+            if (!text || !state.connected) return;
+            
+            if (state.currentChatType === 'private') {
+                send({
+                    type: 'privateMessage',
+                    chatId: state.currentPrivateChat,
+                    text: text,
+                    targetUsername: state.privateChats[state.currentPrivateChat]
+                });
+            } else {
+                send({
+                    type: 'message',
+                    channel: state.currentChannel,
+                    text: text
+                });
+            }
+            
+            messageInput.value = '';
+            stopTyping();
+        }
+
+        function addMessageToChannel(message) {
+            if (!state.messages[message.channel]) {
+                state.messages[message.channel] = [];
+            }
+            state.messages[message.channel].push(message);
+            
+            if (message.channel === state.currentChannel && state.currentChatType === 'channel') {
+                renderMessages();
+            } else {
+                incrementUnreadChannel(message.channel);
+            }
+        }
+
+        function addPrivateMessage(message) {
+            if (!state.privateMessages[message.chatId]) {
+                state.privateMessages[message.chatId] = [];
+            }
+            state.privateMessages[message.chatId].push(message);
+            
+            if (message.chatId === state.currentPrivateChat && state.currentChatType === 'private') {
+                renderMessages();
+            } else {
+                incrementUnreadDM(message.chatId);
+            }
+        }
+
+        function loadHistory(channel, messages) {
+            state.messages[channel] = messages;
+            if (channel === state.currentChannel && state.currentChatType === 'channel') {
+                renderMessages();
+            }
+        }
+
+        function loadPrivateHistory(chatId, messages) {
+            state.privateMessages[chatId] = messages;
+            if (chatId === state.currentPrivateChat && state.currentChatType === 'private') {
+                renderMessages();
+            }
+        }
+
+        function renderMessages() {
+            let msgs = state.currentChatType === 'private' 
+                ? state.privateMessages[state.currentPrivateChat] || [] 
+                : state.messages[state.currentChannel] || [];
+            
+            messageArea.innerHTML = '';
+            msgs.forEach(msg => {
+                const msgEl = document.createElement('div');
+                msgEl.className = 'message';
+                msgEl.innerHTML = `
+                    <div class="message-avatar">${msg.author.charAt(0).toUpperCase()}</div>
+                    <div class="message-content">
+                        <div class="message-header">
+                            <span class="message-author">${msg.author}</span>
+                            <span class="message-timestamp">${formatTime(new Date(msg.timestamp))}</span>
+                        </div>
+                        <div class="message-text">${msg.text}</div>
+                    </div>
+                `;
+                messageArea.appendChild(msgEl);
+            });
+            messageArea.scrollTop = messageArea.scrollHeight;
+        }
+
+        function updateUserList(users) {
+            state.users = users;
+            userList.innerHTML = '';
+            
+            users.forEach(username => {
+                if (username === state.username) return;
+                
+                const userEl = document.createElement('div');
+                userEl.className = 'user-list-item';
+                userEl.innerHTML = `
+                    <span class="user-name">${username}</span>
+                    <button class="dm-btn">DM</button>
+                `;
+                userEl.querySelector('.dm-btn').onclick = () => requestPrivateChat(username);
+                userList.appendChild(userEl);
+            });
+            
+            if (isAdmin && adminPanel.classList.contains('show')) {
+                updateAdminUserList();
+            }
+        }
+
+        function handleTypingIndicator(data) {
+            if (state.currentChatType === 'private') {
+                if (data.isPrivate && data.username === state.privateChats[state.currentPrivateChat]) {
+                    if (data.isTyping) {
+                        state.typingUsers[data.username] = true;
+                    } else {
+                        delete state.typingUsers[data.username];
+                    }
+                    updateTypingIndicator();
+                }
+            } else {
+                if (data.channel === state.currentChannel && !data.isPrivate) {
+                    if (data.isTyping) {
+                        state.typingUsers[data.username] = true;
+                    } else {
+                        delete state.typingUsers[data.username];
+                    }
+                    updateTypingIndicator();
+                }
+            }
+        }
+
+        function updateTypingIndicator() {
+            const typing = Object.keys(state.typingUsers);
+            if (typing.length === 0) {
+                typingIndicator.innerHTML = '';
+                return;
+            }
+            
+            const label = typing.length === 1 
+                ? `${typing[0]} is typing` 
+                : `${typing.length} people are typing`;
+            
+            typingIndicator.innerHTML = `
+                <span>${label}</span>
+                <span class="typing-dots">
+                    <span class="typing-dot"></span>
+                    <span class="typing-dot"></span>
+                    <span class="typing-dot"></span>
+                </span>
+            `;
+        }
+
+        function startTyping() {
+            if (!state.connected) return;
+            
+            if (state.currentChatType === 'private') {
+                send({
+                    type: 'typing',
+                    channel: state.currentPrivateChat,
+                    isTyping: true,
+                    isPrivate: true,
+                    targetUsername: state.privateChats[state.currentPrivateChat]
+                });
+            } else {
+                send({
+                    type: 'typing',
+                    channel: state.currentChannel,
+                    isTyping: true
+                });
+            }
+            
+            clearTimeout(typingTimeout);
+            typingTimeout = setTimeout(stopTyping, 3000);
+        }
+
+        function stopTyping() {
+            if (!state.connected) return;
+            
+            if (state.currentChatType === 'private') {
+                send({
+                    type: 'typing',
+                    channel: state.currentPrivateChat,
+                    isTyping: false,
+                    isPrivate: true,
+                    targetUsername: state.privateChats[state.currentPrivateChat]
+                });
+            } else {
+                send({
+                    type: 'typing',
+                    channel: state.currentChannel,
+                    isTyping: false
+                });
+            }
+        }
+
+        function formatTime(date) {
+            return date.getHours().toString().padStart(2, '0') + ':' + 
+                   date.getMinutes().toString().padStart(2, '0');
+        }
+
+        function switchChannel(channel) {
+            state.currentChatType = 'channel';
+            state.currentPrivateChat = null;
+            state.currentChannel = channel;
+            currentChannelEl.textContent = channel;
+            currentChannelEl.classList.remove('private');
+            messageInput.placeholder = `Message #${channel}`;
+            
+            document.querySelectorAll('.channel').forEach(ch => {
+                ch.classList.remove('active');
+                if (ch.dataset.channel === channel) {
+                    ch.classList.add('active');
+                }
+            });
+            
+            if (!state.messages[channel]) {
+                send({ type: 'getHistory', channel });
+            } else {
+                renderMessages();
+            }
+            
+            state.typingUsers = {};
+            updateTypingIndicator();
+            resetUnreadChannel(channel);
+        }
+
+        function incrementUnreadChannel(channel) {
+            if (state.currentChatType === 'channel' && state.currentChannel === channel) return;
+            state.unreadCounts[channel] = (state.unreadCounts[channel] || 0) + 1;
+            updateUnreadBadgeChannel(channel);
+        }
+
+        function resetUnreadChannel(channel) {
+            state.unreadCounts[channel] = 0;
+            updateUnreadBadgeChannel(channel);
+        }
+
+        function updateUnreadBadgeChannel(channel) {
+            const wrapper = document.querySelector(`.channel[data-channel="${channel}"]`);
+            const badge = wrapper ? wrapper.querySelector('.unread-badge') : null;
+            if (!badge || !wrapper) return;
+            
+            const count = state.unreadCounts[channel] || 0;
+            badge.textContent = count;
+            if (count > 0) {
+                wrapper.classList.add('unread');
+            } else {
+                wrapper.classList.remove('unread');
+            }
+        }
+
+        function incrementUnreadDM(chatId) {
+            if (state.currentChatType === 'private' && state.currentPrivateChat === chatId) return;
+            state.unreadDMCounts[chatId] = (state.unreadDMCounts[chatId] || 0) + 1;
+            updateUnreadBadgeDM(chatId);
+        }
+
+        function resetUnreadDM(chatId) {
+            state.unreadDMCounts[chatId] = 0;
+            updateUnreadBadgeDM(chatId);
+        }
+
+        function updateUnreadBadgeDM(chatId) {
+            const wrapper = document.querySelector(`.channel.private[data-chat-id="${chatId}"]`);
+            const badge = wrapper ? wrapper.querySelector('.unread-badge') : null;
+            if (!badge || !wrapper) return;
+            
+            const count = state.unreadDMCounts[chatId] || 0;
+            badge.textContent = count;
+            if (count > 0) {
+                wrapper.classList.add('unread');
+            } else {
+                wrapper.classList.remove('unread');
+            }
+        }
+
+        // Event Listeners
+        sendBtn.onclick = (e) => {
+            e.preventDefault();
+            addMessage();
+        };
+
+        messageInput.onkeypress = (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                addMessage();
+            }
+        };
+
+        messageInput.oninput = () => {
+            if (messageInput.value.length > 0) {
+                startTyping();
+            } else {
+                stopTyping();
+            }
+        };
+
+        channelList.onclick = (e) => {
+            const channel = e.target.closest('.channel');
+            if (channel && channel.dataset.channel) {
+                switchChannel(channel.dataset.channel);
+            }
+        };
+
+        // Start the app
         init();
     </script>
 </body>
