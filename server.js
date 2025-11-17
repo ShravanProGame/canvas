@@ -19,14 +19,11 @@ const channels = {
     gaming: []
 };
 
-const users = new Map(); // WebSocket -> user info
-const privateChats = new Map(); // chatId -> messages array
-const userSocketMap = new Map(); // username -> WebSocket
-const bannedUsers = new Set(); // Set of banned usernames
-const timedOutUsers = new Map(); // username -> timeout end timestamp
-
-// Admin configuration
-const ADMIN_PASSWORD = 'classicclassic';
+const users = new Map();
+const privateChats = new Map();
+const userSocketMap = new Map();
+const bannedUsers = new Set();
+const timedOutUsers = new Map();
 
 // WebSocket connection handler
 wss.on('connection', (ws) => {
@@ -39,15 +36,10 @@ wss.on('connection', (ws) => {
     
     ws.on('message', (data) => {
         try {
-            console.log('Received message:', data.toString());
             const message = JSON.parse(data.toString());
             handleMessage(ws, message);
         } catch (error) {
             console.error('Error parsing message:', error);
-            ws.send(JSON.stringify({
-                type: 'error',
-                message: 'Error parsing message'
-            }));
         }
     });
 
@@ -66,7 +58,6 @@ wss.on('connection', (ws) => {
     });
 });
 
-// Handle different message types
 function handleMessage(ws, message) {
     console.log('Handling message type:', message.type);
     
@@ -95,7 +86,6 @@ function handleMessage(ws, message) {
         case 'getPrivateHistory':
             handleGetPrivateHistory(ws, message);
             break;
-        // Admin actions
         case 'adminKick':
             handleAdminKick(ws, message);
             break;
@@ -110,12 +100,10 @@ function handleMessage(ws, message) {
     }
 }
 
-// User joins
 function handleJoin(ws, message) {
     const { username, isAdmin } = message;
-    console.log(`User joining: ${username}`);
+    console.log(`User joining: ${username}, Admin: ${isAdmin}`);
     
-    // Check if user is banned
     if (bannedUsers.has(username)) {
         ws.send(JSON.stringify({
             type: 'banned',
@@ -143,15 +131,13 @@ function handleJoin(ws, message) {
     console.log(`User ${username} joined. Total users: ${users.size}`);
 }
 
-// Handle chat messages
 function handleChatMessage(ws, message) {
     const user = users.get(ws);
     if (!user) {
-        console.log('Message from unknown user, ignoring');
+        console.log('Message from unknown user');
         return;
     }
 
-    // Check if user is timed out
     if (isUserTimedOut(user.username)) {
         ws.send(JSON.stringify({
             type: 'error',
@@ -177,22 +163,14 @@ function handleChatMessage(ws, message) {
         if (channels[channel].length > 100) {
             channels[channel].shift();
         }
-        
-        console.log(`Message stored. Channel ${channel} now has ${channels[channel].length} messages`);
-    } else {
-        console.log(`Channel ${channel} not found`);
     }
 
-    const broadcastData = {
+    broadcast({
         type: 'message',
         message: chatMessage
-    };
-    
-    console.log('Broadcasting message to all clients');
-    broadcast(broadcastData);
+    });
 }
 
-// Handle private chat request
 function handlePrivateChatRequest(ws, message) {
     const sender = users.get(ws);
     if (!sender) return;
@@ -208,8 +186,6 @@ function handlePrivateChatRequest(ws, message) {
         return;
     }
 
-    console.log(`Private chat request from ${sender.username} to ${targetUsername}`);
-
     targetWs.send(JSON.stringify({
         type: 'privateChatRequest',
         from: sender.username,
@@ -217,7 +193,6 @@ function handlePrivateChatRequest(ws, message) {
     }));
 }
 
-// Handle private chat response
 function handlePrivateChatResponse(ws, message) {
     const responder = users.get(ws);
     if (!responder) return;
@@ -234,22 +209,18 @@ function handlePrivateChatResponse(ws, message) {
     }
 
     if (accepted) {
-        const users = [from, responder.username].sort();
-        const chatId = `private_${users[0]}_${users[1]}`;
-
-        console.log(`Private chat accepted: ${chatId}`);
+        const usernames = [from, responder.username].sort();
+        const chatId = `private_${usernames[0]}_${usernames[1]}`;
 
         if (!privateChats.has(chatId)) {
             privateChats.set(chatId, []);
         }
 
-        const chatData = {
+        requesterWs.send(JSON.stringify({
             type: 'privateChatAccepted',
             chatId: chatId,
             with: responder.username
-        };
-
-        requesterWs.send(JSON.stringify(chatData));
+        }));
 
         ws.send(JSON.stringify({
             type: 'privateChatAccepted',
@@ -264,12 +235,10 @@ function handlePrivateChatResponse(ws, message) {
     }
 }
 
-// Handle private message
 function handlePrivateMessage(ws, message) {
     const sender = users.get(ws);
     if (!sender) return;
 
-    // Check if user is timed out
     if (isUserTimedOut(sender.username)) {
         ws.send(JSON.stringify({
             type: 'error',
@@ -299,10 +268,7 @@ function handlePrivateMessage(ws, message) {
         chatMessages.shift();
     }
 
-    console.log(`Private message from ${sender.username} in ${chatId}`);
-
     const targetWs = userSocketMap.get(targetUsername);
-    
     const messageData = {
         type: 'privateMessage',
         message: privateMessage
@@ -315,11 +281,8 @@ function handlePrivateMessage(ws, message) {
     }
 }
 
-// Get private chat history
 function handleGetPrivateHistory(ws, message) {
     const { chatId } = message;
-    console.log(`Private history requested for: ${chatId}`);
-    
     const messages = privateChats.get(chatId) || [];
     
     ws.send(JSON.stringify({
@@ -329,10 +292,8 @@ function handleGetPrivateHistory(ws, message) {
     }));
 }
 
-// Get channel history
 function handleGetHistory(ws, message) {
     const { channel } = message;
-    console.log(`History requested for channel: ${channel}`);
     
     if (channels[channel]) {
         ws.send(JSON.stringify({
@@ -340,7 +301,6 @@ function handleGetHistory(ws, message) {
             channel,
             messages: channels[channel]
         }));
-        console.log(`Sent ${channels[channel].length} messages for #${channel}`);
     } else {
         ws.send(JSON.stringify({
             type: 'history',
@@ -350,7 +310,6 @@ function handleGetHistory(ws, message) {
     }
 }
 
-// Handle typing indicator
 function handleTyping(ws, message) {
     const user = users.get(ws);
     if (!user) return;
@@ -378,7 +337,6 @@ function handleTyping(ws, message) {
     }
 }
 
-// Admin: Kick user
 function handleAdminKick(ws, message) {
     const admin = users.get(ws);
     if (!admin || !admin.isAdmin) {
@@ -413,7 +371,6 @@ function handleAdminKick(ws, message) {
     }));
 }
 
-// Admin: Timeout user
 function handleAdminTimeout(ws, message) {
     const admin = users.get(ws);
     if (!admin || !admin.isAdmin) {
@@ -457,7 +414,6 @@ function handleAdminTimeout(ws, message) {
     }));
 }
 
-// Admin: Ban user
 function handleAdminBan(ws, message) {
     const admin = users.get(ws);
     if (!admin || !admin.isAdmin) {
@@ -491,7 +447,6 @@ function handleAdminBan(ws, message) {
     }));
 }
 
-// Helper: Check if user is timed out
 function isUserTimedOut(username) {
     if (!timedOutUsers.has(username)) return false;
     
@@ -504,11 +459,8 @@ function isUserTimedOut(username) {
     return true;
 }
 
-// Broadcast user list
 function broadcastUserList() {
     const userList = Array.from(users.values()).map(u => u.username);
-    
-    console.log('Broadcasting user list:', userList);
     
     broadcast({
         type: 'userList',
@@ -516,22 +468,16 @@ function broadcastUserList() {
     });
 }
 
-// Broadcast to all clients (except sender if specified)
 function broadcast(message, excludeWs = null) {
     const data = JSON.stringify(message);
-    let sentCount = 0;
     
     wss.clients.forEach((client) => {
         if (client !== excludeWs && client.readyState === WebSocket.OPEN) {
             client.send(data);
-            sentCount++;
         }
     });
-    
-    console.log(`Broadcast sent to ${sentCount} clients`);
 }
 
-// Generate unique ID
 function generateId() {
     return Date.now().toString(36) + Math.random().toString(36).substr(2);
 }
@@ -543,49 +489,6 @@ app.get('/api/channels', (req, res) => {
     });
 });
 
-app.get('/api/channels/:channel/messages', (req, res) => {
-    const { channel } = req.params;
-    const limit = parseInt(req.query.limit) || 50;
-    
-    if (channels[channel]) {
-        const messages = channels[channel].slice(-limit);
-        res.json({ messages });
-    } else {
-        res.status(404).json({ error: 'Channel not found' });
-    }
-});
-
-app.post('/api/channels', (req, res) => {
-    const { name } = req.body;
-    
-    if (!name || channels[name]) {
-        return res.status(400).json({ error: 'Invalid or duplicate channel name' });
-    }
-    
-    channels[name] = [];
-    
-    broadcast({
-        type: 'channelCreated',
-        channel: name
-    });
-    
-    res.json({ success: true, channel: name });
-});
-
-// Admin API endpoints
-app.get('/api/admin/stats', (req, res) => {
-    res.json({
-        totalUsers: users.size,
-        activeUsers: users.size,
-        totalMessages: Object.values(channels).reduce((sum, msgs) => sum + msgs.length, 0),
-        totalChannels: Object.keys(channels).length,
-        privateChats: privateChats.size,
-        bannedUsers: bannedUsers.size,
-        timedOutUsers: timedOutUsers.size
-    });
-});
-
-// Health check
 app.get('/health', (req, res) => {
     res.json({ 
         status: 'ok',
@@ -597,18 +500,15 @@ app.get('/health', (req, res) => {
     });
 });
 
-// Start server
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`=================================`);
     console.log(`Server running on port ${PORT}`);
     console.log(`WebSocket server is ready`);
-    console.log(`Admin password: ${ADMIN_PASSWORD}`);
-    console.log(`Open http://localhost:${PORT} in your browser`);
+    console.log(`Open http://localhost:${PORT}`);
     console.log(`=================================`);
 });
 
-// Graceful shutdown
 process.on('SIGTERM', () => {
     console.log('SIGTERM signal received: closing HTTP server');
     server.close(() => {
