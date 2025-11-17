@@ -1,5 +1,3 @@
-
-
 // server.js
 const express = require('express');
 const http = require('http');
@@ -24,12 +22,16 @@ const channels = {
 const users = new Map(); // WebSocket -> user info
 const privateChats = new Map(); // chatId -> messages array
 const userSocketMap = new Map(); // username -> WebSocket
+const bannedUsers = new Set(); // Set of banned usernames
+const timedOutUsers = new Map(); // username -> timeout end timestamp
+
+// Admin configuration
+const ADMIN_PASSWORD = 'classicclassic';
 
 // WebSocket connection handler
 wss.on('connection', (ws) => {
     console.log('New client connected');
     
-    // Send immediate confirmation
     ws.send(JSON.stringify({
         type: 'connected',
         message: 'Connected to server'
@@ -93,6 +95,16 @@ function handleMessage(ws, message) {
         case 'getPrivateHistory':
             handleGetPrivateHistory(ws, message);
             break;
+        // Admin actions
+        case 'adminKick':
+            handleAdminKick(ws, message);
+            break;
+        case 'adminTimeout':
+            handleAdminTimeout(ws, message);
+            break;
+        case 'adminBan':
+            handleAdminBan(ws, message);
+            break;
         default:
             console.log('Unknown message type:', message.type);
     }
@@ -100,26 +112,34 @@ function handleMessage(ws, message) {
 
 // User joins
 function handleJoin(ws, message) {
-    const { username } = message;
+    const { username, isAdmin } = message;
     console.log(`User joining: ${username}`);
+    
+    // Check if user is banned
+    if (bannedUsers.has(username)) {
+        ws.send(JSON.stringify({
+            type: 'banned',
+            message: 'You have been banned from this server'
+        }));
+        ws.close();
+        return;
+    }
     
     users.set(ws, {
         username,
-        id: generateId()
+        id: generateId(),
+        isAdmin: isAdmin || false
     });
     
     userSocketMap.set(username, ws);
 
-    // Send welcome message
     ws.send(JSON.stringify({
         type: 'joined',
         username,
         channels: Object.keys(channels)
     }));
 
-    // Broadcast updated user list
     broadcastUserList();
-
     console.log(`User ${username} joined. Total users: ${users.size}`);
 }
 
@@ -128,6 +148,15 @@ function handleChatMessage(ws, message) {
     const user = users.get(ws);
     if (!user) {
         console.log('Message from unknown user, ignoring');
+        return;
+    }
+
+    // Check if user is timed out
+    if (isUserTimedOut(user.username)) {
+        ws.send(JSON.stringify({
+            type: 'error',
+            message: 'You are currently timed out'
+        }));
         return;
     }
 
@@ -142,11 +171,9 @@ function handleChatMessage(ws, message) {
         timestamp: new Date().toISOString()
     };
 
-    // Store message
     if (channels[channel]) {
         channels[channel].push(chatMessage);
         
-        // Keep only last 100 messages per channel
         if (channels[channel].length > 100) {
             channels[channel].shift();
         }
@@ -156,7 +183,6 @@ function handleChatMessage(ws, message) {
         console.log(`Channel ${channel} not found`);
     }
 
-    // Broadcast to all connected clients
     const broadcastData = {
         type: 'message',
         message: chatMessage
@@ -184,7 +210,6 @@ function handlePrivateChatRequest(ws, message) {
 
     console.log(`Private chat request from ${sender.username} to ${targetUsername}`);
 
-    // Send request to target user
     targetWs.send(JSON.stringify({
         type: 'privateChatRequest',
         from: sender.username,
@@ -209,18 +234,15 @@ function handlePrivateChatResponse(ws, message) {
     }
 
     if (accepted) {
-        // Create private chat ID (sorted usernames for consistency)
         const users = [from, responder.username].sort();
         const chatId = `private_${users[0]}_${users[1]}`;
 
         console.log(`Private chat accepted: ${chatId}`);
 
-        // Initialize chat if it doesn't exist
         if (!privateChats.has(chatId)) {
             privateChats.set(chatId, []);
         }
 
-        // Notify both users
         const chatData = {
             type: 'privateChatAccepted',
             chatId: chatId,
@@ -235,7 +257,6 @@ function handlePrivateChatResponse(ws, message) {
             with: from
         }));
     } else {
-        // Notify requester of rejection
         requesterWs.send(JSON.stringify({
             type: 'privateChatRejected',
             by: responder.username
@@ -248,6 +269,15 @@ function handlePrivateMessage(ws, message) {
     const sender = users.get(ws);
     if (!sender) return;
 
+    // Check if user is timed out
+    if (isUserTimedOut(sender.username)) {
+        ws.send(JSON.stringify({
+            type: 'error',
+            message: 'You are currently timed out'
+        }));
+        return;
+    }
+
     const { chatId, text, targetUsername } = message;
     
     const privateMessage = {
@@ -258,7 +288,6 @@ function handlePrivateMessage(ws, message) {
         timestamp: new Date().toISOString()
     };
 
-    // Store message
     if (!privateChats.has(chatId)) {
         privateChats.set(chatId, []);
     }
@@ -266,14 +295,12 @@ function handlePrivateMessage(ws, message) {
     const chatMessages = privateChats.get(chatId);
     chatMessages.push(privateMessage);
 
-    // Keep only last 100 messages
     if (chatMessages.length > 100) {
         chatMessages.shift();
     }
 
     console.log(`Private message from ${sender.username} in ${chatId}`);
 
-    // Send to both users
     const targetWs = userSocketMap.get(targetUsername);
     
     const messageData = {
@@ -281,10 +308,8 @@ function handlePrivateMessage(ws, message) {
         message: privateMessage
     };
 
-    // Send to sender
     ws.send(JSON.stringify(messageData));
 
-    // Send to recipient if online
     if (targetWs && targetWs.readyState === WebSocket.OPEN) {
         targetWs.send(JSON.stringify(messageData));
     }
@@ -333,7 +358,6 @@ function handleTyping(ws, message) {
     const { channel, isTyping, isPrivate, targetUsername } = message;
     
     if (isPrivate && targetUsername) {
-        // Send typing indicator only to target user
         const targetWs = userSocketMap.get(targetUsername);
         if (targetWs && targetWs.readyState === WebSocket.OPEN) {
             targetWs.send(JSON.stringify({
@@ -345,7 +369,6 @@ function handleTyping(ws, message) {
             }));
         }
     } else {
-        // Broadcast to channel
         broadcast({
             type: 'typing',
             username: user.username,
@@ -353,6 +376,132 @@ function handleTyping(ws, message) {
             isTyping
         }, ws);
     }
+}
+
+// Admin: Kick user
+function handleAdminKick(ws, message) {
+    const admin = users.get(ws);
+    if (!admin || !admin.isAdmin) {
+        ws.send(JSON.stringify({
+            type: 'error',
+            message: 'Unauthorized'
+        }));
+        return;
+    }
+
+    const { targetUsername, redirectUrl } = message;
+    const targetWs = userSocketMap.get(targetUsername);
+
+    if (targetWs) {
+        console.log(`[ADMIN] ${admin.username} kicked ${targetUsername}`);
+        
+        targetWs.send(JSON.stringify({
+            type: 'kicked',
+            message: 'You have been kicked from the server',
+            redirectUrl: redirectUrl || 'https://google.com'
+        }));
+
+        setTimeout(() => {
+            targetWs.close();
+        }, 100);
+    }
+
+    ws.send(JSON.stringify({
+        type: 'adminActionSuccess',
+        action: 'kick',
+        target: targetUsername
+    }));
+}
+
+// Admin: Timeout user
+function handleAdminTimeout(ws, message) {
+    const admin = users.get(ws);
+    if (!admin || !admin.isAdmin) {
+        ws.send(JSON.stringify({
+            type: 'error',
+            message: 'Unauthorized'
+        }));
+        return;
+    }
+
+    const { targetUsername, duration } = message;
+    const timeoutEnd = Date.now() + (duration * 1000);
+    
+    timedOutUsers.set(targetUsername, timeoutEnd);
+    console.log(`[ADMIN] ${admin.username} timed out ${targetUsername} for ${duration} seconds`);
+
+    const targetWs = userSocketMap.get(targetUsername);
+    if (targetWs) {
+        targetWs.send(JSON.stringify({
+            type: 'timedOut',
+            duration: duration,
+            message: `You have been timed out for ${duration} seconds`
+        }));
+    }
+
+    setTimeout(() => {
+        timedOutUsers.delete(targetUsername);
+        if (targetWs && targetWs.readyState === WebSocket.OPEN) {
+            targetWs.send(JSON.stringify({
+                type: 'timeoutEnded',
+                message: 'Your timeout has ended'
+            }));
+        }
+    }, duration * 1000);
+
+    ws.send(JSON.stringify({
+        type: 'adminActionSuccess',
+        action: 'timeout',
+        target: targetUsername,
+        duration: duration
+    }));
+}
+
+// Admin: Ban user
+function handleAdminBan(ws, message) {
+    const admin = users.get(ws);
+    if (!admin || !admin.isAdmin) {
+        ws.send(JSON.stringify({
+            type: 'error',
+            message: 'Unauthorized'
+        }));
+        return;
+    }
+
+    const { targetUsername } = message;
+    bannedUsers.add(targetUsername);
+    console.log(`[ADMIN] ${admin.username} banned ${targetUsername}`);
+
+    const targetWs = userSocketMap.get(targetUsername);
+    if (targetWs) {
+        targetWs.send(JSON.stringify({
+            type: 'banned',
+            message: 'You have been permanently banned from this server'
+        }));
+
+        setTimeout(() => {
+            targetWs.close();
+        }, 100);
+    }
+
+    ws.send(JSON.stringify({
+        type: 'adminActionSuccess',
+        action: 'ban',
+        target: targetUsername
+    }));
+}
+
+// Helper: Check if user is timed out
+function isUserTimedOut(username) {
+    if (!timedOutUsers.has(username)) return false;
+    
+    const timeoutEnd = timedOutUsers.get(username);
+    if (Date.now() > timeoutEnd) {
+        timedOutUsers.delete(username);
+        return false;
+    }
+    
+    return true;
 }
 
 // Broadcast user list
@@ -423,13 +572,28 @@ app.post('/api/channels', (req, res) => {
     res.json({ success: true, channel: name });
 });
 
+// Admin API endpoints
+app.get('/api/admin/stats', (req, res) => {
+    res.json({
+        totalUsers: users.size,
+        activeUsers: users.size,
+        totalMessages: Object.values(channels).reduce((sum, msgs) => sum + msgs.length, 0),
+        totalChannels: Object.keys(channels).length,
+        privateChats: privateChats.size,
+        bannedUsers: bannedUsers.size,
+        timedOutUsers: timedOutUsers.size
+    });
+});
+
 // Health check
 app.get('/health', (req, res) => {
     res.json({ 
         status: 'ok',
         users: users.size,
         channels: Object.keys(channels).length,
-        privateChats: privateChats.size
+        privateChats: privateChats.size,
+        bannedUsers: bannedUsers.size,
+        timedOutUsers: timedOutUsers.size
     });
 });
 
@@ -439,6 +603,7 @@ server.listen(PORT, () => {
     console.log(`=================================`);
     console.log(`Server running on port ${PORT}`);
     console.log(`WebSocket server is ready`);
+    console.log(`Admin password: ${ADMIN_PASSWORD}`);
     console.log(`Open http://localhost:${PORT} in your browser`);
     console.log(`=================================`);
 });
@@ -450,6 +615,3 @@ process.on('SIGTERM', () => {
         console.log('HTTP server closed');
     });
 });
-
-
-
