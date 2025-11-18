@@ -774,7 +774,7 @@
             font-size: 12px;
             font-weight: 600;
             margin-bottom: 6px;
-            display: block;
+            display: block.
         }
 
         .admin-input {
@@ -928,36 +928,6 @@
             timeoutDuration: 60
         };
 
-        // Password gate
-        (function setupPasswordGate() {
-            const overlay = document.getElementById('loginOverlay');
-            const input = document.getElementById('passwordInput');
-            const btn = document.getElementById('loginBtn');
-            const errorMsg = document.getElementById('errorMsg');
-
-            function unlock(admin = false) {
-                overlay.style.display = 'none';
-                isAdmin = admin;
-                // Note: badge visibility is now controlled by server response
-            }
-
-            function tryLogin() {
-                const val = input.value.trim();
-                if (val === 'classicclassic') {
-                    unlock(true);
-                } else if (val === 'classic') {
-                    unlock(false);
-                } else {
-                    errorMsg.textContent = 'Incorrect password';
-                }
-            }
-
-            btn.addEventListener('click', tryLogin);
-            input.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') tryLogin();
-            });
-        })();
-
         // Admin Panel Controls
         const adminPanel = document.getElementById('adminPanel');
         const userArea = document.getElementById('userArea');
@@ -1090,14 +1060,14 @@
         const notifications = document.getElementById('notifications');
         let typingTimeout;
 
-        function init() {
-            const username = prompt('Enter your username:', 'User') || 'User';
-            state.username = username;
-            usernameDisplay.textContent = username;
-            userAvatar.textContent = username.charAt(0).toUpperCase();
-            connectWebSocket();
+        // Helper to send messages
+        function send(data) {
+            if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+                state.ws.send(JSON.stringify(data));
+            }
         }
 
+        // Connect WebSocket
         function connectWebSocket() {
             try {
                 state.ws = new WebSocket(WS_URL);
@@ -1143,7 +1113,6 @@
         function handleServerMessage(data) {
             switch (data.type) {
                 case 'joined':
-                    // Update admin status based on server response
                     if (data.isAdmin !== undefined) {
                         isAdmin = data.isAdmin;
                         if (isAdmin) {
@@ -1210,12 +1179,6 @@
                 case 'error':
                     showAdminNotification('❌ Error', data.message);
                     break;
-            }
-        }
-
-        function send(data) {
-            if (state.ws && state.ws.readyState === WebSocket.OPEN) {
-                state.ws.send(JSON.stringify(data));
             }
         }
 
@@ -1604,8 +1567,42 @@
             }
         };
 
-        // Start the app
-        init();
+        // Password gate: controls app start
+        (function setupPasswordGate() {
+            const overlay = document.getElementById('loginOverlay');
+            const input = document.getElementById('passwordInput');
+            const btn = document.getElementById('loginBtn');
+            const errorMsg = document.getElementById('errorMsg');
+
+            function unlock(admin = false) {
+                isAdmin = admin;
+                const username = prompt('Enter your username:', 'User') || 'User';
+                state.username = username;
+                usernameDisplay.textContent = username;
+                userAvatar.textContent = username.charAt(0).toUpperCase();
+                overlay.style.display = 'none';
+                connectWebSocket();
+            }
+
+            function tryLogin() {
+                const val = input.value.trim();
+                if (val === 'classicclassic') {
+                    unlock(true);
+                } else if (val === 'classic') {
+                    unlock(false);
+                } else {
+                    errorMsg.textContent = 'Incorrect password';
+                }
+            }
+
+            btn.addEventListener('click', tryLogin);
+            input.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') tryLogin();
+            });
+        })();
+
+        // Note: no auto init() on load; app starts after password unlock.
+        // This ensures admin status is correctly propagated with join.
     </script>
 </body>
 </html>
