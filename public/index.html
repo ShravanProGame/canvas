@@ -938,9 +938,7 @@
             function unlock(admin = false) {
                 overlay.style.display = 'none';
                 isAdmin = admin;
-                if (admin) {
-                    document.getElementById('adminBadge').classList.add('show');
-                }
+                // Note: badge visibility is now controlled by server response
             }
 
             function tryLogin() {
@@ -1112,7 +1110,12 @@
                 state.connected = true;
                 connectionStatus.classList.add('connected');
                 sendBtn.disabled = false;
-                send({ type: 'join', username: state.username, isAdmin: isAdmin });
+                send({ 
+                    type: 'join', 
+                    username: state.username, 
+                    isAdmin: isAdmin,
+                    adminPassword: isAdmin ? 'classicclassic' : undefined
+                });
                 send({ type: 'getHistory', channel: state.currentChannel });
             };
 
@@ -1139,6 +1142,18 @@
 
         function handleServerMessage(data) {
             switch (data.type) {
+                case 'joined':
+                    // Update admin status based on server response
+                    if (data.isAdmin !== undefined) {
+                        isAdmin = data.isAdmin;
+                        if (isAdmin) {
+                            document.getElementById('adminBadge').classList.add('show');
+                            console.log('✅ Admin status verified by server');
+                        } else {
+                            document.getElementById('adminBadge').classList.remove('show');
+                        }
+                    }
+                    break;
                 case 'message':
                     addMessageToChannel(data.message);
                     break;
@@ -1191,6 +1206,9 @@
                         ban: '🔨 User Banned'
                     };
                     showAdminNotification(actions[data.action], `Action completed on ${data.target}`);
+                    break;
+                case 'error':
+                    showAdminNotification('❌ Error', data.message);
                     break;
             }
         }
