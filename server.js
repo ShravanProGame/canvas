@@ -25,6 +25,10 @@ const userSocketMap = new Map();
 const bannedUsers = new Set();
 const timedOutUsers = new Map();
 
+// Server-side admin user tracking
+const ADMIN_PASSWORD = 'classicclassic';
+const adminUsers = new Set();
+
 // WebSocket connection handler
 wss.on('connection', (ws) => {
     console.log('New client connected');
@@ -48,6 +52,7 @@ wss.on('connection', (ws) => {
         if (user) {
             console.log(`User ${user.username} disconnected`);
             userSocketMap.delete(user.username);
+            adminUsers.delete(user.username);
             users.delete(ws);
             broadcastUserList();
         }
@@ -101,8 +106,7 @@ function handleMessage(ws, message) {
 }
 
 function handleJoin(ws, message) {
-    const { username, isAdmin } = message;
-    console.log(`User joining: ${username}, Admin: ${isAdmin}`);
+    const { username, isAdmin, adminPassword } = message;
     
     if (bannedUsers.has(username)) {
         ws.send(JSON.stringify({
@@ -113,10 +117,18 @@ function handleJoin(ws, message) {
         return;
     }
     
+    // Verify admin status on server side
+    const isVerifiedAdmin = isAdmin && adminPassword === ADMIN_PASSWORD;
+    
+    if (isVerifiedAdmin) {
+        adminUsers.add(username);
+        console.log(`[ADMIN] ${username} joined as admin`);
+    }
+    
     users.set(ws, {
         username,
         id: generateId(),
-        isAdmin: isAdmin || false
+        isAdmin: isVerifiedAdmin
     });
     
     userSocketMap.set(username, ws);
@@ -124,7 +136,8 @@ function handleJoin(ws, message) {
     ws.send(JSON.stringify({
         type: 'joined',
         username,
-        channels: Object.keys(channels)
+        channels: Object.keys(channels),
+        isAdmin: isVerifiedAdmin
     }));
 
     broadcastUserList();
@@ -340,9 +353,10 @@ function handleTyping(ws, message) {
 function handleAdminKick(ws, message) {
     const admin = users.get(ws);
     if (!admin || !admin.isAdmin) {
+        console.log(`[ADMIN] Unauthorized kick attempt by ${admin ? admin.username : 'unknown'}`);
         ws.send(JSON.stringify({
             type: 'error',
-            message: 'Unauthorized'
+            message: 'Unauthorized: You are not an admin'
         }));
         return;
     }
@@ -361,7 +375,7 @@ function handleAdminKick(ws, message) {
 
         setTimeout(() => {
             targetWs.close();
-        }, 100);
+        }, 1000);
     }
 
     ws.send(JSON.stringify({
@@ -374,9 +388,10 @@ function handleAdminKick(ws, message) {
 function handleAdminTimeout(ws, message) {
     const admin = users.get(ws);
     if (!admin || !admin.isAdmin) {
+        console.log(`[ADMIN] Unauthorized timeout attempt by ${admin ? admin.username : 'unknown'}`);
         ws.send(JSON.stringify({
             type: 'error',
-            message: 'Unauthorized'
+            message: 'Unauthorized: You are not an admin'
         }));
         return;
     }
@@ -404,6 +419,7 @@ function handleAdminTimeout(ws, message) {
                 message: 'Your timeout has ended'
             }));
         }
+        console.log(`[ADMIN] Timeout ended for ${targetUsername}`);
     }, duration * 1000);
 
     ws.send(JSON.stringify({
@@ -417,9 +433,10 @@ function handleAdminTimeout(ws, message) {
 function handleAdminBan(ws, message) {
     const admin = users.get(ws);
     if (!admin || !admin.isAdmin) {
+        console.log(`[ADMIN] Unauthorized ban attempt by ${admin ? admin.username : 'unknown'}`);
         ws.send(JSON.stringify({
             type: 'error',
-            message: 'Unauthorized'
+            message: 'Unauthorized: You are not an admin'
         }));
         return;
     }
@@ -437,7 +454,7 @@ function handleAdminBan(ws, message) {
 
         setTimeout(() => {
             targetWs.close();
-        }, 100);
+        }, 1000);
     }
 
     ws.send(JSON.stringify({
@@ -496,7 +513,8 @@ app.get('/health', (req, res) => {
         channels: Object.keys(channels).length,
         privateChats: privateChats.size,
         bannedUsers: bannedUsers.size,
-        timedOutUsers: timedOutUsers.size
+        timedOutUsers: timedOutUsers.size,
+        adminUsers: adminUsers.size
     });
 });
 
@@ -506,6 +524,7 @@ server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     console.log(`WebSocket server is ready`);
     console.log(`Open http://localhost:${PORT}`);
+    console.log(`Admin Password: ${ADMIN_PASSWORD}`);
     console.log(`=================================`);
 });
 
