@@ -16,7 +16,8 @@ app.use(express.static('public'));
 const channels = {
     general: [],
     random: [],
-    gaming: []
+    gaming: [],
+    memes: []
 };
 
 const users = new Map();
@@ -25,9 +26,11 @@ const userSocketMap = new Map();
 const bannedUsers = new Set();
 const timedOutUsers = new Map();
 
-// Server-side admin user tracking
+// Server-side admin and VIP tracking
 const ADMIN_PASSWORD = 'classicclassic';
+const VIP_PASSWORD = 'very-important-person';
 const adminUsers = new Set();
+const vipUsers = new Set();
 
 // WebSocket connection handler
 wss.on('connection', (ws) => {
@@ -53,6 +56,7 @@ wss.on('connection', (ws) => {
             console.log(`User ${user.username} disconnected`);
             userSocketMap.delete(user.username);
             adminUsers.delete(user.username);
+            vipUsers.delete(user.username);
             users.delete(ws);
             broadcastUserList();
         }
@@ -106,7 +110,7 @@ function handleMessage(ws, message) {
 }
 
 function handleJoin(ws, message) {
-    const { username, isAdmin, adminPassword } = message;
+    const { username, isAdmin, isVIP, adminPassword, vipPassword } = message;
     
     if (bannedUsers.has(username)) {
         ws.send(JSON.stringify({
@@ -120,15 +124,24 @@ function handleJoin(ws, message) {
     // Verify admin status on server side
     const isVerifiedAdmin = isAdmin && adminPassword === ADMIN_PASSWORD;
     
+    // Verify VIP status on server side
+    const isVerifiedVIP = isVIP && vipPassword === VIP_PASSWORD;
+    
     if (isVerifiedAdmin) {
         adminUsers.add(username);
         console.log(`[ADMIN] ${username} joined as admin`);
     }
     
+    if (isVerifiedVIP) {
+        vipUsers.add(username);
+        console.log(`[VIP] ${username} joined as VIP`);
+    }
+    
     users.set(ws, {
         username,
         id: generateId(),
-        isAdmin: isVerifiedAdmin
+        isAdmin: isVerifiedAdmin,
+        isVIP: isVerifiedVIP
     });
     
     userSocketMap.set(username, ws);
@@ -137,7 +150,8 @@ function handleJoin(ws, message) {
         type: 'joined',
         username,
         channels: Object.keys(channels),
-        isAdmin: isVerifiedAdmin
+        isAdmin: isVerifiedAdmin,
+        isVIP: isVerifiedVIP
     }));
 
     broadcastUserList();
@@ -167,7 +181,9 @@ function handleChatMessage(ws, message) {
         author: user.username,
         text,
         channel,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        isVIP: user.isVIP,
+        isAdmin: user.isAdmin
     };
 
     if (channels[channel]) {
@@ -267,7 +283,9 @@ function handlePrivateMessage(ws, message) {
         author: sender.username,
         text,
         chatId,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        isVIP: sender.isVIP,
+        isAdmin: sender.isAdmin
     };
 
     if (!privateChats.has(chatId)) {
@@ -477,7 +495,11 @@ function isUserTimedOut(username) {
 }
 
 function broadcastUserList() {
-    const userList = Array.from(users.values()).map(u => u.username);
+    const userList = Array.from(users.values()).map(u => ({
+        username: u.username,
+        isVIP: u.isVIP || false,
+        isAdmin: u.isAdmin || false
+    }));
     
     broadcast({
         type: 'userList',
@@ -514,7 +536,8 @@ app.get('/health', (req, res) => {
         privateChats: privateChats.size,
         bannedUsers: bannedUsers.size,
         timedOutUsers: timedOutUsers.size,
-        adminUsers: adminUsers.size
+        adminUsers: adminUsers.size,
+        vipUsers: vipUsers.size
     });
 });
 
@@ -525,6 +548,7 @@ server.listen(PORT, () => {
     console.log(`WebSocket server is ready`);
     console.log(`Open http://localhost:${PORT}`);
     console.log(`Admin Password: ${ADMIN_PASSWORD}`);
+    console.log(`VIP Password: ${VIP_PASSWORD}`);
     console.log(`=================================`);
 });
 
