@@ -122,25 +122,55 @@
             color: #fff;
         }
 
+        .online-admins {
+            padding: 8px;
+            border-top: 1px solid #202225;
+            max-height: 120px;
+            overflow-y: auto;
+        }
+
+        .online-vips {
+            padding: 8px;
+            border-top: 1px solid #202225;
+            max-height: 120px;
+            overflow-y: auto;
+        }
+
         .online-users {
             padding: 8px;
             border-top: 1px solid #202225;
-            max-height: 200px;
+            max-height: 150px;
             overflow-y: auto;
         }
 
         .online-header {
             color: #96989d;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 600;
             text-transform: uppercase;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
+        }
+
+        .admin-header {
+            color: #faa61a;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+
+        .vip-header {
+            color: #f47fff;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 6px;
         }
 
         .user-list-item {
-            padding: 4px 8px;
+            padding: 3px 6px;
             color: #96989d;
-            font-size: 14px;
+            font-size: 13px;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -155,12 +185,35 @@
         .user-name {
             display: flex;
             align-items: center;
+            gap: 4px;
         }
 
         .user-name::before {
             content: '●';
             color: #3ba55d;
-            margin-right: 6px;
+            font-size: 10px;
+        }
+
+        .vip-badge {
+            background: linear-gradient(135deg, #f47fff 0%, #ff6ec7 100%);
+            color: #fff;
+            font-size: 8px;
+            font-weight: 700;
+            padding: 2px 4px;
+            border-radius: 3px;
+            user-select: none;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        }
+
+        .admin-badge-text {
+            background: linear-gradient(135deg, #faa61a 0%, #ff8c00 100%);
+            color: #fff;
+            font-size: 8px;
+            font-weight: 700;
+            padding: 2px 4px;
+            border-radius: 3px;
+            user-select: none;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
         }
 
         .dm-btn {
@@ -168,9 +221,9 @@
             background: #5865f2;
             color: #fff;
             border: none;
-            padding: 2px 8px;
+            padding: 2px 6px;
             border-radius: 3px;
-            font-size: 11px;
+            font-size: 10px;
             cursor: pointer;
             transition: all 0.15s;
         }
@@ -234,6 +287,25 @@
         }
 
         .admin-badge.show {
+            display: flex;
+        }
+
+        .vip-badge-avatar {
+            position: absolute;
+            bottom: -2px;
+            right: -2px;
+            width: 14px;
+            height: 14px;
+            background: #f47fff;
+            border-radius: 50%;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-size: 8px;
+            border: 2px solid #292b2f;
+        }
+
+        .vip-badge-avatar.show {
             display: flex;
         }
 
@@ -334,7 +406,8 @@
 
         .message-header {
             display: flex;
-            align-items: baseline;
+            align-items: center;
+            gap: 6px;
             margin-bottom: 4px;
         }
 
@@ -342,7 +415,22 @@
             color: #fff;
             font-weight: 500;
             font-size: 15px;
-            margin-right: 8px;
+        }
+
+        .message-author.vip {
+            background: linear-gradient(135deg, #f47fff 0%, #ff6ec7 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: 600;
+        }
+
+        .message-author.admin {
+            background: linear-gradient(135deg, #faa61a 0%, #ff8c00 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: 600;
         }
 
         .message-timestamp {
@@ -485,7 +573,7 @@
         }
 
         ::-webkit-scrollbar {
-            width: 8px;
+            width: 6px;
         }
 
         ::-webkit-scrollbar-track {
@@ -774,7 +862,7 @@
             font-size: 12px;
             font-weight: 600;
             margin-bottom: 6px;
-            display: block.
+            display: block;
         }
 
         .admin-input {
@@ -821,6 +909,13 @@
             color: #72767d;
             padding: 20px;
             font-size: 13px;
+        }
+
+        .empty-list {
+            text-align: center;
+            color: #72767d;
+            padding: 8px;
+            font-size: 11px;
         }
     </style>
 </head>
@@ -884,11 +979,23 @@
                         <span class="channel-name">gaming</span>
                         <span class="unread-badge">0</span>
                     </div>
+                    <div class="channel" data-channel="memes">
+                        <span class="channel-name">memes</span>
+                        <span class="unread-badge">0</span>
+                    </div>
                 </div>
                 <div class="channel-section">
                     <div class="section-header">Direct Messages</div>
                     <div id="dmList"></div>
                 </div>
+            </div>
+            <div class="online-admins">
+                <div class="admin-header">Admins</div>
+                <div id="adminList"></div>
+            </div>
+            <div class="online-vips">
+                <div class="vip-header">VIP Users</div>
+                <div id="vipList"></div>
             </div>
             <div class="online-users">
                 <div class="online-header">Online Users</div>
@@ -899,6 +1006,7 @@
                     <div class="user-avatar" id="userAvatar">
                         U
                         <div class="admin-badge" id="adminBadge">⚡</div>
+                        <div class="vip-badge-avatar" id="vipBadge">⭐</div>
                     </div>
                     <div class="username" id="usernameDisplay">User</div>
                     <div class="connection-status" id="connectionStatus"></div>
@@ -923,6 +1031,7 @@
 
     <script>
         let isAdmin = false;
+        let isVIP = false;
         let adminSettings = {
             redirectUrl: 'https://google.com',
             timeoutDuration: 60
@@ -958,20 +1067,23 @@
             const userListEl = document.getElementById('adminUserList');
             userListEl.innerHTML = '';
             
-            state.users.forEach(username => {
-                if (username === state.username) return;
+            state.users.forEach(user => {
+                if (user.username === state.username) return;
+                
+                let badgeHTML = '';
+                if (user.isVIP) badgeHTML = ' <span class="vip-badge">VIP</span>';
                 
                 const userItem = document.createElement('div');
                 userItem.className = 'admin-user-item';
                 userItem.innerHTML = `
                     <div class="admin-user-info">
-                        <div class="admin-user-avatar">${username.charAt(0).toUpperCase()}</div>
-                        <div class="admin-user-name">${username}</div>
+                        <div class="admin-user-avatar">${user.username.charAt(0).toUpperCase()}</div>
+                        <div class="admin-user-name">${user.username}${badgeHTML}</div>
                     </div>
                     <div class="admin-actions">
-                        <button class="admin-btn admin-btn-kick" onclick="kickUser('${username}')">Kick</button>
-                        <button class="admin-btn admin-btn-timeout" onclick="timeoutUser('${username}')">Timeout</button>
-                        <button class="admin-btn admin-btn-ban" onclick="banUser('${username}')">Ban</button>
+                        <button class="admin-btn admin-btn-kick" onclick="kickUser('${user.username}')">Kick</button>
+                        <button class="admin-btn admin-btn-timeout" onclick="timeoutUser('${user.username}')">Timeout</button>
+                        <button class="admin-btn admin-btn-ban" onclick="banUser('${user.username}')">Ban</button>
                     </div>
                 `;
                 userListEl.appendChild(userItem);
@@ -1056,6 +1168,8 @@
         const userAvatar = document.getElementById('userAvatar');
         const connectionStatus = document.getElementById('connectionStatus');
         const userList = document.getElementById('userList');
+        const vipList = document.getElementById('vipList');
+        const adminList = document.getElementById('adminList');
         const typingIndicator = document.getElementById('typingIndicator');
         const notifications = document.getElementById('notifications');
         let typingTimeout;
@@ -1084,7 +1198,9 @@
                     type: 'join', 
                     username: state.username, 
                     isAdmin: isAdmin,
-                    adminPassword: isAdmin ? 'classicclassic' : undefined
+                    isVIP: isVIP,
+                    adminPassword: isAdmin ? 'classicclassic' : undefined,
+                    vipPassword: isVIP ? 'very-important-person' : undefined
                 });
                 send({ type: 'getHistory', channel: state.currentChannel });
             };
@@ -1120,6 +1236,15 @@
                             console.log('✅ Admin status verified by server');
                         } else {
                             document.getElementById('adminBadge').classList.remove('show');
+                        }
+                    }
+                    if (data.isVIP !== undefined) {
+                        isVIP = data.isVIP;
+                        if (isVIP) {
+                            document.getElementById('vipBadge').classList.add('show');
+                            console.log('✅ VIP status verified by server');
+                        } else {
+                            document.getElementById('vipBadge').classList.remove('show');
                         }
                     }
                     break;
@@ -1335,11 +1460,24 @@
             msgs.forEach(msg => {
                 const msgEl = document.createElement('div');
                 msgEl.className = 'message';
+                
+                let authorClass = 'message-author';
+                let badge = '';
+                
+                if (msg.isAdmin) {
+                    authorClass = 'message-author admin';
+                    badge = '<span class="admin-badge-text">ADMIN</span>';
+                } else if (msg.isVIP) {
+                    authorClass = 'message-author vip';
+                    badge = '<span class="vip-badge">VIP</span>';
+                }
+                
                 msgEl.innerHTML = `
                     <div class="message-avatar">${msg.author.charAt(0).toUpperCase()}</div>
                     <div class="message-content">
                         <div class="message-header">
-                            <span class="message-author">${msg.author}</span>
+                            <span class="${authorClass}">${msg.author}</span>
+                            ${badge}
                             <span class="message-timestamp">${formatTime(new Date(msg.timestamp))}</span>
                         </div>
                         <div class="message-text">${msg.text}</div>
@@ -1353,19 +1491,60 @@
         function updateUserList(users) {
             state.users = users;
             userList.innerHTML = '';
+            vipList.innerHTML = '';
+            adminList.innerHTML = '';
             
-            users.forEach(username => {
-                if (username === state.username) return;
-                
+            const admins = users.filter(u => u.isAdmin && u.username !== state.username);
+            const vips = users.filter(u => u.isVIP && !u.isAdmin && u.username !== state.username);
+            const regularUsers = users.filter(u => !u.isVIP && !u.isAdmin && u.username !== state.username);
+            
+            // Admins
+            admins.forEach(user => {
+                const adminEl = document.createElement('div');
+                adminEl.className = 'user-list-item';
+                adminEl.innerHTML = `
+                    <span class="user-name">${user.username} <span class="admin-badge-text">ADMIN</span></span>
+                    <button class="dm-btn">DM</button>
+                `;
+                adminEl.querySelector('.dm-btn').onclick = () => requestPrivateChat(user.username);
+                adminList.appendChild(adminEl);
+            });
+            
+            if (admins.length === 0) {
+                adminList.innerHTML = '<div class="empty-list">No admins online</div>';
+            }
+            
+            // VIPs
+            vips.forEach(user => {
+                const vipEl = document.createElement('div');
+                vipEl.className = 'user-list-item';
+                vipEl.innerHTML = `
+                    <span class="user-name">${user.username} <span class="vip-badge">VIP</span></span>
+                    <button class="dm-btn">DM</button>
+                `;
+                vipEl.querySelector('.dm-btn').onclick = () => requestPrivateChat(user.username);
+                vipList.appendChild(vipEl);
+            });
+            
+            if (vips.length === 0) {
+                vipList.innerHTML = '<div class="empty-list">No VIPs online</div>';
+            }
+            
+            // Regular users
+            regularUsers.forEach(user => {
                 const userEl = document.createElement('div');
                 userEl.className = 'user-list-item';
                 userEl.innerHTML = `
-                    <span class="user-name">${username}</span>
+                    <span class="user-name">${user.username}</span>
                     <button class="dm-btn">DM</button>
                 `;
-                userEl.querySelector('.dm-btn').onclick = () => requestPrivateChat(username);
+                userEl.querySelector('.dm-btn').onclick = () => requestPrivateChat(user.username);
                 userList.appendChild(userEl);
             });
+            
+            if (regularUsers.length === 0) {
+                userList.innerHTML = '<div class="empty-list">No users online</div>';
+            }
             
             if (isAdmin && adminPanel.classList.contains('show')) {
                 updateAdminUserList();
@@ -1574,8 +1753,9 @@
             const btn = document.getElementById('loginBtn');
             const errorMsg = document.getElementById('errorMsg');
 
-            function unlock(admin = false) {
+            function unlock(admin = false, vip = false) {
                 isAdmin = admin;
+                isVIP = vip;
                 const username = prompt('Enter your username:', 'User') || 'User';
                 state.username = username;
                 usernameDisplay.textContent = username;
@@ -1587,9 +1767,11 @@
             function tryLogin() {
                 const val = input.value.trim();
                 if (val === 'classicclassic') {
-                    unlock(true);
+                    unlock(true, false);
+                } else if (val === 'very-important-person') {
+                    unlock(false, true);
                 } else if (val === 'classic') {
-                    unlock(false);
+                    unlock(false, false);
                 } else {
                     errorMsg.textContent = 'Incorrect password';
                 }
@@ -1600,9 +1782,6 @@
                 if (e.key === 'Enter') tryLogin();
             });
         })();
-
-        // Note: no auto init() on load; app starts after password unlock.
-        // This ensures admin status is correctly propagated with join.
     </script>
 </body>
 </html>
