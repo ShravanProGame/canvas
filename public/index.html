@@ -380,10 +380,27 @@
             margin-bottom: 12px;
         }
 
+        .message.grouped {
+            margin-top: -8px;
+            margin-bottom: 0;
+            padding: 2px 0;
+        }
+
+        .message-avatar-spacer {
+            width: 40px;
+            margin-right: 16px;
+            flex-shrink: 0;
+        }
+
         .message:hover {
             background: #32353b;
             margin: 0 -16px 12px;
             padding: 4px 16px;
+        }
+
+        .message.grouped:hover {
+            margin: 0 -16px;
+            padding: 2px 16px;
         }
 
         .message-avatar {
@@ -1457,9 +1474,17 @@
                 : state.messages[state.currentChannel] || [];
             
             messageArea.innerHTML = '';
-            msgs.forEach(msg => {
+            const MESSAGE_GROUP_THRESHOLD = 5 * 60 * 1000; // 5 minutes
+            
+            msgs.forEach((msg, index) => {
+                const prevMsg = index > 0 ? msgs[index - 1] : null;
+                const isGrouped = prevMsg && 
+                    prevMsg.author === msg.author && 
+                    (new Date(msg.timestamp) - new Date(prevMsg.timestamp)) < MESSAGE_GROUP_THRESHOLD;
+                
                 const msgEl = document.createElement('div');
                 msgEl.className = 'message';
+                if (isGrouped) msgEl.classList.add('grouped');
                 
                 let authorClass = 'message-author';
                 let badge = '';
@@ -1472,17 +1497,26 @@
                     badge = '<span class="vip-badge">VIP</span>';
                 }
                 
-                msgEl.innerHTML = `
-                    <div class="message-avatar">${msg.author.charAt(0).toUpperCase()}</div>
-                    <div class="message-content">
-                        <div class="message-header">
-                            <span class="${authorClass}">${msg.author}</span>
-                            ${badge}
-                            <span class="message-timestamp">${formatTime(new Date(msg.timestamp))}</span>
+                if (isGrouped) {
+                    msgEl.innerHTML = `
+                        <div class="message-avatar-spacer"></div>
+                        <div class="message-content">
+                            <div class="message-text">${msg.text}</div>
                         </div>
-                        <div class="message-text">${msg.text}</div>
-                    </div>
-                `;
+                    `;
+                } else {
+                    msgEl.innerHTML = `
+                        <div class="message-avatar">${msg.author.charAt(0).toUpperCase()}</div>
+                        <div class="message-content">
+                            <div class="message-header">
+                                <span class="${authorClass}">${msg.author}</span>
+                                ${badge}
+                                <span class="message-timestamp">${formatTime(new Date(msg.timestamp))}</span>
+                            </div>
+                            <div class="message-text">${msg.text}</div>
+                        </div>
+                    `;
+                }
                 messageArea.appendChild(msgEl);
             });
             messageArea.scrollTop = messageArea.scrollHeight;
