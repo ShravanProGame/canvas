@@ -122,49 +122,30 @@
             color: #fff;
         }
 
-        .online-admins {
+        .online-admins, .online-vips, .online-users {
             padding: 8px;
             border-top: 1px solid #202225;
             max-height: 120px;
             overflow-y: auto;
         }
 
-        .online-vips {
-            padding: 8px;
-            border-top: 1px solid #202225;
-            max-height: 120px;
-            overflow-y: auto;
-        }
-
-        .online-users {
-            padding: 8px;
-            border-top: 1px solid #202225;
-            max-height: 150px;
-            overflow-y: auto;
+        .online-header, .admin-header, .vip-header {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 6px;
         }
 
         .online-header {
             color: #96989d;
-            font-size: 11px;
-            font-weight: 600;
-            text-transform: uppercase;
-            margin-bottom: 6px;
         }
 
         .admin-header {
             color: #faa61a;
-            font-size: 11px;
-            font-weight: 600;
-            text-transform: uppercase;
-            margin-bottom: 6px;
         }
 
         .vip-header {
             color: #f47fff;
-            font-size: 11px;
-            font-weight: 600;
-            text-transform: uppercase;
-            margin-bottom: 6px;
         }
 
         .user-list-item {
@@ -271,13 +252,12 @@
             position: relative;
         }
 
-        .admin-badge {
+        .admin-badge, .vip-badge-avatar {
             position: absolute;
             bottom: -2px;
             right: -2px;
             width: 14px;
             height: 14px;
-            background: #faa61a;
             border-radius: 50%;
             display: none;
             align-items: center;
@@ -286,26 +266,15 @@
             border: 2px solid #292b2f;
         }
 
-        .admin-badge.show {
-            display: flex;
+        .admin-badge {
+            background: #faa61a;
         }
 
         .vip-badge-avatar {
-            position: absolute;
-            bottom: -2px;
-            right: -2px;
-            width: 14px;
-            height: 14px;
             background: #f47fff;
-            border-radius: 50%;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            font-size: 8px;
-            border: 2px solid #292b2f;
         }
 
-        .vip-badge-avatar.show {
+        .admin-badge.show, .vip-badge-avatar.show {
             display: flex;
         }
 
@@ -380,27 +349,10 @@
             margin-bottom: 12px;
         }
 
-        .message.grouped {
-            margin-top: -8px;
-            margin-bottom: 0;
-            padding: 2px 0;
-        }
-
-        .message-avatar-spacer {
-            width: 40px;
-            margin-right: 16px;
-            flex-shrink: 0;
-        }
-
         .message:hover {
             background: #32353b;
             margin: 0 -16px 12px;
             padding: 4px 16px;
-        }
-
-        .message.grouped:hover {
-            margin: 0 -16px;
-            padding: 2px 16px;
         }
 
         .message-avatar {
@@ -501,10 +453,6 @@
 
         .send-btn:hover {
             background: #4752c4;
-        }
-
-        .send-btn:active {
-            background: #3c45a5;
         }
 
         .send-btn:disabled {
@@ -615,6 +563,7 @@
             align-items: center;
             justify-content: center;
         }
+
         #loginCard {
             width: 320px;
             background: #2f3136;
@@ -625,10 +574,12 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.4);
             text-align: center;
         }
+
         #loginCard h2 {
             margin-bottom: 12px;
             font-size: 18px;
         }
+
         #passwordInput {
             width: 100%;
             padding: 10px;
@@ -639,6 +590,7 @@
             color: #fff;
             margin-top: 8px;
         }
+
         #loginBtn {
             width: 100%;
             margin-top: 12px;
@@ -650,7 +602,11 @@
             cursor: pointer;
             font-weight: 600;
         }
-        #loginBtn:hover { background: #4752c4; }
+
+        #loginBtn:hover {
+            background: #4752c4;
+        }
+
         #errorMsg {
             margin-top: 8px;
             color: #ed4245;
@@ -662,6 +618,7 @@
             gap: 4px;
             align-items: center;
         }
+
         .typing-dot {
             width: 6px;
             height: 6px;
@@ -669,11 +626,22 @@
             border-radius: 50%;
             animation: typing-bounce 1.2s infinite ease-in-out;
         }
-        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
-        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        .typing-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
         @keyframes typing-bounce {
-            0%, 80%, 100% { transform: scale(0); }
-            40% { transform: scale(1); }
+            0%, 80%, 100% {
+                transform: scale(0);
+            }
+            40% {
+                transform: scale(1);
+            }
         }
 
         .unread-badge {
@@ -686,23 +654,24 @@
             margin-left: 6px;
             display: none;
         }
+
         .channel.unread .unread-badge {
             display: inline-block;
         }
 
-        /* Admin Panel Styles */
+        /* Enhanced Admin Panel */
         #adminPanel {
             position: fixed;
             bottom: 60px;
             left: 8px;
-            width: 360px;
+            width: 480px;
+            max-height: 600px;
             background: #2f3136;
             border: 1px solid #202225;
             border-radius: 8px;
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
             display: none;
             flex-direction: column;
-            max-height: 500px;
             z-index: 999;
             animation: slideUp 0.2s ease;
         }
@@ -722,7 +691,7 @@
             display: flex;
         }
 
-        .admin-header {
+        .panel-header {
             padding: 16px;
             border-bottom: 1px solid #202225;
             display: flex;
@@ -730,7 +699,7 @@
             justify-content: space-between;
         }
 
-        .admin-title {
+        .panel-title {
             color: #fff;
             font-weight: 600;
             font-size: 15px;
@@ -739,7 +708,7 @@
             gap: 8px;
         }
 
-        .admin-close {
+        .panel-close {
             background: transparent;
             border: none;
             color: #96989d;
@@ -749,7 +718,7 @@
             transition: color 0.15s;
         }
 
-        .admin-close:hover {
+        .panel-close:hover {
             color: #fff;
         }
 
@@ -758,6 +727,7 @@
             padding: 8px 16px;
             gap: 8px;
             border-bottom: 1px solid #202225;
+            overflow-x: auto;
         }
 
         .admin-tab {
@@ -770,6 +740,7 @@
             font-size: 13px;
             font-weight: 500;
             transition: all 0.15s;
+            white-space: nowrap;
         }
 
         .admin-tab:hover {
@@ -786,6 +757,14 @@
             flex: 1;
             overflow-y: auto;
             padding: 12px;
+        }
+
+        .admin-section {
+            display: none;
+        }
+
+        .admin-section.active {
+            display: block;
         }
 
         .admin-user-item {
@@ -807,6 +786,7 @@
             display: flex;
             align-items: center;
             gap: 10px;
+            flex: 1;
         }
 
         .admin-user-avatar {
@@ -831,6 +811,7 @@
         .admin-actions {
             display: flex;
             gap: 6px;
+            flex-wrap: wrap;
         }
 
         .admin-btn {
@@ -882,7 +863,7 @@
             display: block;
         }
 
-        .admin-input {
+        .admin-input, .admin-select {
             width: 100%;
             padding: 8px 10px;
             background: #40444b;
@@ -893,8 +874,12 @@
             outline: none;
         }
 
-        .admin-input:focus {
+        .admin-input:focus, .admin-select:focus {
             border-color: #5865f2;
+        }
+
+        .admin-select {
+            cursor: pointer;
         }
 
         .admin-submit {
@@ -913,14 +898,6 @@
             background: #4752c4;
         }
 
-        .admin-section {
-            display: none;
-        }
-
-        .admin-section.active {
-            display: block;
-        }
-
         .admin-empty {
             text-align: center;
             color: #72767d;
@@ -933,6 +910,137 @@
             color: #72767d;
             padding: 8px;
             font-size: 11px;
+        }
+
+        .ban-option-group {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .ban-option {
+            flex: 1;
+            padding: 10px;
+            background: #40444b;
+            border: 2px solid #202225;
+            border-radius: 6px;
+            color: #dcddde;
+            cursor: pointer;
+            text-align: center;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.15s;
+        }
+
+        .ban-option:hover {
+            background: #484c52;
+        }
+
+        .ban-option.selected {
+            border-color: #5865f2;
+            background: #5865f2;
+            color: #fff;
+        }
+
+        .troll-btn {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 8px;
+            background: #5865f2;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .troll-btn:hover {
+            background: #4752c4;
+        }
+
+        .troll-btn.danger {
+            background: #ed4245;
+        }
+
+        .troll-btn.danger:hover {
+            background: #c03537;
+        }
+
+        .troll-btn.warning {
+            background: #faa61a;
+        }
+
+        .troll-btn.warning:hover {
+            background: #ee8e00;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        .stat-card {
+            background: #40444b;
+            padding: 12px;
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .stat-value {
+            color: #fff;
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .stat-label {
+            color: #96989d;
+            font-size: 11px;
+            text-transform: uppercase;
+            margin-top: 4px;
+        }
+
+        .action-log {
+            background: #40444b;
+            padding: 8px;
+            border-radius: 6px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .log-entry {
+            padding: 6px;
+            margin-bottom: 4px;
+            background: #2f3136;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #dcddde;
+        }
+
+        .log-time {
+            color: #72767d;
+            font-size: 10px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .checkbox-group label {
+            color: #dcddde;
+            font-size: 13px;
+            cursor: pointer;
         }
     </style>
 </head>
@@ -949,31 +1057,160 @@
     <div class="notifications" id="notifications"></div>
 
     <div id="adminPanel">
-        <div class="admin-header">
-            <div class="admin-title">
+        <div class="panel-header">
+            <div class="panel-title">
                 <span>⚡</span>
-                <span>Admin Controls</span>
+                <span>Admin Command Center</span>
             </div>
-            <button class="admin-close" id="adminClose">×</button>
+            <button class="panel-close" id="adminClose">×</button>
         </div>
         <div class="admin-tabs">
             <button class="admin-tab active" data-tab="users">Users</button>
+            <button class="admin-tab" data-tab="moderation">Moderation</button>
+            <button class="admin-tab" data-tab="trolling">Fun Tools</button>
             <button class="admin-tab" data-tab="settings">Settings</button>
+            <button class="admin-tab" data-tab="logs">Logs</button>
         </div>
         <div class="admin-content">
+            <!-- Users Tab -->
             <div class="admin-section active" id="adminUsers">
                 <div id="adminUserList"></div>
             </div>
+
+            <!-- Moderation Tab -->
+            <div class="admin-section" id="adminModeration">
+                <div class="admin-input-group">
+                    <label class="admin-label">Select User</label>
+                    <select class="admin-select" id="modUserSelect">
+                        <option value="">-- Select User --</option>
+                    </select>
+                </div>
+
+                <div class="admin-label">Ban Type</div>
+                <div class="ban-option-group">
+                    <div class="ban-option selected" data-type="username">
+                        Username Only
+                    </div>
+                    <div class="ban-option" data-type="ip">
+                        IP Address
+                    </div>
+                    <div class="ban-option" data-type="both">
+                        Both
+                    </div>
+                </div>
+
+                <div class="admin-input-group">
+                    <label class="admin-label">Action Type</label>
+                    <select class="admin-select" id="modActionSelect">
+                        <option value="kick">Kick</option>
+                        <option value="timeout">Timeout</option>
+                        <option value="ban">Ban</option>
+                        <option value="warning">Send Warning</option>
+                    </select>
+                </div>
+
+                <div class="admin-input-group" id="timeoutDurationGroup" style="display: none;">
+                    <label class="admin-label">Timeout Duration (seconds)</label>
+                    <input type="number" class="admin-input" id="modTimeoutDuration" value="60" min="1">
+                </div>
+
+                <div class="admin-input-group" id="reasonGroup">
+                    <label class="admin-label">Reason (optional)</label>
+                    <input type="text" class="admin-input" id="modReason" placeholder="Enter reason...">
+                </div>
+
+                <button class="admin-submit" onclick="executeModAction()">Execute Action</button>
+            </div>
+
+            <!-- Trolling Tab -->
+            <div class="admin-section" id="adminTrolling">
+                <div class="admin-input-group">
+                    <label class="admin-label">Target User</label>
+                    <select class="admin-select" id="trollUserSelect">
+                        <option value="">-- Select User --</option>
+                    </select>
+                </div>
+
+                <button class="troll-btn" onclick="sendFakeMessage()">Send Fake Message</button>
+                <button class="troll-btn warning" onclick="forceMute()">Force Mute (30s)</button>
+                <button class="troll-btn warning" onclick="spinUser()">Spin Their Screen</button>
+                <button class="troll-btn warning" onclick="slowMode()">Enable Slow Mode</button>
+                <button class="troll-btn warning" onclick="invertColors()">Invert Their Colors</button>
+                <button class="troll-btn warning" onclick="shakeScreen()">Shake Their Screen</button>
+                <button class="troll-btn warning" onclick="randomEmojis()">Emoji Spam</button>
+                <button class="troll-btn danger" onclick="rickRoll()">Rick Roll</button>
+                <button class="troll-btn danger" onclick="forceDisconnect()">Force Disconnect</button>
+                <button class="troll-btn danger" onclick="flipScreen()">Flip Screen Upside Down</button>
+                
+                <div class="admin-input-group" style="margin-top: 16px;">
+                    <label class="admin-label">Custom Fake Message</label>
+                    <input type="text" class="admin-input" id="fakeMessageText" placeholder="Enter message...">
+                </div>
+
+                <div class="admin-input-group">
+                    <label class="admin-label">Broadcast Announcement</label>
+                    <input type="text" class="admin-input" id="broadcastText" placeholder="Server announcement...">
+                    <button class="admin-submit" style="margin-top: 8px;" onclick="broadcastAnnouncement()">Send to All Users</button>
+                </div>
+            </div>
+
+            <!-- Settings Tab -->
             <div class="admin-section" id="adminSettings">
                 <div class="admin-input-group">
                     <label class="admin-label">Redirect URL (for kicks)</label>
                     <input type="text" class="admin-input" id="redirectUrl" placeholder="https://example.com" value="https://google.com">
                 </div>
+
                 <div class="admin-input-group">
-                    <label class="admin-label">Timeout Duration (seconds)</label>
-                    <input type="number" class="admin-input" id="timeoutDuration" placeholder="60" value="60">
+                    <label class="admin-label">Default Timeout Duration (seconds)</label>
+                    <input type="number" class="admin-input" id="defaultTimeoutDuration" placeholder="60" value="60">
                 </div>
+
+                <div class="checkbox-group">
+                    <input type="checkbox" id="autoModEnabled">
+                    <label for="autoModEnabled">Enable Auto-Moderation (Bad Words)</label>
+                </div>
+
+                <div class="checkbox-group">
+                    <input type="checkbox" id="slowModeEnabled">
+                    <label for="slowModeEnabled">Enable Global Slow Mode (5s)</label>
+                </div>
+
+                <div class="admin-input-group">
+                    <label class="admin-label">Server Message of the Day</label>
+                    <input type="text" class="admin-input" id="serverMotd" placeholder="Welcome to the server!">
+                </div>
+
                 <button class="admin-submit" onclick="saveAdminSettings()">Save Settings</button>
+
+                <div style="margin-top: 20px;">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value" id="totalUsers">0</div>
+                            <div class="stat-label">Total Users</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="totalMessages">0</div>
+                            <div class="stat-label">Messages Sent</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="totalBans">0</div>
+                            <div class="stat-label">Total Bans</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="totalKicks">0</div>
+                            <div class="stat-label">Total Kicks</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Logs Tab -->
+            <div class="admin-section" id="adminLogs">
+                <div class="admin-label" style="margin-bottom: 8px;">Recent Admin Actions</div>
+                <div class="action-log" id="actionLog">
+                    <div class="admin-empty">No actions logged yet</div>
+                </div>
             </div>
         </div>
     </div>
@@ -1049,12 +1286,21 @@
     <script>
         let isAdmin = false;
         let isVIP = false;
-        let adminSettings = {
-            redirectUrl: 'https://google.com',
-            timeoutDuration: 60
+        let selectedBanType = 'username';
+        let adminStats = {
+            totalKicks: 0,
+            totalBans: 0,
+            totalMessages: 0
         };
 
-        // Admin Panel Controls
+        let adminSettings = {
+            redirectUrl: 'https://google.com',
+            timeoutDuration: 60,
+            autoModEnabled: false,
+            slowModeEnabled: false,
+            serverMotd: ''
+        };
+
         const adminPanel = document.getElementById('adminPanel');
         const userArea = document.getElementById('userArea');
         const adminClose = document.getElementById('adminClose');
@@ -1063,6 +1309,8 @@
             if (isAdmin) {
                 adminPanel.classList.toggle('show');
                 updateAdminUserList();
+                updateUserSelects();
+                updateStats();
             }
         });
 
@@ -1080,6 +1328,25 @@
             });
         });
 
+        // Ban type selection
+        document.querySelectorAll('.ban-option').forEach(option => {
+            option.addEventListener('click', () => {
+                document.querySelectorAll('.ban-option').forEach(o => o.classList.remove('selected'));
+                option.classList.add('selected');
+                selectedBanType = option.dataset.type;
+            });
+        });
+
+        // Moderation action type change
+        document.getElementById('modActionSelect')?.addEventListener('change', function() {
+            const timeoutGroup = document.getElementById('timeoutDurationGroup');
+            if (this.value === 'timeout') {
+                timeoutGroup.style.display = 'block';
+            } else {
+                timeoutGroup.style.display = 'none';
+            }
+        });
+
         function updateAdminUserList() {
             const userListEl = document.getElementById('adminUserList');
             userListEl.innerHTML = '';
@@ -1089,6 +1356,7 @@
                 
                 let badgeHTML = '';
                 if (user.isVIP) badgeHTML = ' <span class="vip-badge">VIP</span>';
+                if (user.isAdmin) badgeHTML = ' <span class="admin-badge-text">ADMIN</span>';
                 
                 const userItem = document.createElement('div');
                 userItem.className = 'admin-user-item';
@@ -1098,9 +1366,9 @@
                         <div class="admin-user-name">${user.username}${badgeHTML}</div>
                     </div>
                     <div class="admin-actions">
-                        <button class="admin-btn admin-btn-kick" onclick="kickUser('${user.username}')">Kick</button>
-                        <button class="admin-btn admin-btn-timeout" onclick="timeoutUser('${user.username}')">Timeout</button>
-                        <button class="admin-btn admin-btn-ban" onclick="banUser('${user.username}')">Ban</button>
+                        <button class="admin-btn admin-btn-kick" onclick="quickAction('kick', '${user.username}')">Kick</button>
+                        <button class="admin-btn admin-btn-timeout" onclick="quickAction('timeout', '${user.username}')">Timeout</button>
+                        <button class="admin-btn admin-btn-ban" onclick="quickAction('ban', '${user.username}')">Ban</button>
                     </div>
                 `;
                 userListEl.appendChild(userItem);
@@ -1111,39 +1379,276 @@
             }
         }
 
-        function kickUser(username) {
-            if (confirm(`Kick ${username}? They will be redirected to: ${adminSettings.redirectUrl}`)) {
+        function updateUserSelects() {
+            const modSelect = document.getElementById('modUserSelect');
+            const trollSelect = document.getElementById('trollUserSelect');
+            
+            [modSelect, trollSelect].forEach(select => {
+                if (!select) return;
+                const currentValue = select.value;
+                select.innerHTML = '<option value="">-- Select User --</option>';
+                
+                state.users.forEach(user => {
+                    if (user.username !== state.username) {
+                        const option = document.createElement('option');
+                        option.value = user.username;
+                        option.textContent = user.username;
+                        select.appendChild(option);
+                    }
+                });
+                
+                select.value = currentValue;
+            });
+        }
+
+        function updateStats() {
+            document.getElementById('totalUsers').textContent = state.users.length;
+            document.getElementById('totalMessages').textContent = adminStats.totalMessages;
+            document.getElementById('totalBans').textContent = adminStats.totalBans;
+            document.getElementById('totalKicks').textContent = adminStats.totalKicks;
+        }
+
+        function logAction(action, target, details = '') {
+            const logEl = document.getElementById('actionLog');
+            if (logEl.querySelector('.admin-empty')) {
+                logEl.innerHTML = '';
+            }
+            
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            const time = new Date().toLocaleTimeString();
+            entry.innerHTML = `
+                <div class="log-time">${time}</div>
+                <div>${action} ${target ? `→ ${target}` : ''} ${details}</div>
+            `;
+            logEl.insertBefore(entry, logEl.firstChild);
+            
+            if (logEl.children.length > 50) {
+                logEl.removeChild(logEl.lastChild);
+            }
+        }
+
+        function quickAction(action, username) {
+            if (action === 'kick') {
+                if (confirm(`Kick ${username}?`)) {
+                    send({
+                        type: 'adminKick',
+                        targetUsername: username,
+                        redirectUrl: adminSettings.redirectUrl
+                    });
+                    adminStats.totalKicks++;
+                    logAction('KICK', username);
+                }
+            } else if (action === 'timeout') {
+                const duration = prompt('Timeout duration (seconds):', '60');
+                if (duration) {
+                    send({
+                        type: 'adminTimeout',
+                        targetUsername: username,
+                        duration: parseInt(duration)
+                    });
+                    logAction('TIMEOUT', username, `${duration}s`);
+                }
+            } else if (action === 'ban') {
+                if (confirm(`Ban ${username}? This will ban their username only.`)) {
+                    send({
+                        type: 'adminBan',
+                        targetUsername: username,
+                        banType: 'username'
+                    });
+                    adminStats.totalBans++;
+                    logAction('BAN', username, '(username)');
+                }
+            }
+        }
+
+        function executeModAction() {
+            const username = document.getElementById('modUserSelect').value;
+            const action = document.getElementById('modActionSelect').value;
+            const reason = document.getElementById('modReason').value;
+            
+            if (!username) {
+                showAdminNotification('⚠️ Error', 'Please select a user');
+                return;
+            }
+
+            if (action === 'kick') {
                 send({
                     type: 'adminKick',
                     targetUsername: username,
-                    redirectUrl: adminSettings.redirectUrl
+                    redirectUrl: adminSettings.redirectUrl,
+                    reason: reason
                 });
-            }
-        }
-
-        function timeoutUser(username) {
-            if (confirm(`Timeout ${username} for ${adminSettings.timeoutDuration} seconds?`)) {
+                adminStats.totalKicks++;
+                logAction('KICK', username, reason ? `(${reason})` : '');
+            } else if (action === 'timeout') {
+                const duration = document.getElementById('modTimeoutDuration').value;
                 send({
                     type: 'adminTimeout',
                     targetUsername: username,
-                    duration: adminSettings.timeoutDuration
+                    duration: parseInt(duration),
+                    reason: reason
                 });
+                logAction('TIMEOUT', username, `${duration}s ${reason ? `(${reason})` : ''}`);
+            } else if (action === 'ban') {
+                send({
+                    type: 'adminBan',
+                    targetUsername: username,
+                    banType: selectedBanType,
+                    reason: reason
+                });
+                adminStats.totalBans++;
+                logAction('BAN', username, `(${selectedBanType}) ${reason ? `- ${reason}` : ''}`);
+            } else if (action === 'warning') {
+                send({
+                    type: 'adminWarning',
+                    targetUsername: username,
+                    reason: reason || 'Warning from admin'
+                });
+                logAction('WARNING', username, reason);
+            }
+            
+            showAdminNotification('✅ Success', `${action} action executed on ${username}`);
+        }
+
+        // Trolling Functions
+        function sendFakeMessage() {
+            const username = document.getElementById('trollUserSelect').value;
+            const messageText = document.getElementById('fakeMessageText').value;
+            
+            if (!username || !messageText) {
+                showAdminNotification('⚠️ Error', 'Please select user and enter message');
+                return;
+            }
+
+            send({
+                type: 'adminFakeMessage',
+                targetUsername: username,
+                fakeText: messageText
+            });
+            logAction('FAKE MESSAGE', username, `"${messageText}"`);
+            showAdminNotification('😈 Sent', 'Fake message delivered');
+        }
+
+        function forceMute() {
+            const username = document.getElementById('trollUserSelect').value;
+            if (!username) {
+                showAdminNotification('⚠️ Error', 'Please select a user');
+                return;
+            }
+            send({ type: 'adminForceMute', targetUsername: username, duration: 30 });
+            logAction('FORCE MUTE', username, '30s');
+            showAdminNotification('🔇 Muted', `${username} cannot send messages for 30s`);
+        }
+
+        function spinUser() {
+            const username = document.getElementById('trollUserSelect').value;
+            if (!username) {
+                showAdminNotification('⚠️ Error', 'Please select a user');
+                return;
+            }
+            send({ type: 'adminSpinScreen', targetUsername: username });
+            logAction('SPIN SCREEN', username);
+            showAdminNotification('🌀 Spinning', 'Their screen is spinning!');
+        }
+
+        function slowMode() {
+            send({ type: 'adminSlowMode', enabled: !adminSettings.slowModeEnabled });
+            adminSettings.slowModeEnabled = !adminSettings.slowModeEnabled;
+            logAction('SLOW MODE', 'all users', adminSettings.slowModeEnabled ? 'enabled' : 'disabled');
+            showAdminNotification('⏱️ Slow Mode', adminSettings.slowModeEnabled ? 'Enabled' : 'Disabled');
+        }
+
+        function invertColors() {
+            const username = document.getElementById('trollUserSelect').value;
+            if (!username) {
+                showAdminNotification('⚠️ Error', 'Please select a user');
+                return;
+            }
+            send({ type: 'adminInvertColors', targetUsername: username });
+            logAction('INVERT COLORS', username);
+            showAdminNotification('🎨 Inverted', 'Their colors are inverted!');
+        }
+
+        function shakeScreen() {
+            const username = document.getElementById('trollUserSelect').value;
+            if (!username) {
+                showAdminNotification('⚠️ Error', 'Please select a user');
+                return;
+            }
+            send({ type: 'adminShakeScreen', targetUsername: username });
+            logAction('SHAKE SCREEN', username);
+            showAdminNotification('📳 Shaking', 'Earthquake initiated!');
+        }
+
+        function randomEmojis() {
+            const username = document.getElementById('trollUserSelect').value;
+            if (!username) {
+                showAdminNotification('⚠️ Error', 'Please select a user');
+                return;
+            }
+            send({ type: 'adminEmojiSpam', targetUsername: username });
+            logAction('EMOJI SPAM', username);
+            showAdminNotification('😂 Emoji Spam', 'Flooding their screen!');
+        }
+
+        function rickRoll() {
+            const username = document.getElementById('trollUserSelect').value;
+            if (!username) {
+                showAdminNotification('⚠️ Error', 'Please select a user');
+                return;
+            }
+            send({ type: 'adminRickRoll', targetUsername: username });
+            logAction('RICK ROLL', username);
+            showAdminNotification('🎵 Rick Roll', 'Never gonna give you up!');
+        }
+
+        function forceDisconnect() {
+            const username = document.getElementById('trollUserSelect').value;
+            if (!username) {
+                showAdminNotification('⚠️ Error', 'Please select a user');
+                return;
+            }
+            if (confirm(`Force disconnect ${username}?`)) {
+                send({ type: 'adminForceDisconnect', targetUsername: username });
+                logAction('FORCE DISCONNECT', username);
+                showAdminNotification('🔌 Disconnected', 'User has been disconnected');
             }
         }
 
-        function banUser(username) {
-            if (confirm(`Ban ${username}? This action is permanent!`)) {
-                send({
-                    type: 'adminBan',
-                    targetUsername: username
-                });
+        function flipScreen() {
+            const username = document.getElementById('trollUserSelect').value;
+            if (!username) {
+                showAdminNotification('⚠️ Error', 'Please select a user');
+                return;
             }
+            send({ type: 'adminFlipScreen', targetUsername: username });
+            logAction('FLIP SCREEN', username);
+            showAdminNotification('🙃 Flipped', 'Their world is upside down!');
+        }
+
+        function broadcastAnnouncement() {
+            const text = document.getElementById('broadcastText').value;
+            if (!text) {
+                showAdminNotification('⚠️ Error', 'Please enter announcement text');
+                return;
+            }
+            send({ type: 'adminBroadcast', message: text });
+            logAction('BROADCAST', 'all users', `"${text}"`);
+            showAdminNotification('📢 Broadcasted', 'Announcement sent to all users');
+            document.getElementById('broadcastText').value = '';
         }
 
         function saveAdminSettings() {
             adminSettings.redirectUrl = document.getElementById('redirectUrl').value;
-            adminSettings.timeoutDuration = parseInt(document.getElementById('timeoutDuration').value);
-            showAdminNotification('✅ Settings saved', 'Admin settings have been updated');
+            adminSettings.timeoutDuration = parseInt(document.getElementById('defaultTimeoutDuration').value);
+            adminSettings.autoModEnabled = document.getElementById('autoModEnabled').checked;
+            adminSettings.slowModeEnabled = document.getElementById('slowModeEnabled').checked;
+            adminSettings.serverMotd = document.getElementById('serverMotd').value;
+            
+            send({ type: 'adminUpdateSettings', settings: adminSettings });
+            showAdminNotification('✅ Settings Saved', 'Admin settings have been updated');
+            logAction('SETTINGS UPDATED', null, 'Admin configuration changed');
         }
 
         function showAdminNotification(title, message) {
@@ -1191,14 +1696,12 @@
         const notifications = document.getElementById('notifications');
         let typingTimeout;
 
-        // Helper to send messages
         function send(data) {
             if (state.ws && state.ws.readyState === WebSocket.OPEN) {
                 state.ws.send(JSON.stringify(data));
             }
         }
 
-        // Connect WebSocket
         function connectWebSocket() {
             try {
                 state.ws = new WebSocket(WS_URL);
@@ -1250,23 +1753,18 @@
                         isAdmin = data.isAdmin;
                         if (isAdmin) {
                             document.getElementById('adminBadge').classList.add('show');
-                            console.log('✅ Admin status verified by server');
-                        } else {
-                            document.getElementById('adminBadge').classList.remove('show');
                         }
                     }
                     if (data.isVIP !== undefined) {
                         isVIP = data.isVIP;
                         if (isVIP) {
                             document.getElementById('vipBadge').classList.add('show');
-                            console.log('✅ VIP status verified by server');
-                        } else {
-                            document.getElementById('vipBadge').classList.remove('show');
                         }
                     }
                     break;
                 case 'message':
                     addMessageToChannel(data.message);
+                    adminStats.totalMessages++;
                     break;
                 case 'history':
                     loadHistory(data.channel, data.messages);
@@ -1314,9 +1812,64 @@
                     const actions = {
                         kick: '🚪 User Kicked',
                         timeout: '⏰ User Timed Out',
-                        ban: '🔨 User Banned'
+                        ban: '🔨 User Banned',
+                        warning: '⚠️ Warning Sent'
                     };
-                    showAdminNotification(actions[data.action], `Action completed on ${data.target}`);
+                    showAdminNotification(actions[data.action] || '✅ Success', data.message || `Action completed on ${data.target}`);
+                    break;
+                case 'warning':
+                    showAdminNotification('⚠️ Admin Warning', data.message);
+                    break;
+                case 'broadcast':
+                    showAdminNotification('📢 Server Announcement', data.message);
+                    break;
+                case 'fakeMessage':
+                    showAdminNotification('👻 Fake Message', `You supposedly said: "${data.fakeText}"`);
+                    break;
+                case 'forceMute':
+                    showAdminNotification('🔇 Force Muted', `You cannot send messages for ${data.duration} seconds`);
+                    messageInput.disabled = true;
+                    sendBtn.disabled = true;
+                    setTimeout(() => {
+                        messageInput.disabled = false;
+                        sendBtn.disabled = false;
+                        showAdminNotification('🔊 Unmuted', 'You can now send messages again');
+                    }, data.duration * 1000);
+                    break;
+                case 'spinScreen':
+                    document.body.style.animation = 'spin 2s linear';
+                    setTimeout(() => { document.body.style.animation = ''; }, 2000);
+                    break;
+                case 'invertColors':
+                    document.body.style.filter = 'invert(1)';
+                    setTimeout(() => { document.body.style.filter = ''; }, 5000);
+                    break;
+                case 'shakeScreen':
+                    document.body.style.animation = 'shake 0.5s';
+                    setTimeout(() => { document.body.style.animation = ''; }, 500);
+                    break;
+                case 'emojiSpam':
+                    const emojis = ['😂', '🎉', '🔥', '💀', '👻', '🤡', '💩', '🌈'];
+                    for (let i = 0; i < 20; i++) {
+                        setTimeout(() => {
+                            const emoji = document.createElement('div');
+                            emoji.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+                            emoji.style.cssText = `position:fixed;font-size:50px;left:${Math.random()*window.innerWidth}px;top:${Math.random()*window.innerHeight}px;animation:fadeOut 2s forwards;pointer-events:none;z-index:9999;`;
+                            document.body.appendChild(emoji);
+                            setTimeout(() => emoji.remove(), 2000);
+                        }, i * 100);
+                    }
+                    break;
+                case 'rickRoll':
+                    window.open('https://www.youtube.com/watch?v=dQw4w9WgXcQ', '_blank');
+                    break;
+                case 'forceDisconnect':
+                    alert('An admin has disconnected you');
+                    state.ws.close();
+                    break;
+                case 'flipScreen':
+                    document.body.style.transform = 'rotate(180deg)';
+                    setTimeout(() => { document.body.style.transform = ''; }, 5000);
                     break;
                 case 'error':
                     showAdminNotification('❌ Error', data.message);
@@ -1474,17 +2027,9 @@
                 : state.messages[state.currentChannel] || [];
             
             messageArea.innerHTML = '';
-            const MESSAGE_GROUP_THRESHOLD = 5 * 60 * 1000; // 5 minutes
-            
-            msgs.forEach((msg, index) => {
-                const prevMsg = index > 0 ? msgs[index - 1] : null;
-                const isGrouped = prevMsg && 
-                    prevMsg.author === msg.author && 
-                    (new Date(msg.timestamp) - new Date(prevMsg.timestamp)) < MESSAGE_GROUP_THRESHOLD;
-                
+            msgs.forEach(msg => {
                 const msgEl = document.createElement('div');
                 msgEl.className = 'message';
-                if (isGrouped) msgEl.classList.add('grouped');
                 
                 let authorClass = 'message-author';
                 let badge = '';
@@ -1497,26 +2042,17 @@
                     badge = '<span class="vip-badge">VIP</span>';
                 }
                 
-                if (isGrouped) {
-                    msgEl.innerHTML = `
-                        <div class="message-avatar-spacer"></div>
-                        <div class="message-content">
-                            <div class="message-text">${msg.text}</div>
+                msgEl.innerHTML = `
+                    <div class="message-avatar">${msg.author.charAt(0).toUpperCase()}</div>
+                    <div class="message-content">
+                        <div class="message-header">
+                            <span class="${authorClass}">${msg.author}</span>
+                            ${badge}
+                            <span class="message-timestamp">${formatTime(new Date(msg.timestamp))}</span>
                         </div>
-                    `;
-                } else {
-                    msgEl.innerHTML = `
-                        <div class="message-avatar">${msg.author.charAt(0).toUpperCase()}</div>
-                        <div class="message-content">
-                            <div class="message-header">
-                                <span class="${authorClass}">${msg.author}</span>
-                                ${badge}
-                                <span class="message-timestamp">${formatTime(new Date(msg.timestamp))}</span>
-                            </div>
-                            <div class="message-text">${msg.text}</div>
-                        </div>
-                    `;
-                }
+                        <div class="message-text">${msg.text}</div>
+                    </div>
+                `;
                 messageArea.appendChild(msgEl);
             });
             messageArea.scrollTop = messageArea.scrollHeight;
@@ -1532,7 +2068,6 @@
             const vips = users.filter(u => u.isVIP && !u.isAdmin && u.username !== state.username);
             const regularUsers = users.filter(u => !u.isVIP && !u.isAdmin && u.username !== state.username);
             
-            // Admins
             admins.forEach(user => {
                 const adminEl = document.createElement('div');
                 adminEl.className = 'user-list-item';
@@ -1548,7 +2083,6 @@
                 adminList.innerHTML = '<div class="empty-list">No admins online</div>';
             }
             
-            // VIPs
             vips.forEach(user => {
                 const vipEl = document.createElement('div');
                 vipEl.className = 'user-list-item';
@@ -1564,7 +2098,6 @@
                 vipList.innerHTML = '<div class="empty-list">No VIPs online</div>';
             }
             
-            // Regular users
             regularUsers.forEach(user => {
                 const userEl = document.createElement('div');
                 userEl.className = 'user-list-item';
@@ -1582,6 +2115,7 @@
             
             if (isAdmin && adminPanel.classList.contains('show')) {
                 updateAdminUserList();
+                updateUserSelects();
             }
         }
 
@@ -1780,7 +2314,26 @@
             }
         };
 
-        // Password gate: controls app start
+        // Add CSS animations
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes spin {
+                from { transform: rotate(0deg); }
+                to { transform: rotate(360deg); }
+            }
+            @keyframes shake {
+                0%, 100% { transform: translateX(0); }
+                25% { transform: translateX(-10px); }
+                75% { transform: translateX(10px); }
+            }
+            @keyframes fadeOut {
+                from { opacity: 1; }
+                to { opacity: 0; transform: translateY(-50px); }
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Password gate
         (function setupPasswordGate() {
             const overlay = document.getElementById('loginOverlay');
             const input = document.getElementById('passwordInput');
