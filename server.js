@@ -32,7 +32,7 @@ const tempBannedIPs = new Map();
 const ipBanMap = new Map(); // username -> ip for ban tracking
 const lastMessageTime = new Map(); // username -> timestamp for slow mode
 
-const ADMIN_PASSWORD = 'classicclassic';
+const ADMIN_PASSWORD = 'classic-admin-76';
 const VIP_PASSWORD = 'very-important-person';
 const adminUsers = new Set();
 const vipUsers = new Set();
