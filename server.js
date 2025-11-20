@@ -30,6 +30,7 @@ const timedOutUsers = new Map();
 const bannedIPs = new Set();
 const tempBannedIPs = new Map();
 const ipBanMap = new Map(); // username -> ip for ban tracking
+const lastMessageTime = new Map(); // username -> timestamp for slow mode
 
 const ADMIN_PASSWORD = 'classicclassic';
 const VIP_PASSWORD = 'very-important-person';
@@ -40,8 +41,16 @@ const adminActions = [];
 let serverSettings = {
     autoModEnabled: false,
     slowModeEnabled: false,
+    slowModeDuration: 5, // seconds between messages
     serverMotd: ''
 };
+
+// Bad words list for auto-moderation
+const badWords = [
+    'fuck', 'shit', 'bitch', 'ass', 'damn', 'hell', 
+    'bastard', 'crap', 'piss', 'dick', 'pussy', 'cock',
+    'fck', 'fuk', 'sht', 'btch', 'dmn'
+];
 
 // Utility functions
 function getClientIp(req) {
@@ -117,6 +126,40 @@ function isUserTimedOut(username) {
     return true;
 }
 
+function checkSlowMode(username) {
+    if (!serverSettings.slowModeEnabled) return { allowed: true };
+    
+    // Admins bypass slow mode
+    if (adminUsers.has(username)) return { allowed: true };
+    
+    const lastTime = lastMessageTime.get(username);
+    if (!lastTime) {
+        lastMessageTime.set(username, Date.now());
+        return { allowed: true };
+    }
+    
+    const timeSince = (Date.now() - lastTime) / 1000;
+    if (timeSince < serverSettings.slowModeDuration) {
+        const waitTime = Math.ceil(serverSettings.slowModeDuration - timeSince);
+        return { allowed: false, waitTime };
+    }
+    
+    lastMessageTime.set(username, Date.now());
+    return { allowed: true };
+}
+
+function containsBadWords(text) {
+    const lowerText = text.toLowerCase();
+    for (const word of badWords) {
+        // Check for the word with word boundaries
+        const regex = new RegExp(`\\b${word}\\b`, 'i');
+        if (regex.test(lowerText)) {
+            return { found: true, word };
+        }
+    }
+    return { found: false };
+}
+
 function broadcastUserList() {
     const userList = Array.from(users.values()).map(u => ({
         username: u.username,
@@ -171,6 +214,7 @@ wss.on('connection', (ws, req) => {
             userSocketMap.delete(user.username);
             adminUsers.delete(user.username);
             vipUsers.delete(user.username);
+            lastMessageTime.delete(user.username);
             users.delete(ws);
             broadcastUserList();
         }
@@ -228,6 +272,9 @@ function handleMessage(ws, message) {
             break;
         case 'adminSpinScreen':
             handleAdminSpinScreen(ws, message);
+            break;
+        case 'adminSlowMode':
+            handleAdminSlowMode(ws, message);
             break;
         case 'adminInvertColors':
             handleAdminInvertColors(ws, message);
@@ -305,6 +352,14 @@ function handleJoin(ws, message) {
         isVIP: isVerifiedVIP
     }));
 
+    // Send MOTD if set
+    if (serverSettings.serverMotd) {
+        ws.send(JSON.stringify({
+            type: 'broadcast',
+            message: `📢 Server MOTD: ${serverSettings.serverMotd}`
+        }));
+    }
+
     broadcastUserList();
     console.log(`User ${username} joined from ${maskIp(ws.ip)}. Total users: ${users.size}`);
 }
@@ -320,6 +375,50 @@ function handleChatMessage(ws, message) {
 
     const { channel, text } = message;
     if (!channel || typeof text !== 'string' || !text.trim()) return;
+
+    // Check slow mode
+    const slowModeCheck = checkSlowMode(user.username);
+    if (!slowModeCheck.allowed) {
+        ws.send(JSON.stringify({ 
+            type: 'error', 
+            message: `Slow mode active. Please wait ${slowModeCheck.waitTime} more second(s)` 
+        }));
+        return;
+    }
+
+    // Check auto-moderation for bad words
+    if (serverSettings.autoModEnabled && !user.isAdmin) {
+        const badWordCheck = containsBadWords(text);
+        if (badWordCheck.found) {
+            // Auto-timeout for 30 seconds
+            const timeoutEnd = Date.now() + 30000;
+            timedOutUsers.set(user.username, timeoutEnd);
+            
+            ws.send(JSON.stringify({
+                type: 'timedOut',
+                duration: 30,
+                message: `Auto-moderation: Timed out for 30 seconds (Bad word detected: "${badWordCheck.word}")`
+            }));
+
+            console.log(`[AUTO-MOD] ${user.username} timed out for bad word: ${badWordCheck.word}`);
+            adminActions.push({
+                type: 'autoMod',
+                target: user.username,
+                word: badWordCheck.word,
+                timestamp: new Date().toISOString()
+            });
+
+            setTimeout(() => {
+                timedOutUsers.delete(user.username);
+                sendToUser(user.username, {
+                    type: 'timeoutEnded',
+                    message: 'Your auto-moderation timeout has ended'
+                });
+            }, 30000);
+
+            return;
+        }
+    }
 
     const chatMessage = {
         id: generateId(),
@@ -419,6 +518,41 @@ function handlePrivateMessage(ws, message) {
 
     const { chatId, text, targetUsername } = message;
     if (!chatId || !targetUsername || typeof text !== 'string' || !text.trim()) return;
+
+    // Check slow mode for private messages too
+    const slowModeCheck = checkSlowMode(sender.username);
+    if (!slowModeCheck.allowed) {
+        ws.send(JSON.stringify({ 
+            type: 'error', 
+            message: `Slow mode active. Please wait ${slowModeCheck.waitTime} more second(s)` 
+        }));
+        return;
+    }
+
+    // Check auto-moderation for private messages
+    if (serverSettings.autoModEnabled && !sender.isAdmin) {
+        const badWordCheck = containsBadWords(text);
+        if (badWordCheck.found) {
+            const timeoutEnd = Date.now() + 30000;
+            timedOutUsers.set(sender.username, timeoutEnd);
+            
+            ws.send(JSON.stringify({
+                type: 'timedOut',
+                duration: 30,
+                message: `Auto-moderation: Timed out for 30 seconds (Bad word detected: "${badWordCheck.word}")`
+            }));
+
+            setTimeout(() => {
+                timedOutUsers.delete(sender.username);
+                sendToUser(sender.username, {
+                    type: 'timeoutEnded',
+                    message: 'Your auto-moderation timeout has ended'
+                });
+            }, 30000);
+
+            return;
+        }
+    }
 
     const privateMessage = {
         id: generateId(),
@@ -651,6 +785,35 @@ function handleAdminSpinScreen(ws, message) {
     ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'spinScreen' }));
 }
 
+function handleAdminSlowMode(ws, message) {
+    const admin = requireAdmin(ws);
+    if (!admin) return;
+
+    const { enabled } = message;
+    serverSettings.slowModeEnabled = enabled;
+    
+    // Clear all last message times when toggling
+    if (!enabled) {
+        lastMessageTime.clear();
+    }
+
+    broadcast({
+        type: 'broadcast',
+        message: enabled 
+            ? `🐌 Slow mode enabled: ${serverSettings.slowModeDuration} second delay between messages` 
+            : '⚡ Slow mode disabled'
+    });
+
+    adminActions.push({
+        type: 'slowMode',
+        by: admin.username,
+        enabled,
+        timestamp: new Date().toISOString()
+    });
+
+    ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'slowMode' }));
+}
+
 function handleAdminInvertColors(ws, message) {
     const admin = requireAdmin(ws);
     if (!admin) return;
@@ -779,7 +942,32 @@ function handleAdminUpdateSettings(ws, message) {
     if (!admin) return;
 
     const { settings } = message;
-    serverSettings = { ...serverSettings, ...settings };
+    
+    // Update settings
+    if (settings.autoModEnabled !== undefined) {
+        serverSettings.autoModEnabled = settings.autoModEnabled;
+        console.log(`[ADMIN] ${admin.username} ${settings.autoModEnabled ? 'enabled' : 'disabled'} auto-moderation`);
+    }
+    
+    if (settings.slowModeEnabled !== undefined) {
+        serverSettings.slowModeEnabled = settings.slowModeEnabled;
+        if (!settings.slowModeEnabled) {
+            lastMessageTime.clear();
+        }
+        console.log(`[ADMIN] ${admin.username} ${settings.slowModeEnabled ? 'enabled' : 'disabled'} slow mode`);
+    }
+    
+    if (settings.redirectUrl) {
+        serverSettings.redirectUrl = settings.redirectUrl;
+    }
+    
+    if (settings.timeoutDuration) {
+        serverSettings.timeoutDuration = settings.timeoutDuration;
+    }
+    
+    if (settings.serverMotd !== undefined) {
+        serverSettings.serverMotd = settings.serverMotd;
+    }
 
     adminActions.push({
         type: 'settingsUpdate',
@@ -803,7 +991,8 @@ app.get('/health', (req, res) => {
         tempBannedIPs: tempBannedIPs.size,
         timedOutUsers: timedOutUsers.size,
         adminUsers: adminUsers.size,
-        vipUsers: vipUsers.size
+        vipUsers: vipUsers.size,
+        settings: serverSettings
     });
 });
 
@@ -831,6 +1020,16 @@ app.get('/admin/bans', adminAuth, (_req, res) => {
     });
 });
 
+app.get('/admin/settings', adminAuth, (_req, res) => {
+    res.json({
+        settings: serverSettings,
+        stats: {
+            users: users.size,
+            adminActions: adminActions.length
+        }
+    });
+});
+
 app.post('/admin/unban', adminAuth, (req, res) => {
     const { username } = req.body || {};
     if (!username) return res.status(400).json({ error: 'username required' });
@@ -848,6 +1047,25 @@ app.post('/admin/unban-ip', adminAuth, (req, res) => {
     res.json({ ok: true, ip: maskIp(ip) });
 });
 
+app.post('/admin/settings', adminAuth, (req, res) => {
+    const { settings } = req.body || {};
+    if (!settings) return res.status(400).json({ error: 'settings required' });
+    
+    serverSettings = { ...serverSettings, ...settings };
+    
+    if (settings.slowModeEnabled === false) {
+        lastMessageTime.clear();
+    }
+    
+    adminActions.push({ 
+        type: 'settingsUpdate', 
+        by: 'REST', 
+        timestamp: new Date().toISOString() 
+    });
+    
+    res.json({ ok: true, settings: serverSettings });
+});
+
 // Server lifecycle
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
@@ -857,6 +1075,10 @@ server.listen(PORT, () => {
     console.log(`Open http://localhost:${PORT}`);
     console.log(`Admin Password: ${ADMIN_PASSWORD}`);
     console.log(`VIP Password: ${VIP_PASSWORD}`);
+    console.log(`=================================`);
+    console.log(`Features enabled:`);
+    console.log(`- Auto-Moderation: ${serverSettings.autoModEnabled}`);
+    console.log(`- Slow Mode: ${serverSettings.slowModeEnabled}`);
     console.log(`=================================`);
 });
 
