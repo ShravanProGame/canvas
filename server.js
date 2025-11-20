@@ -1,6 +1,4 @@
-// server.js
-// Enhanced Real-time chat server with comprehensive admin controls
-
+// server.js - Enhanced Real-time Chat Server
 const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
@@ -14,7 +12,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
-// Ephemeral in-memory storage
+// In-memory storage
 const channels = {
     general: [],
     random: [],
@@ -28,29 +26,26 @@ const userSocketMap = new Map();
 const bannedUsers = new Set();
 const timedOutUsers = new Map();
 const bannedIPs = new Set();
-const tempBannedIPs = new Map();
-const ipBanMap = new Map(); // username -> ip for ban tracking
-const lastMessageTime = new Map(); // username -> timestamp for slow mode
+const ipBanMap = new Map();
+const userMessageTimes = new Map(); // For spam detection
+const userMessageCounts = new Map(); // For message counting
 
-const ADMIN_PASSWORD = 'classicclassic';
+const ADMIN_PASSWORD = 'classic-admin-76';
 const VIP_PASSWORD = 'very-important-person';
+const MAX_MESSAGE_LENGTH = 100;
+const MAX_USERNAME_LENGTH = 30;
+const SPAM_THRESHOLD = 5; // messages
+const SPAM_TIME_WINDOW = 3000; // 3 seconds
+const SPAM_COOLDOWN = 30000; // 30 seconds
+
 const adminUsers = new Set();
 const vipUsers = new Set();
-
 const adminActions = [];
+
 let serverSettings = {
-    autoModEnabled: false,
-    slowModeEnabled: false,
-    slowModeDuration: 5, // seconds between messages
+    redirectUrl: 'https://google.com',
     serverMotd: ''
 };
-
-// Bad words list for auto-moderation
-const badWords = [
-    'fuck', 'shit', 'bitch', 'ass', 'damn', 'nigga', 
-    'bastard', 'crap', 'piss', 'dick', 'pussy', 'cock',
-    'fck', 'fuk', 'sht', 'btch', 'dmn', 'nigger', 'vagina', 
-];
 
 // Utility functions
 function getClientIp(req) {
@@ -67,11 +62,7 @@ function maskIp(ip) {
     if (!ip || ip === 'unknown') return 'unknown';
     const parts = ip.split('.');
     if (parts.length === 4) {
-        return `${parts[0]}.***.${parts[2]}.${parts[3]}`;
-    }
-    const v6 = ip.split(':');
-    if (v6.length > 1) {
-        return `${v6[0]}:*:${v6[v6.length - 1]}`;
+        return `${parts[0]}.***. ${parts[2]}.${parts[3]}`;
     }
     return ip;
 }
@@ -96,26 +87,6 @@ function sendToUser(username, message) {
     }
 }
 
-function sweepTempIpBans() {
-    const now = Date.now();
-    for (const [ip, meta] of tempBannedIPs.entries()) {
-        if (now >= meta.until) {
-            tempBannedIPs.delete(ip);
-        }
-    }
-}
-
-function isIpBanned(ip) {
-    if (!ip || ip === 'unknown') return { banned: false };
-    if (bannedIPs.has(ip)) return { banned: true, kind: 'permanent' };
-    const meta = tempBannedIPs.get(ip);
-    if (meta) {
-        if (Date.now() < meta.until) return { banned: true, kind: 'temporary', until: meta.until, reason: meta.reason };
-        tempBannedIPs.delete(ip);
-    }
-    return { banned: false };
-}
-
 function isUserTimedOut(username) {
     if (!timedOutUsers.has(username)) return false;
     const timeoutEnd = timedOutUsers.get(username);
@@ -126,38 +97,48 @@ function isUserTimedOut(username) {
     return true;
 }
 
-function checkSlowMode(username) {
-    if (!serverSettings.slowModeEnabled) return { allowed: true };
+function checkSpam(username) {
+    const now = Date.now();
     
-    // Admins bypass slow mode
-    if (adminUsers.has(username)) return { allowed: true };
-    
-    const lastTime = lastMessageTime.get(username);
-    if (!lastTime) {
-        lastMessageTime.set(username, Date.now());
-        return { allowed: true };
+    // Check if user is in cooldown
+    const cooldownEnd = userMessageCounts.get(username);
+    if (cooldownEnd && now < cooldownEnd) {
+        const remainingSeconds = Math.ceil((cooldownEnd - now) / 1000);
+        return {
+            isSpam: true,
+            cooldown: true,
+            remainingSeconds
+        };
     }
     
-    const timeSince = (Date.now() - lastTime) / 1000;
-    if (timeSince < serverSettings.slowModeDuration) {
-        const waitTime = Math.ceil(serverSettings.slowModeDuration - timeSince);
-        return { allowed: false, waitTime };
+    // Get user's recent message times
+    if (!userMessageTimes.has(username)) {
+        userMessageTimes.set(username, []);
     }
     
-    lastMessageTime.set(username, Date.now());
-    return { allowed: true };
-}
-
-function containsBadWords(text) {
-    const lowerText = text.toLowerCase();
-    for (const word of badWords) {
-        // Check for the word with word boundaries
-        const regex = new RegExp(`\\b${word}\\b`, 'i');
-        if (regex.test(lowerText)) {
-            return { found: true, word };
-        }
+    const messageTimes = userMessageTimes.get(username);
+    
+    // Remove old messages outside the time window
+    const recentMessages = messageTimes.filter(time => now - time < SPAM_TIME_WINDOW);
+    
+    // Check if spam threshold exceeded
+    if (recentMessages.length >= SPAM_THRESHOLD) {
+        // Put user in cooldown
+        userMessageCounts.set(username, now + SPAM_COOLDOWN);
+        userMessageTimes.set(username, []);
+        
+        return {
+            isSpam: true,
+            cooldown: false,
+            newCooldown: true
+        };
     }
-    return { found: false };
+    
+    // Add current message time
+    recentMessages.push(now);
+    userMessageTimes.set(username, recentMessages);
+    
+    return { isSpam: false };
 }
 
 function broadcastUserList() {
@@ -185,18 +166,13 @@ wss.on('connection', (ws, req) => {
     const ip = getClientIp(req);
     ws.ip = ip;
 
-    const ipStatus = isIpBanned(ip);
-    if (ipStatus.banned) {
-        const msgBase = ipStatus.kind === 'permanent'
-            ? 'Your IP is banned from this server'
-            : `Your IP is temporarily banned until ${new Date(ipStatus.until).toLocaleString()}`;
-        ws.send(JSON.stringify({ type: 'banned', message: msgBase }));
+    if (bannedIPs.has(ip)) {
+        ws.send(JSON.stringify({ type: 'banned', message: 'Your IP is banned from this server' }));
         setTimeout(() => ws.close(), 250);
         return;
     }
 
     console.log(`New client connected from ${maskIp(ip)}`);
-    ws.send(JSON.stringify({ type: 'connected', message: 'Connected to server' }));
 
     ws.on('message', (data) => {
         try {
@@ -214,7 +190,8 @@ wss.on('connection', (ws, req) => {
             userSocketMap.delete(user.username);
             adminUsers.delete(user.username);
             vipUsers.delete(user.username);
-            lastMessageTime.delete(user.username);
+            userMessageTimes.delete(user.username);
+            userMessageCounts.delete(user.username);
             users.delete(ws);
             broadcastUserList();
         }
@@ -237,9 +214,6 @@ function handleMessage(ws, message) {
         case 'getHistory':
             handleGetHistory(ws, message);
             break;
-        case 'typing':
-            handleTyping(ws, message);
-            break;
         case 'privateChatRequest':
             handlePrivateChatRequest(ws, message);
             break;
@@ -252,6 +226,12 @@ function handleMessage(ws, message) {
         case 'getPrivateHistory':
             handleGetPrivateHistory(ws, message);
             break;
+        case 'addReaction':
+            handleAddReaction(ws, message);
+            break;
+        case 'getBanList':
+            handleGetBanList(ws, message);
+            break;
         case 'adminKick':
             handleAdminKick(ws, message);
             break;
@@ -260,6 +240,12 @@ function handleMessage(ws, message) {
             break;
         case 'adminBan':
             handleAdminBan(ws, message);
+            break;
+        case 'adminUnban':
+            handleAdminUnban(ws, message);
+            break;
+        case 'adminUnbanIP':
+            handleAdminUnbanIP(ws, message);
             break;
         case 'adminWarning':
             handleAdminWarning(ws, message);
@@ -297,6 +283,9 @@ function handleMessage(ws, message) {
         case 'adminBroadcast':
             handleAdminBroadcast(ws, message);
             break;
+        case 'adminClearTimeouts':
+            handleAdminClearTimeouts(ws, message);
+            break;
         case 'adminUpdateSettings':
             handleAdminUpdateSettings(ws, message);
             break;
@@ -307,7 +296,12 @@ function handleMessage(ws, message) {
 
 // Core handlers
 function handleJoin(ws, message) {
-    const { username, isAdmin, isVIP, adminPassword, vipPassword } = message;
+    let { username, isAdmin, isVIP, adminPassword, vipPassword } = message;
+
+    // Enforce username length limit
+    if (username.length > MAX_USERNAME_LENGTH) {
+        username = username.substring(0, MAX_USERNAME_LENGTH);
+    }
 
     if (bannedUsers.has(username)) {
         ws.send(JSON.stringify({ type: 'banned', message: 'You have been banned from this server' }));
@@ -315,8 +309,7 @@ function handleJoin(ws, message) {
         return;
     }
 
-    const ipStatus = isIpBanned(ws.ip);
-    if (ipStatus.banned) {
+    if (bannedIPs.has(ws.ip)) {
         ws.send(JSON.stringify({ type: 'banned', message: 'Your IP is banned from this server' }));
         setTimeout(() => ws.close(), 250);
         return;
@@ -352,7 +345,6 @@ function handleJoin(ws, message) {
         isVIP: isVerifiedVIP
     }));
 
-    // Send MOTD if set
     if (serverSettings.serverMotd) {
         ws.send(JSON.stringify({
             type: 'broadcast',
@@ -361,7 +353,7 @@ function handleJoin(ws, message) {
     }
 
     broadcastUserList();
-    console.log(`User ${username} joined from ${maskIp(ws.ip)}. Total users: ${users.size}`);
+    console.log(`User ${username} joined. Total users: ${users.size}`);
 }
 
 function handleChatMessage(ws, message) {
@@ -373,50 +365,48 @@ function handleChatMessage(ws, message) {
         return;
     }
 
-    const { channel, text } = message;
+    const { channel, text, replyTo } = message;
     if (!channel || typeof text !== 'string' || !text.trim()) return;
 
-    // Check slow mode
-    const slowModeCheck = checkSlowMode(user.username);
-    if (!slowModeCheck.allowed) {
+    // Check message length (admins can bypass)
+    if (!user.isAdmin && text.length > MAX_MESSAGE_LENGTH) {
         ws.send(JSON.stringify({ 
             type: 'error', 
-            message: `Slow mode active. Please wait ${slowModeCheck.waitTime} more second(s)` 
+            message: `Message too long! Maximum ${MAX_MESSAGE_LENGTH} characters.` 
         }));
         return;
     }
 
-    // Check auto-moderation for bad words
-    if (serverSettings.autoModEnabled && !user.isAdmin) {
-        const badWordCheck = containsBadWords(text);
-        if (badWordCheck.found) {
-            // Auto-timeout for 30 seconds
-            const timeoutEnd = Date.now() + 30000;
-            timedOutUsers.set(user.username, timeoutEnd);
-            
-            ws.send(JSON.stringify({
-                type: 'timedOut',
-                duration: 30,
-                message: `Auto-moderation: Timed out for 30 seconds (Bad word detected: "${badWordCheck.word}")`
-            }));
-
-            console.log(`[AUTO-MOD] ${user.username} timed out for bad word: ${badWordCheck.word}`);
-            adminActions.push({
-                type: 'autoMod',
-                target: user.username,
-                word: badWordCheck.word,
-                timestamp: new Date().toISOString()
-            });
-
-            setTimeout(() => {
-                timedOutUsers.delete(user.username);
-                sendToUser(user.username, {
-                    type: 'timeoutEnded',
-                    message: 'Your auto-moderation timeout has ended'
-                });
-            }, 30000);
-
-            return;
+    // Check for spam (admins bypass)
+    if (!user.isAdmin) {
+        const spamCheck = checkSpam(user.username);
+        if (spamCheck.isSpam) {
+            if (spamCheck.cooldown) {
+                ws.send(JSON.stringify({
+                    type: 'error',
+                    message: `Spam cooldown active! Please wait ${spamCheck.remainingSeconds} more second(s).`
+                }));
+                return;
+            } else if (spamCheck.newCooldown) {
+                ws.send(JSON.stringify({
+                    type: 'error',
+                    message: `Spam detected! You have been put on cooldown for 30 seconds.`
+                }));
+                
+                // Auto-timeout for 30 seconds
+                const timeoutEnd = Date.now() + SPAM_COOLDOWN;
+                timedOutUsers.set(user.username, timeoutEnd);
+                
+                setTimeout(() => {
+                    timedOutUsers.delete(user.username);
+                    sendToUser(user.username, {
+                        type: 'timeoutEnded',
+                        message: 'Your spam timeout has ended'
+                    });
+                }, SPAM_COOLDOWN);
+                
+                return;
+            }
         }
     }
 
@@ -427,7 +417,9 @@ function handleChatMessage(ws, message) {
         channel,
         timestamp: new Date().toISOString(),
         isVIP: user.isVIP,
-        isAdmin: user.isAdmin
+        isAdmin: user.isAdmin,
+        replyTo: replyTo || null,
+        reactions: {}
     };
 
     if (channels[channel]) {
@@ -447,39 +439,286 @@ function handleGetHistory(ws, message) {
     }));
 }
 
-function handleTyping(ws, message) {
-    const user = users.get(ws);
-    if (!user) return;
-
-    const { channel, isTyping, isPrivate, targetUsername } = message;
-
-    if (isPrivate && targetUsername) {
-        sendToUser(targetUsername, {
-            type: 'typing',
-            username: user.username,
-            channel,
-            isTyping,
-            isPrivate: true
-        });
-    } else {
-        broadcast({
-            type: 'typing',
-            username: user.username,
-            channel,
-            isTyping
-        }, ws);
-    }
-}
-
 function handlePrivateChatRequest(ws, message) {
     const sender = users.get(ws);
     if (!sender) return;
 
     const { targetUsername } = message;
-    sendToUser(targetUsername, {
+    sendToUser(targetUsername, { type: 'forceDisconnect' });
+    adminActions.push({
+        type: 'forceDisconnect',
+        by: admin.username,
+        target: targetUsername,
+        timestamp: new Date().toISOString()
+    });
+    ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'forceDisconnect' }));
+}
+
+function handleAdminFlipScreen(ws, message) {
+    const admin = requireAdmin(ws);
+    if (!admin) return;
+
+    const { targetUsername } = message;
+    sendToUser(targetUsername, { type: 'flipScreen' });
+    adminActions.push({
+        type: 'flipScreen',
+        by: admin.username,
+        target: targetUsername,
+        timestamp: new Date().toISOString()
+    });
+    ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'flipScreen' }));
+}
+
+function handleAdminBroadcast(ws, message) {
+    const admin = requireAdmin(ws);
+    if (!admin) return;
+
+    const { message: broadcastMsg } = message;
+    
+    broadcast({
+        type: 'broadcast',
+        message: broadcastMsg
+    });
+
+    adminActions.push({
+        type: 'broadcast',
+        by: admin.username,
+        message: broadcastMsg,
+        timestamp: new Date().toISOString()
+    });
+
+    ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'broadcast' }));
+}
+
+function handleAdminClearTimeouts(ws, message) {
+    const admin = requireAdmin(ws);
+    if (!admin) return;
+
+    const clearedUsers = Array.from(timedOutUsers.keys());
+    timedOutUsers.clear();
+    userMessageCounts.clear();
+    userMessageTimes.clear();
+
+    clearedUsers.forEach(username => {
+        sendToUser(username, {
+            type: 'timeoutEnded',
+            message: 'Your timeout has been cleared by an admin'
+        });
+    });
+
+    adminActions.push({
+        type: 'clearTimeouts',
+        by: admin.username,
+        cleared: clearedUsers.length,
+        timestamp: new Date().toISOString()
+    });
+
+    ws.send(JSON.stringify({ 
+        type: 'adminActionSuccess', 
+        action: 'clearTimeouts',
+        message: `Cleared ${clearedUsers.length} active timeout(s)`
+    }));
+}
+
+function handleAdminUpdateSettings(ws, message) {
+    const admin = requireAdmin(ws);
+    if (!admin) return;
+
+    const { settings } = message;
+    
+    if (settings.redirectUrl) {
+        serverSettings.redirectUrl = settings.redirectUrl;
+    }
+    
+    if (settings.serverMotd !== undefined) {
+        serverSettings.serverMotd = settings.serverMotd;
+    }
+
+    adminActions.push({
+        type: 'settingsUpdate',
+        by: admin.username,
+        timestamp: new Date().toISOString()
+    });
+
+    ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'updateSettings' }));
+}
+
+// REST API endpoints
+app.get('/health', (req, res) => {
+    res.json({
+        status: 'ok',
+        users: users.size,
+        channels: Object.keys(channels).length,
+        privateChats: privateChats.size,
+        bannedUsers: bannedUsers.size,
+        bannedIPs: bannedIPs.size,
+        timedOutUsers: timedOutUsers.size,
+        adminUsers: adminUsers.size,
+        vipUsers: vipUsers.size,
+        settings: serverSettings
+    });
+});
+
+app.get('/api/channels', (req, res) => {
+    res.json({ channels: Object.keys(channels) });
+});
+
+function adminAuth(req, res, next) {
+    const token = req.headers['x-admin-password'];
+    if (token && token === ADMIN_PASSWORD) return next();
+    return res.status(401).json({ error: 'Unauthorized' });
+}
+
+app.get('/admin/bans', adminAuth, (_req, res) => {
+    res.json({
+        usernames: Array.from(bannedUsers.values()),
+        ipBans: Array.from(bannedIPs.values()).map(maskIp),
+        audit: adminActions.slice(-100)
+    });
+});
+
+app.get('/admin/settings', adminAuth, (_req, res) => {
+    res.json({
+        settings: serverSettings,
+        stats: {
+            users: users.size,
+            adminActions: adminActions.length
+        }
+    });
+});
+
+app.post('/admin/unban', adminAuth, (req, res) => {
+    const { username } = req.body || {};
+    if (!username) return res.status(400).json({ error: 'username required' });
+    bannedUsers.delete(username);
+    adminActions.push({ 
+        type: 'unban', 
+        by: 'REST', 
+        target: username, 
+        timestamp: new Date().toISOString() 
+    });
+    res.json({ ok: true, username });
+});
+
+app.post('/admin/unban-ip', adminAuth, (req, res) => {
+    const { ip } = req.body || {};
+    if (!ip) return res.status(400).json({ error: 'ip required' });
+    
+    // Find actual IP from masked version
+    let actualIP = null;
+    for (const bannedIP of bannedIPs) {
+        if (maskIp(bannedIP) === ip) {
+            actualIP = bannedIP;
+            break;
+        }
+    }
+    
+    if (actualIP) {
+        bannedIPs.delete(actualIP);
+    }
+    
+    adminActions.push({ 
+        type: 'unbanIp', 
+        by: 'REST', 
+        ip: maskIp(actualIP || ip), 
+        timestamp: new Date().toISOString() 
+    });
+    res.json({ ok: true, ip: maskIp(actualIP || ip) });
+});
+
+app.post('/admin/settings', adminAuth, (req, res) => {
+    const { settings } = req.body || {};
+    if (!settings) return res.status(400).json({ error: 'settings required' });
+    
+    serverSettings = { ...serverSettings, ...settings };
+    
+    adminActions.push({ 
+        type: 'settingsUpdate', 
+        by: 'REST', 
+        timestamp: new Date().toISOString() 
+    });
+    
+    res.json({ ok: true, settings: serverSettings });
+});
+
+app.post('/admin/clear-timeouts', adminAuth, (req, res) => {
+    const clearedUsers = Array.from(timedOutUsers.keys());
+    timedOutUsers.clear();
+    userMessageCounts.clear();
+    userMessageTimes.clear();
+    
+    clearedUsers.forEach(username => {
+        sendToUser(username, {
+            type: 'timeoutEnded',
+            message: 'Your timeout has been cleared by an admin'
+        });
+    });
+    
+    adminActions.push({ 
+        type: 'clearTimeouts', 
+        by: 'REST',
+        cleared: clearedUsers.length,
+        timestamp: new Date().toISOString() 
+    });
+    
+    res.json({ ok: true, cleared: clearedUsers.length });
+});
+
+// Serve the main HTML file
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Server lifecycle
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+    console.log(`=================================`);
+    console.log(`Server running on port ${PORT}`);
+    console.log(`WebSocket server is ready`);
+    console.log(`Open http://localhost:${PORT}`);
+    console.log(`=================================`);
+    console.log(`Passwords:`);
+    console.log(`- Admin Password: ${ADMIN_PASSWORD}`);
+    console.log(`- VIP Password: ${VIP_PASSWORD}`);
+    console.log(`- Regular Password: classic`);
+    console.log(`=================================`);
+    console.log(`Features:`);
+    console.log(`- Message Length Limit: ${MAX_MESSAGE_LENGTH} characters (admins bypass)`);
+    console.log(`- Username Length Limit: ${MAX_USERNAME_LENGTH} characters`);
+    console.log(`- Spam Protection: ${SPAM_THRESHOLD} messages in ${SPAM_TIME_WINDOW/1000}s = ${SPAM_COOLDOWN/1000}s cooldown`);
+    console.log(`- Message Reactions: Enabled`);
+    console.log(`- Reply to Messages: Enabled`);
+    console.log(`- Ban Management: Enabled`);
+    console.log(`- Admin Panel: Full Featured`);
+    console.log(`=================================`);
+});
+
+process.on('SIGTERM', () => {
+    console.log('SIGTERM signal received: closing HTTP server');
+    server.close(() => {
+        console.log('HTTP server closed');
+    });
+});
+
+// Periodic cleanup
+setInterval(() => {
+    // Clean up expired timeouts
+    const now = Date.now();
+    for (const [username, endTime] of timedOutUsers.entries()) {
+        if (now > endTime) {
+            timedOutUsers.delete(username);
+        }
+    }
+    
+    // Clean up expired cooldowns
+    for (const [username, endTime] of userMessageCounts.entries()) {
+        if (now > endTime) {
+            userMessageCounts.delete(username);
+        }
+    }
+}, 30000); // Every 30 secondstargetUsername, {
         type: 'privateChatRequest',
-        from: sender.username,
-        requestId: generateId()
+        from: sender.username
     });
 }
 
@@ -516,41 +755,35 @@ function handlePrivateMessage(ws, message) {
         return;
     }
 
-    const { chatId, text, targetUsername } = message;
+    const { chatId, text, targetUsername, replyTo } = message;
     if (!chatId || !targetUsername || typeof text !== 'string' || !text.trim()) return;
 
-    // Check slow mode for private messages too
-    const slowModeCheck = checkSlowMode(sender.username);
-    if (!slowModeCheck.allowed) {
+    // Check message length
+    if (!sender.isAdmin && text.length > MAX_MESSAGE_LENGTH) {
         ws.send(JSON.stringify({ 
             type: 'error', 
-            message: `Slow mode active. Please wait ${slowModeCheck.waitTime} more second(s)` 
+            message: `Message too long! Maximum ${MAX_MESSAGE_LENGTH} characters.` 
         }));
         return;
     }
 
-    // Check auto-moderation for private messages
-    if (serverSettings.autoModEnabled && !sender.isAdmin) {
-        const badWordCheck = containsBadWords(text);
-        if (badWordCheck.found) {
-            const timeoutEnd = Date.now() + 30000;
-            timedOutUsers.set(sender.username, timeoutEnd);
-            
-            ws.send(JSON.stringify({
-                type: 'timedOut',
-                duration: 30,
-                message: `Auto-moderation: Timed out for 30 seconds (Bad word detected: "${badWordCheck.word}")`
-            }));
-
-            setTimeout(() => {
-                timedOutUsers.delete(sender.username);
-                sendToUser(sender.username, {
-                    type: 'timeoutEnded',
-                    message: 'Your auto-moderation timeout has ended'
-                });
-            }, 30000);
-
-            return;
+    // Check for spam
+    if (!sender.isAdmin) {
+        const spamCheck = checkSpam(sender.username);
+        if (spamCheck.isSpam) {
+            if (spamCheck.cooldown) {
+                ws.send(JSON.stringify({
+                    type: 'error',
+                    message: `Spam cooldown active! Please wait ${spamCheck.remainingSeconds} more second(s).`
+                }));
+                return;
+            } else if (spamCheck.newCooldown) {
+                ws.send(JSON.stringify({
+                    type: 'error',
+                    message: `Spam detected! You have been put on cooldown for 30 seconds.`
+                }));
+                return;
+            }
         }
     }
 
@@ -561,7 +794,9 @@ function handlePrivateMessage(ws, message) {
         chatId,
         timestamp: new Date().toISOString(),
         isVIP: sender.isVIP,
-        isAdmin: sender.isAdmin
+        isAdmin: sender.isAdmin,
+        replyTo: replyTo || null,
+        reactions: {}
     };
 
     if (!privateChats.has(chatId)) privateChats.set(chatId, []);
@@ -583,7 +818,68 @@ function handleGetPrivateHistory(ws, message) {
     }));
 }
 
-// Admin moderation handlers
+function handleAddReaction(ws, message) {
+    const user = users.get(ws);
+    if (!user) return;
+
+    const { messageId, emoji, channel, isPrivate, chatId } = message;
+    
+    let targetMessages;
+    if (isPrivate) {
+        targetMessages = privateChats.get(chatId) || [];
+    } else {
+        targetMessages = channels[channel] || [];
+    }
+
+    const targetMessage = targetMessages.find(msg => msg.id === messageId);
+    if (!targetMessage) return;
+
+    if (!targetMessage.reactions) targetMessage.reactions = {};
+    if (!targetMessage.reactions[emoji]) targetMessage.reactions[emoji] = [];
+
+    const userIndex = targetMessage.reactions[emoji].indexOf(user.username);
+    if (userIndex === -1) {
+        // Add reaction
+        targetMessage.reactions[emoji].push(user.username);
+    } else {
+        // Remove reaction (toggle)
+        targetMessage.reactions[emoji].splice(userIndex, 1);
+        if (targetMessage.reactions[emoji].length === 0) {
+            delete targetMessage.reactions[emoji];
+        }
+    }
+
+    // Broadcast reaction update
+    if (isPrivate) {
+        const chatParticipants = chatId.replace('private_', '').split('_');
+        chatParticipants.forEach(username => {
+            sendToUser(username, {
+                type: 'reactionAdded',
+                messageId,
+                reactions: targetMessage.reactions
+            });
+        });
+    } else {
+        broadcast({
+            type: 'reactionAdded',
+            messageId,
+            reactions: targetMessage.reactions
+        });
+    }
+}
+
+function handleGetBanList(ws, message) {
+    const admin = requireAdmin(ws);
+    if (!admin) return;
+
+    ws.send(JSON.stringify({
+        type: 'banList',
+        users: Array.from(bannedUsers),
+        ips: Array.from(bannedIPs).map(maskIp)
+    }));
+}
+
+// Admin handlers
 function handleAdminKick(ws, message) {
     const admin = requireAdmin(ws);
     if (!admin) return;
@@ -604,7 +900,7 @@ function handleAdminKick(ws, message) {
         targetWs.send(JSON.stringify({
             type: 'kicked',
             message: reason ? `Kicked: ${reason}` : 'You have been kicked from the server',
-            redirectUrl: redirectUrl || 'https://google.com'
+            redirectUrl: redirectUrl || serverSettings.redirectUrl
         }));
         setTimeout(() => targetWs.close(), 1000);
     }
@@ -644,14 +940,12 @@ function handleAdminTimeout(ws, message) {
             type: 'timeoutEnded',
             message: 'Your timeout has ended'
         });
-        console.log(`[ADMIN] Timeout ended for ${targetUsername}`);
     }, seconds * 1000);
 
     ws.send(JSON.stringify({
         type: 'adminActionSuccess',
         action: 'timeout',
-        target: targetUsername,
-        duration: seconds
+        target: targetUsername
     }));
 }
 
@@ -663,22 +957,20 @@ function handleAdminBan(ws, message) {
     const targetWs = userSocketMap.get(targetUsername);
     const targetIp = ipBanMap.get(targetUsername);
 
-    // Ban username
     if (banType === 'username' || banType === 'both') {
         bannedUsers.add(targetUsername);
     }
 
-    // Ban IP
     if ((banType === 'ip' || banType === 'both') && targetIp) {
         bannedIPs.add(targetIp);
     }
 
-    console.log(`[ADMIN] ${admin.username} banned ${targetUsername} (${banType})`);
+    console.log(`[ADMIN] ${admin.username} banned ${targetUsername} (${banType || 'username'})`);
     adminActions.push({
         type: 'ban',
         by: admin.username,
         target: targetUsername,
-        banType,
+        banType: banType || 'username',
         reason,
         timestamp: new Date().toISOString()
     });
@@ -695,7 +987,63 @@ function handleAdminBan(ws, message) {
         type: 'adminActionSuccess', 
         action: 'ban', 
         target: targetUsername,
-        message: `Banned ${targetUsername} (${banType})`
+        message: `Banned ${targetUsername}`
+    }));
+}
+
+function handleAdminUnban(ws, message) {
+    const admin = requireAdmin(ws);
+    if (!admin) return;
+
+    const { targetUsername } = message;
+    bannedUsers.delete(targetUsername);
+
+    console.log(`[ADMIN] ${admin.username} unbanned ${targetUsername}`);
+    adminActions.push({
+        type: 'unban',
+        by: admin.username,
+        target: targetUsername,
+        timestamp: new Date().toISOString()
+    });
+
+    ws.send(JSON.stringify({
+        type: 'adminActionSuccess',
+        action: 'unban',
+        target: targetUsername,
+        message: `${targetUsername} has been unbanned`
+    }));
+}
+
+function handleAdminUnbanIP(ws, message) {
+    const admin = requireAdmin(ws);
+    if (!admin) return;
+
+    const { targetIP } = message;
+    
+    // Find the actual IP from masked version
+    let actualIP = null;
+    for (const ip of bannedIPs) {
+        if (maskIp(ip) === targetIP) {
+            actualIP = ip;
+            break;
+        }
+    }
+
+    if (actualIP) {
+        bannedIPs.delete(actualIP);
+        console.log(`[ADMIN] ${admin.username} unbanned IP ${maskIp(actualIP)}`);
+        adminActions.push({
+            type: 'unbanIP',
+            by: admin.username,
+            target: maskIp(actualIP),
+            timestamp: new Date().toISOString()
+        });
+    }
+
+    ws.send(JSON.stringify({
+        type: 'adminActionSuccess',
+        action: 'unbanIP',
+        message: `IP ${targetIP} has been unbanned`
     }));
 }
 
@@ -725,25 +1073,18 @@ function handleAdminWarning(ws, message) {
     }));
 }
 
-// Admin trolling handlers
 function handleAdminFakeMessage(ws, message) {
     const admin = requireAdmin(ws);
     if (!admin) return;
 
     const { targetUsername, fakeText } = message;
-    
-    sendToUser(targetUsername, {
-        type: 'fakeMessage',
-        fakeText
-    });
-
+    sendToUser(targetUsername, { type: 'fakeMessage', fakeText });
     adminActions.push({
         type: 'fakeMessage',
         by: admin.username,
         target: targetUsername,
         timestamp: new Date().toISOString()
     });
-
     ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'fakeMessage' }));
 }
 
@@ -752,19 +1093,13 @@ function handleAdminForceMute(ws, message) {
     if (!admin) return;
 
     const { targetUsername, duration } = message;
-    
-    sendToUser(targetUsername, {
-        type: 'forceMute',
-        duration: duration || 30
-    });
-
+    sendToUser(targetUsername, { type: 'forceMute', duration: duration || 30 });
     adminActions.push({
         type: 'forceMute',
         by: admin.username,
         target: targetUsername,
         timestamp: new Date().toISOString()
     });
-
     ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'forceMute' }));
 }
 
@@ -774,14 +1109,12 @@ function handleAdminSpinScreen(ws, message) {
 
     const { targetUsername } = message;
     sendToUser(targetUsername, { type: 'spinScreen' });
-    
     adminActions.push({
         type: 'spinScreen',
         by: admin.username,
         target: targetUsername,
         timestamp: new Date().toISOString()
     });
-
     ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'spinScreen' }));
 }
 
@@ -789,28 +1122,11 @@ function handleAdminSlowMode(ws, message) {
     const admin = requireAdmin(ws);
     if (!admin) return;
 
-    const { enabled } = message;
-    serverSettings.slowModeEnabled = enabled;
-    
-    // Clear all last message times when toggling
-    if (!enabled) {
-        lastMessageTime.clear();
-    }
-
-    broadcast({
-        type: 'broadcast',
-        message: enabled 
-            ? `🐌 Slow mode enabled: ${serverSettings.slowModeDuration} second delay between messages` 
-            : '⚡ Slow mode disabled'
-    });
-
     adminActions.push({
         type: 'slowMode',
         by: admin.username,
-        enabled,
         timestamp: new Date().toISOString()
     });
-
     ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'slowMode' }));
 }
 
@@ -820,14 +1136,12 @@ function handleAdminInvertColors(ws, message) {
 
     const { targetUsername } = message;
     sendToUser(targetUsername, { type: 'invertColors' });
-    
     adminActions.push({
         type: 'invertColors',
         by: admin.username,
         target: targetUsername,
         timestamp: new Date().toISOString()
     });
-
     ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'invertColors' }));
 }
 
@@ -837,14 +1151,12 @@ function handleAdminShakeScreen(ws, message) {
 
     const { targetUsername } = message;
     sendToUser(targetUsername, { type: 'shakeScreen' });
-    
     adminActions.push({
         type: 'shakeScreen',
         by: admin.username,
         target: targetUsername,
         timestamp: new Date().toISOString()
     });
-
     ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'shakeScreen' }));
 }
 
@@ -854,14 +1166,12 @@ function handleAdminEmojiSpam(ws, message) {
 
     const { targetUsername } = message;
     sendToUser(targetUsername, { type: 'emojiSpam' });
-    
     adminActions.push({
         type: 'emojiSpam',
         by: admin.username,
         target: targetUsername,
         timestamp: new Date().toISOString()
     });
-
     ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'emojiSpam' }));
 }
 
@@ -871,14 +1181,12 @@ function handleAdminRickRoll(ws, message) {
 
     const { targetUsername } = message;
     sendToUser(targetUsername, { type: 'rickRoll' });
-    
     adminActions.push({
         type: 'rickRoll',
         by: admin.username,
         target: targetUsername,
         timestamp: new Date().toISOString()
     });
-
     ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'rickRoll' }));
 }
 
@@ -887,206 +1195,4 @@ function handleAdminForceDisconnect(ws, message) {
     if (!admin) return;
 
     const { targetUsername } = message;
-    sendToUser(targetUsername, { type: 'forceDisconnect' });
-    
-    adminActions.push({
-        type: 'forceDisconnect',
-        by: admin.username,
-        target: targetUsername,
-        timestamp: new Date().toISOString()
-    });
-
-    ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'forceDisconnect' }));
-}
-
-function handleAdminFlipScreen(ws, message) {
-    const admin = requireAdmin(ws);
-    if (!admin) return;
-
-    const { targetUsername } = message;
-    sendToUser(targetUsername, { type: 'flipScreen' });
-    
-    adminActions.push({
-        type: 'flipScreen',
-        by: admin.username,
-        target: targetUsername,
-        timestamp: new Date().toISOString()
-    });
-
-    ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'flipScreen' }));
-}
-
-function handleAdminBroadcast(ws, message) {
-    const admin = requireAdmin(ws);
-    if (!admin) return;
-
-    const { message: broadcastMsg } = message;
-    
-    broadcast({
-        type: 'broadcast',
-        message: broadcastMsg
-    });
-
-    adminActions.push({
-        type: 'broadcast',
-        by: admin.username,
-        message: broadcastMsg,
-        timestamp: new Date().toISOString()
-    });
-
-    ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'broadcast' }));
-}
-
-function handleAdminUpdateSettings(ws, message) {
-    const admin = requireAdmin(ws);
-    if (!admin) return;
-
-    const { settings } = message;
-    
-    // Update settings
-    if (settings.autoModEnabled !== undefined) {
-        serverSettings.autoModEnabled = settings.autoModEnabled;
-        console.log(`[ADMIN] ${admin.username} ${settings.autoModEnabled ? 'enabled' : 'disabled'} auto-moderation`);
-    }
-    
-    if (settings.slowModeEnabled !== undefined) {
-        serverSettings.slowModeEnabled = settings.slowModeEnabled;
-        if (!settings.slowModeEnabled) {
-            lastMessageTime.clear();
-        }
-        console.log(`[ADMIN] ${admin.username} ${settings.slowModeEnabled ? 'enabled' : 'disabled'} slow mode`);
-    }
-    
-    if (settings.redirectUrl) {
-        serverSettings.redirectUrl = settings.redirectUrl;
-    }
-    
-    if (settings.timeoutDuration) {
-        serverSettings.timeoutDuration = settings.timeoutDuration;
-    }
-    
-    if (settings.serverMotd !== undefined) {
-        serverSettings.serverMotd = settings.serverMotd;
-    }
-
-    adminActions.push({
-        type: 'settingsUpdate',
-        by: admin.username,
-        timestamp: new Date().toISOString()
-    });
-
-    ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'updateSettings' }));
-}
-
-// REST API endpoints
-app.get('/health', (req, res) => {
-    sweepTempIpBans();
-    res.json({
-        status: 'ok',
-        users: users.size,
-        channels: Object.keys(channels).length,
-        privateChats: privateChats.size,
-        bannedUsers: bannedUsers.size,
-        bannedIPs: bannedIPs.size,
-        tempBannedIPs: tempBannedIPs.size,
-        timedOutUsers: timedOutUsers.size,
-        adminUsers: adminUsers.size,
-        vipUsers: vipUsers.size,
-        settings: serverSettings
-    });
-});
-
-app.get('/api/channels', (req, res) => {
-    res.json({ channels: Object.keys(channels) });
-});
-
-function adminAuth(req, res, next) {
-    const token = req.headers['x-admin-password'];
-    if (token && token === ADMIN_PASSWORD) return next();
-    return res.status(401).json({ error: 'Unauthorized' });
-}
-
-app.get('/admin/bans', adminAuth, (_req, res) => {
-    sweepTempIpBans();
-    res.json({
-        usernames: Array.from(bannedUsers.values()),
-        ipBans: Array.from(bannedIPs.values()).map(maskIp),
-        tempIpBans: Array.from(tempBannedIPs.entries()).map(([ip, meta]) => ({
-            ip: maskIp(ip),
-            until: meta.until,
-            reason: meta.reason || null
-        })),
-        audit: adminActions.slice(-100)
-    });
-});
-
-app.get('/admin/settings', adminAuth, (_req, res) => {
-    res.json({
-        settings: serverSettings,
-        stats: {
-            users: users.size,
-            adminActions: adminActions.length
-        }
-    });
-});
-
-app.post('/admin/unban', adminAuth, (req, res) => {
-    const { username } = req.body || {};
-    if (!username) return res.status(400).json({ error: 'username required' });
-    bannedUsers.delete(username);
-    adminActions.push({ type: 'unban', by: 'REST', target: username, timestamp: new Date().toISOString() });
-    res.json({ ok: true, username });
-});
-
-app.post('/admin/unban-ip', adminAuth, (req, res) => {
-    const { ip } = req.body || {};
-    if (!ip) return res.status(400).json({ error: 'ip required' });
-    bannedIPs.delete(ip);
-    tempBannedIPs.delete(ip);
-    adminActions.push({ type: 'unbanIp', by: 'REST', ip: maskIp(ip), timestamp: new Date().toISOString() });
-    res.json({ ok: true, ip: maskIp(ip) });
-});
-
-app.post('/admin/settings', adminAuth, (req, res) => {
-    const { settings } = req.body || {};
-    if (!settings) return res.status(400).json({ error: 'settings required' });
-    
-    serverSettings = { ...serverSettings, ...settings };
-    
-    if (settings.slowModeEnabled === false) {
-        lastMessageTime.clear();
-    }
-    
-    adminActions.push({ 
-        type: 'settingsUpdate', 
-        by: 'REST', 
-        timestamp: new Date().toISOString() 
-    });
-    
-    res.json({ ok: true, settings: serverSettings });
-});
-
-// Server lifecycle
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`=================================`);
-    console.log(`Server running on port ${PORT}`);
-    console.log(`WebSocket server is ready`);
-    console.log(`Open http://localhost:${PORT}`);
-    console.log(`Admin Password: ${ADMIN_PASSWORD}`);
-    console.log(`VIP Password: ${VIP_PASSWORD}`);
-    console.log(`=================================`);
-    console.log(`Features enabled:`);
-    console.log(`- Auto-Moderation: ${serverSettings.autoModEnabled}`);
-    console.log(`- Slow Mode: ${serverSettings.slowModeEnabled}`);
-    console.log(`=================================`);
-});
-
-process.on('SIGTERM', () => {
-    console.log('SIGTERM signal received: closing HTTP server');
-    server.close(() => {
-        console.log('HTTP server closed');
-    });
-});
-
-setInterval(sweepTempIpBans, 30 * 1000);
+    sendToUser(
