@@ -1,32 +1,20 @@
 // server.js
-// ================================================
-// Real-time chat server with ephemeral storage,
-// role verification, moderation (kick/timeout/ban),
-// and IP ban support.
-// ================================================
+// Enhanced Real-time chat server with comprehensive admin controls
 
 const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
 const path = require('path');
 
-// --------------------------------
-// App and WebSocket initialization
-// --------------------------------
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-// -----------------
-// Middleware / static
-// -----------------
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
-// -----------------
 // Ephemeral in-memory storage
-// -----------------
 const channels = {
     general: [],
     random: [],
@@ -34,57 +22,44 @@ const channels = {
     memes: []
 };
 
-const users = new Map();               // ws -> { username, id, isAdmin, isVIP, ip }
-const privateChats = new Map();        // chatId -> messages[]
-const userSocketMap = new Map();       // username -> ws
-const bannedUsers = new Set();         // username bans (ephemeral)
-const timedOutUsers = new Map();       // username -> timeoutEnd (ms)
+const users = new Map();
+const privateChats = new Map();
+const userSocketMap = new Map();
+const bannedUsers = new Set();
+const timedOutUsers = new Map();
+const bannedIPs = new Set();
+const tempBannedIPs = new Map();
+const ipBanMap = new Map(); // username -> ip for ban tracking
 
-// IP moderation
-const bannedIPs = new Set();           // permanent IP bans (ephemeral)
-const tempBannedIPs = new Map();       // ip -> { until: ms, reason?: string }
-
-// Admin/VIP tracking
 const ADMIN_PASSWORD = 'classicclassic';
 const VIP_PASSWORD = 'very-important-person';
-const adminUsers = new Set();          // usernames with admin role (session only)
-const vipUsers = new Set();            // usernames with VIP role (session only)
+const adminUsers = new Set();
+const vipUsers = new Set();
 
-// Admin action audit (ephemeral)
-const adminActions = [];               // { type, by, target?, ip?, duration?, timestamp }
+const adminActions = [];
+let serverSettings = {
+    autoModEnabled: false,
+    slowModeEnabled: false,
+    serverMotd: ''
+};
 
-// -----------------
-// Utility helpers
-// -----------------
-
-/**
- * Normalize IP to a consistent format:
- * - strips IPv6 mapped prefix ::ffff:
- * - for proxies, uses the first IP in x-forwarded-for
- */
+// Utility functions
 function getClientIp(req) {
-    // Check X-Forwarded-For for real client IP if behind a proxy/reverse proxy
     const xff = req.headers['x-forwarded-for'];
     let ip = (Array.isArray(xff) ? xff[0] : (xff || '')).split(',')[0].trim();
-
     if (!ip) {
         ip = req.socket?.remoteAddress || '';
     }
-
-    // Normalize IPv6-mapped IPv4 (e.g., ::ffff:127.0.0.1)
     if (ip.startsWith('::ffff:')) ip = ip.slice(7);
     return ip || 'unknown';
 }
 
-/** Mask IP for logs/UI (privacy-friendly) */
 function maskIp(ip) {
     if (!ip || ip === 'unknown') return 'unknown';
-    // Simple mask: keep first and last segment
     const parts = ip.split('.');
     if (parts.length === 4) {
         return `${parts[0]}.***.${parts[2]}.${parts[3]}`;
     }
-    // IPv6: keep first group then mask
     const v6 = ip.split(':');
     if (v6.length > 1) {
         return `${v6[0]}:*:${v6[v6.length - 1]}`;
@@ -92,12 +67,10 @@ function maskIp(ip) {
     return ip;
 }
 
-/** Generate a compact unique id */
 function generateId() {
     return Date.now().toString(36) + Math.random().toString(36).substr(2);
 }
 
-/** Broadcast helper */
 function broadcast(message, excludeWs = null) {
     const data = JSON.stringify(message);
     wss.clients.forEach((client) => {
@@ -107,35 +80,33 @@ function broadcast(message, excludeWs = null) {
     });
 }
 
-/** Check and clear expired temporary IP bans */
+function sendToUser(username, message) {
+    const ws = userSocketMap.get(username);
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(message));
+    }
+}
+
 function sweepTempIpBans() {
     const now = Date.now();
     for (const [ip, meta] of tempBannedIPs.entries()) {
         if (now >= meta.until) {
             tempBannedIPs.delete(ip);
-            adminActions.push({
-                type: 'tempIpBanExpired',
-                ip,
-                timestamp: new Date().toISOString()
-            });
         }
     }
 }
 
-/** Determine if IP is currently banned (perm or temp) */
 function isIpBanned(ip) {
-    if (!ip || ip === 'unknown') return false;
+    if (!ip || ip === 'unknown') return { banned: false };
     if (bannedIPs.has(ip)) return { banned: true, kind: 'permanent' };
     const meta = tempBannedIPs.get(ip);
     if (meta) {
         if (Date.now() < meta.until) return { banned: true, kind: 'temporary', until: meta.until, reason: meta.reason };
-        // Expired temp ban; cleanup will remove it eventually
         tempBannedIPs.delete(ip);
     }
     return { banned: false };
 }
 
-/** Check timeout status for a username */
 function isUserTimedOut(username) {
     if (!timedOutUsers.has(username)) return false;
     const timeoutEnd = timedOutUsers.get(username);
@@ -146,7 +117,6 @@ function isUserTimedOut(username) {
     return true;
 }
 
-/** Broadcast latest user list (with admin/vip flags) */
 function broadcastUserList() {
     const userList = Array.from(users.values()).map(u => ({
         username: u.username,
@@ -156,36 +126,34 @@ function broadcastUserList() {
     broadcast({ type: 'userList', users: userList });
 }
 
-// ----------------------------------------
-// WebSocket: connection lifecycle & routing
-// ----------------------------------------
+function requireAdmin(ws) {
+    const admin = users.get(ws);
+    if (!admin || !admin.isAdmin) {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'error', message: 'Unauthorized: You are not an admin' }));
+        }
+        return null;
+    }
+    return admin;
+}
+
+// WebSocket connection handler
 wss.on('connection', (ws, req) => {
-    // Capture and attach client IP to socket
     const ip = getClientIp(req);
     ws.ip = ip;
 
-    // IP ban gating (perm or temp)
     const ipStatus = isIpBanned(ip);
     if (ipStatus.banned) {
         const msgBase = ipStatus.kind === 'permanent'
             ? 'Your IP is banned from this server'
-            : `Your IP is temporarily banned until ${new Date(ipStatus.until).toLocaleString()}` +
-              (ipStatus.reason ? ` (Reason: ${ipStatus.reason})` : '');
-
-        ws.send(JSON.stringify({
-            type: 'banned',
-            message: msgBase
-        }));
+            : `Your IP is temporarily banned until ${new Date(ipStatus.until).toLocaleString()}`;
+        ws.send(JSON.stringify({ type: 'banned', message: msgBase }));
         setTimeout(() => ws.close(), 250);
         return;
     }
 
     console.log(`New client connected from ${maskIp(ip)}`);
-
-    ws.send(JSON.stringify({
-        type: 'connected',
-        message: 'Connected to server'
-    }));
+    ws.send(JSON.stringify({ type: 'connected', message: 'Connected to server' }));
 
     ws.on('message', (data) => {
         try {
@@ -199,7 +167,7 @@ wss.on('connection', (ws, req) => {
     ws.on('close', () => {
         const user = users.get(ws);
         if (user) {
-            console.log(`User ${user.username} disconnected (${maskIp(user.ip)})`);
+            console.log(`User ${user.username} disconnected`);
             userSocketMap.delete(user.username);
             adminUsers.delete(user.username);
             vipUsers.delete(user.username);
@@ -213,9 +181,7 @@ wss.on('connection', (ws, req) => {
     });
 });
 
-// -----------------
 // Message router
-// -----------------
 function handleMessage(ws, message) {
     switch (message.type) {
         case 'join':
@@ -251,52 +217,64 @@ function handleMessage(ws, message) {
         case 'adminBan':
             handleAdminBan(ws, message);
             break;
-        case 'adminBanIp': // optional direct IP ban action
-            handleAdminBanIp(ws, message);
+        case 'adminWarning':
+            handleAdminWarning(ws, message);
             break;
-        case 'adminTempBanIp': // optional temporary IP ban
-            handleAdminTempBanIp(ws, message);
+        case 'adminFakeMessage':
+            handleAdminFakeMessage(ws, message);
             break;
-        case 'adminUnban':
-            handleAdminUnban(ws, message);
+        case 'adminForceMute':
+            handleAdminForceMute(ws, message);
             break;
-        case 'adminUnbanIp':
-            handleAdminUnbanIp(ws, message);
+        case 'adminSpinScreen':
+            handleAdminSpinScreen(ws, message);
+            break;
+        case 'adminInvertColors':
+            handleAdminInvertColors(ws, message);
+            break;
+        case 'adminShakeScreen':
+            handleAdminShakeScreen(ws, message);
+            break;
+        case 'adminEmojiSpam':
+            handleAdminEmojiSpam(ws, message);
+            break;
+        case 'adminRickRoll':
+            handleAdminRickRoll(ws, message);
+            break;
+        case 'adminForceDisconnect':
+            handleAdminForceDisconnect(ws, message);
+            break;
+        case 'adminFlipScreen':
+            handleAdminFlipScreen(ws, message);
+            break;
+        case 'adminBroadcast':
+            handleAdminBroadcast(ws, message);
+            break;
+        case 'adminUpdateSettings':
+            handleAdminUpdateSettings(ws, message);
             break;
         default:
             console.log('Unknown message type:', message.type);
     }
 }
 
-// -----------------
-// Handlers
-// -----------------
+// Core handlers
 function handleJoin(ws, message) {
     const { username, isAdmin, isVIP, adminPassword, vipPassword } = message;
 
-    // Username ban gate
     if (bannedUsers.has(username)) {
-        ws.send(JSON.stringify({
-            type: 'banned',
-            message: 'You have been banned from this server'
-        }));
+        ws.send(JSON.stringify({ type: 'banned', message: 'You have been banned from this server' }));
         setTimeout(() => ws.close(), 250);
         return;
     }
 
-    // IP gate (double-check here to cover reconnect after initial connection)
     const ipStatus = isIpBanned(ws.ip);
     if (ipStatus.banned) {
-        const msgBase = ipStatus.kind === 'permanent'
-            ? 'Your IP is banned from this server'
-            : `Your IP is temporarily banned until ${new Date(ipStatus.until).toLocaleString()}` +
-              (ipStatus.reason ? ` (Reason: ${ipStatus.reason})` : '');
-        ws.send(JSON.stringify({ type: 'banned', message: msgBase }));
+        ws.send(JSON.stringify({ type: 'banned', message: 'Your IP is banned from this server' }));
         setTimeout(() => ws.close(), 250);
         return;
     }
 
-    // Server-side role verification
     const isVerifiedAdmin = isAdmin && adminPassword === ADMIN_PASSWORD;
     const isVerifiedVIP = isVIP && vipPassword === VIP_PASSWORD;
 
@@ -309,7 +287,6 @@ function handleJoin(ws, message) {
         console.log(`[VIP] ${username} joined as VIP`);
     }
 
-    // Register user session
     users.set(ws, {
         username,
         id: generateId(),
@@ -318,6 +295,7 @@ function handleJoin(ws, message) {
         ip: ws.ip
     });
     userSocketMap.set(username, ws);
+    ipBanMap.set(username, ws.ip);
 
     ws.send(JSON.stringify({
         type: 'joined',
@@ -363,11 +341,11 @@ function handleChatMessage(ws, message) {
 
 function handleGetHistory(ws, message) {
     const { channel } = message;
-    if (channels[channel]) {
-        ws.send(JSON.stringify({ type: 'history', channel, messages: channels[channel] }));
-    } else {
-        ws.send(JSON.stringify({ type: 'history', channel, messages: [] }));
-    }
+    ws.send(JSON.stringify({ 
+        type: 'history', 
+        channel, 
+        messages: channels[channel] || [] 
+    }));
 }
 
 function handleTyping(ws, message) {
@@ -377,16 +355,13 @@ function handleTyping(ws, message) {
     const { channel, isTyping, isPrivate, targetUsername } = message;
 
     if (isPrivate && targetUsername) {
-        const targetWs = userSocketMap.get(targetUsername);
-        if (targetWs && targetWs.readyState === WebSocket.OPEN) {
-            targetWs.send(JSON.stringify({
-                type: 'typing',
-                username: user.username,
-                channel,
-                isTyping,
-                isPrivate: true
-            }));
-        }
+        sendToUser(targetUsername, {
+            type: 'typing',
+            username: user.username,
+            channel,
+            isTyping,
+            isPrivate: true
+        });
     } else {
         broadcast({
             type: 'typing',
@@ -402,17 +377,11 @@ function handlePrivateChatRequest(ws, message) {
     if (!sender) return;
 
     const { targetUsername } = message;
-    const targetWs = userSocketMap.get(targetUsername);
-    if (!targetWs) {
-        ws.send(JSON.stringify({ type: 'error', message: 'User not found or offline' }));
-        return;
-    }
-
-    targetWs.send(JSON.stringify({
+    sendToUser(targetUsername, {
         type: 'privateChatRequest',
         from: sender.username,
         requestId: generateId()
-    }));
+    });
 }
 
 function handlePrivateChatResponse(ws, message) {
@@ -421,6 +390,7 @@ function handlePrivateChatResponse(ws, message) {
 
     const { accepted, from } = message;
     const requesterWs = userSocketMap.get(from);
+    
     if (!requesterWs) {
         ws.send(JSON.stringify({ type: 'error', message: 'User no longer online' }));
         return;
@@ -465,40 +435,26 @@ function handlePrivateMessage(ws, message) {
     chatMessages.push(privateMessage);
     if (chatMessages.length > 100) chatMessages.shift();
 
-    const targetWs = userSocketMap.get(targetUsername);
     const payload = { type: 'privateMessage', message: privateMessage };
-
     ws.send(JSON.stringify(payload));
-    if (targetWs && targetWs.readyState === WebSocket.OPEN) {
-        targetWs.send(JSON.stringify(payload));
-    }
+    sendToUser(targetUsername, payload);
 }
 
 function handleGetPrivateHistory(ws, message) {
     const { chatId } = message;
-    const messages = privateChats.get(chatId) || [];
-    ws.send(JSON.stringify({ type: 'privateHistory', chatId, messages }));
+    ws.send(JSON.stringify({ 
+        type: 'privateHistory', 
+        chatId, 
+        messages: privateChats.get(chatId) || [] 
+    }));
 }
 
-// -----------------
-// Admin actions
-// -----------------
-function requireAdmin(ws) {
-    const admin = users.get(ws);
-    if (!admin || !admin.isAdmin) {
-        if (ws && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: 'error', message: 'Unauthorized: You are not an admin' }));
-        }
-        return null;
-    }
-    return admin;
-}
-
+// Admin moderation handlers
 function handleAdminKick(ws, message) {
     const admin = requireAdmin(ws);
     if (!admin) return;
 
-    const { targetUsername, redirectUrl } = message;
+    const { targetUsername, redirectUrl, reason } = message;
     const targetWs = userSocketMap.get(targetUsername);
 
     if (targetWs) {
@@ -507,13 +463,13 @@ function handleAdminKick(ws, message) {
             type: 'kick',
             by: admin.username,
             target: targetUsername,
-            ip: maskIp(targetWs.ip),
+            reason,
             timestamp: new Date().toISOString()
         });
 
         targetWs.send(JSON.stringify({
             type: 'kicked',
-            message: 'You have been kicked from the server',
+            message: reason ? `Kicked: ${reason}` : 'You have been kicked from the server',
             redirectUrl: redirectUrl || 'https://google.com'
         }));
         setTimeout(() => targetWs.close(), 1000);
@@ -526,37 +482,34 @@ function handleAdminTimeout(ws, message) {
     const admin = requireAdmin(ws);
     if (!admin) return;
 
-    const { targetUsername, duration } = message;
+    const { targetUsername, duration, reason } = message;
     const seconds = Math.max(1, parseInt(duration, 10) || 60);
     const timeoutEnd = Date.now() + (seconds * 1000);
 
     timedOutUsers.set(targetUsername, timeoutEnd);
     console.log(`[ADMIN] ${admin.username} timed out ${targetUsername} for ${seconds} seconds`);
+    
     adminActions.push({
         type: 'timeout',
         by: admin.username,
         target: targetUsername,
         duration: seconds,
+        reason,
         timestamp: new Date().toISOString()
     });
 
-    const targetWs = userSocketMap.get(targetUsername);
-    if (targetWs) {
-        targetWs.send(JSON.stringify({
-            type: 'timedOut',
-            duration: seconds,
-            message: `You have been timed out for ${seconds} seconds`
-        }));
-    }
+    sendToUser(targetUsername, {
+        type: 'timedOut',
+        duration: seconds,
+        message: reason ? `Timed out for ${seconds}s: ${reason}` : `You have been timed out for ${seconds} seconds`
+    });
 
     setTimeout(() => {
         timedOutUsers.delete(targetUsername);
-        if (targetWs && targetWs.readyState === WebSocket.OPEN) {
-            targetWs.send(JSON.stringify({
-                type: 'timeoutEnded',
-                message: 'Your timeout has ended'
-            }));
-        }
+        sendToUser(targetUsername, {
+            type: 'timeoutEnded',
+            message: 'Your timeout has ended'
+        });
         console.log(`[ADMIN] Timeout ended for ${targetUsername}`);
     }, seconds * 1000);
 
@@ -572,167 +525,272 @@ function handleAdminBan(ws, message) {
     const admin = requireAdmin(ws);
     if (!admin) return;
 
-    const { targetUsername } = message;
+    const { targetUsername, banType, reason } = message;
     const targetWs = userSocketMap.get(targetUsername);
+    const targetIp = ipBanMap.get(targetUsername);
 
-    bannedUsers.add(targetUsername);
-
-    // If online, also ban IP immediately
-    let ipBanned = false;
-    if (targetWs && targetWs.ip) {
-        bannedIPs.add(targetWs.ip);
-        ipBanned = true;
+    // Ban username
+    if (banType === 'username' || banType === 'both') {
+        bannedUsers.add(targetUsername);
     }
 
-    console.log(`[ADMIN] ${admin.username} banned ${targetUsername}${ipBanned ? ` (IP: ${maskIp(targetWs?.ip)})` : ''}`);
+    // Ban IP
+    if ((banType === 'ip' || banType === 'both') && targetIp) {
+        bannedIPs.add(targetIp);
+    }
+
+    console.log(`[ADMIN] ${admin.username} banned ${targetUsername} (${banType})`);
     adminActions.push({
         type: 'ban',
         by: admin.username,
         target: targetUsername,
-        ip: ipBanned ? maskIp(targetWs.ip) : undefined,
+        banType,
+        reason,
         timestamp: new Date().toISOString()
     });
 
     if (targetWs) {
         targetWs.send(JSON.stringify({
             type: 'banned',
-            message: 'You have been permanently banned from this server'
+            message: reason ? `Banned: ${reason}` : 'You have been permanently banned from this server'
         }));
         setTimeout(() => targetWs.close(), 1000);
     }
 
-    ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'ban', target: targetUsername }));
-}
-
-function handleAdminBanIp(ws, message) {
-    const admin = requireAdmin(ws);
-    if (!admin) return;
-
-    let { ip, targetUsername } = message;
-
-    // If username provided, resolve IP
-    if (!ip && targetUsername) {
-        const targetWs = userSocketMap.get(targetUsername);
-        ip = targetWs?.ip;
-    }
-    if (!ip) {
-        ws.send(JSON.stringify({ type: 'error', message: 'No IP found for ban' }));
-        return;
-    }
-
-    bannedIPs.add(ip);
-    console.log(`[ADMIN] ${admin.username} IP-banned ${maskIp(ip)}`);
-    adminActions.push({
-        type: 'banIp',
-        by: admin.username,
-        ip: maskIp(ip),
-        timestamp: new Date().toISOString()
-    });
-
-    // Disconnect any active sockets matching IP
-    wss.clients.forEach((client) => {
-        if (client.ip === ip && client.readyState === WebSocket.OPEN) {
-            client.send(JSON.stringify({ type: 'banned', message: 'Your IP is banned from this server' }));
-            setTimeout(() => client.close(), 250);
-        }
-    });
-
-    ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'banIp', target: maskIp(ip) }));
-}
-
-function handleAdminTempBanIp(ws, message) {
-    const admin = requireAdmin(ws);
-    if (!admin) return;
-
-    let { ip, duration, reason } = message;
-    const seconds = Math.max(1, parseInt(duration, 10) || 600);
-
-    if (!ip) {
-        ws.send(JSON.stringify({ type: 'error', message: 'IP required for temporary ban' }));
-        return;
-    }
-
-    const until = Date.now() + seconds * 1000;
-    tempBannedIPs.set(ip, { until, reason });
-
-    console.log(`[ADMIN] ${admin.username} temp IP-banned ${maskIp(ip)} for ${seconds}s${reason ? ` (Reason: ${reason})` : ''}`);
-    adminActions.push({
-        type: 'tempBanIp',
-        by: admin.username,
-        ip: maskIp(ip),
-        duration: seconds,
-        timestamp: new Date().toISOString()
-    });
-
-    // Disconnect any active sockets matching IP
-    wss.clients.forEach((client) => {
-        if (client.ip === ip && client.readyState === WebSocket.OPEN) {
-            client.send(JSON.stringify({
-                type: 'banned',
-                message: `Your IP is temporarily banned for ${seconds} seconds` + (reason ? ` (Reason: ${reason})` : '')
-            }));
-            setTimeout(() => client.close(), 250);
-        }
-    });
-
-    ws.send(JSON.stringify({
-        type: 'adminActionSuccess',
-        action: 'tempBanIp',
-        target: maskIp(ip),
-        duration: seconds
+    ws.send(JSON.stringify({ 
+        type: 'adminActionSuccess', 
+        action: 'ban', 
+        target: targetUsername,
+        message: `Banned ${targetUsername} (${banType})`
     }));
 }
 
-function handleAdminUnban(ws, message) {
+function handleAdminWarning(ws, message) {
     const admin = requireAdmin(ws);
     if (!admin) return;
 
-    const { targetUsername } = message;
-    if (!targetUsername) {
-        ws.send(JSON.stringify({ type: 'error', message: 'Username required to unban' }));
-        return;
-    }
+    const { targetUsername, reason } = message;
+    
+    sendToUser(targetUsername, {
+        type: 'warning',
+        message: reason || 'You have received a warning from an admin'
+    });
 
-    bannedUsers.delete(targetUsername);
-    console.log(`[ADMIN] ${admin.username} unbanned ${targetUsername}`);
     adminActions.push({
-        type: 'unban',
+        type: 'warning',
+        by: admin.username,
+        target: targetUsername,
+        reason,
+        timestamp: new Date().toISOString()
+    });
+
+    ws.send(JSON.stringify({ 
+        type: 'adminActionSuccess', 
+        action: 'warning', 
+        target: targetUsername 
+    }));
+}
+
+// Admin trolling handlers
+function handleAdminFakeMessage(ws, message) {
+    const admin = requireAdmin(ws);
+    if (!admin) return;
+
+    const { targetUsername, fakeText } = message;
+    
+    sendToUser(targetUsername, {
+        type: 'fakeMessage',
+        fakeText
+    });
+
+    adminActions.push({
+        type: 'fakeMessage',
         by: admin.username,
         target: targetUsername,
         timestamp: new Date().toISOString()
     });
 
-    ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'unban', target: targetUsername }));
+    ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'fakeMessage' }));
 }
 
-function handleAdminUnbanIp(ws, message) {
+function handleAdminForceMute(ws, message) {
     const admin = requireAdmin(ws);
     if (!admin) return;
 
-    const { ip } = message;
-    if (!ip) {
-        ws.send(JSON.stringify({ type: 'error', message: 'IP required to unban' }));
-        return;
-    }
+    const { targetUsername, duration } = message;
+    
+    sendToUser(targetUsername, {
+        type: 'forceMute',
+        duration: duration || 30
+    });
 
-    bannedIPs.delete(ip);
-    tempBannedIPs.delete(ip); // clear temp ban if present
-    console.log(`[ADMIN] ${admin.username} unbanned IP ${maskIp(ip)}`);
     adminActions.push({
-        type: 'unbanIp',
+        type: 'forceMute',
         by: admin.username,
-        ip: maskIp(ip),
+        target: targetUsername,
         timestamp: new Date().toISOString()
     });
 
-    ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'unbanIp', target: maskIp(ip) }));
+    ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'forceMute' }));
 }
 
-// -----------------
-// REST API endpoints
-// -----------------
+function handleAdminSpinScreen(ws, message) {
+    const admin = requireAdmin(ws);
+    if (!admin) return;
 
-// Health endpoint (includes IP ban stats)
+    const { targetUsername } = message;
+    sendToUser(targetUsername, { type: 'spinScreen' });
+    
+    adminActions.push({
+        type: 'spinScreen',
+        by: admin.username,
+        target: targetUsername,
+        timestamp: new Date().toISOString()
+    });
+
+    ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'spinScreen' }));
+}
+
+function handleAdminInvertColors(ws, message) {
+    const admin = requireAdmin(ws);
+    if (!admin) return;
+
+    const { targetUsername } = message;
+    sendToUser(targetUsername, { type: 'invertColors' });
+    
+    adminActions.push({
+        type: 'invertColors',
+        by: admin.username,
+        target: targetUsername,
+        timestamp: new Date().toISOString()
+    });
+
+    ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'invertColors' }));
+}
+
+function handleAdminShakeScreen(ws, message) {
+    const admin = requireAdmin(ws);
+    if (!admin) return;
+
+    const { targetUsername } = message;
+    sendToUser(targetUsername, { type: 'shakeScreen' });
+    
+    adminActions.push({
+        type: 'shakeScreen',
+        by: admin.username,
+        target: targetUsername,
+        timestamp: new Date().toISOString()
+    });
+
+    ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'shakeScreen' }));
+}
+
+function handleAdminEmojiSpam(ws, message) {
+    const admin = requireAdmin(ws);
+    if (!admin) return;
+
+    const { targetUsername } = message;
+    sendToUser(targetUsername, { type: 'emojiSpam' });
+    
+    adminActions.push({
+        type: 'emojiSpam',
+        by: admin.username,
+        target: targetUsername,
+        timestamp: new Date().toISOString()
+    });
+
+    ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'emojiSpam' }));
+}
+
+function handleAdminRickRoll(ws, message) {
+    const admin = requireAdmin(ws);
+    if (!admin) return;
+
+    const { targetUsername } = message;
+    sendToUser(targetUsername, { type: 'rickRoll' });
+    
+    adminActions.push({
+        type: 'rickRoll',
+        by: admin.username,
+        target: targetUsername,
+        timestamp: new Date().toISOString()
+    });
+
+    ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'rickRoll' }));
+}
+
+function handleAdminForceDisconnect(ws, message) {
+    const admin = requireAdmin(ws);
+    if (!admin) return;
+
+    const { targetUsername } = message;
+    sendToUser(targetUsername, { type: 'forceDisconnect' });
+    
+    adminActions.push({
+        type: 'forceDisconnect',
+        by: admin.username,
+        target: targetUsername,
+        timestamp: new Date().toISOString()
+    });
+
+    ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'forceDisconnect' }));
+}
+
+function handleAdminFlipScreen(ws, message) {
+    const admin = requireAdmin(ws);
+    if (!admin) return;
+
+    const { targetUsername } = message;
+    sendToUser(targetUsername, { type: 'flipScreen' });
+    
+    adminActions.push({
+        type: 'flipScreen',
+        by: admin.username,
+        target: targetUsername,
+        timestamp: new Date().toISOString()
+    });
+
+    ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'flipScreen' }));
+}
+
+function handleAdminBroadcast(ws, message) {
+    const admin = requireAdmin(ws);
+    if (!admin) return;
+
+    const { message: broadcastMsg } = message;
+    
+    broadcast({
+        type: 'broadcast',
+        message: broadcastMsg
+    });
+
+    adminActions.push({
+        type: 'broadcast',
+        by: admin.username,
+        message: broadcastMsg,
+        timestamp: new Date().toISOString()
+    });
+
+    ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'broadcast' }));
+}
+
+function handleAdminUpdateSettings(ws, message) {
+    const admin = requireAdmin(ws);
+    if (!admin) return;
+
+    const { settings } = message;
+    serverSettings = { ...serverSettings, ...settings };
+
+    adminActions.push({
+        type: 'settingsUpdate',
+        by: admin.username,
+        timestamp: new Date().toISOString()
+    });
+
+    ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'updateSettings' }));
+}
+
+// REST API endpoints
 app.get('/health', (req, res) => {
     sweepTempIpBans();
     res.json({
@@ -749,19 +807,16 @@ app.get('/health', (req, res) => {
     });
 });
 
-// Channels listing
 app.get('/api/channels', (req, res) => {
     res.json({ channels: Object.keys(channels) });
 });
 
-// Simple admin auth middleware for REST endpoints (using admin password header)
 function adminAuth(req, res, next) {
     const token = req.headers['x-admin-password'];
     if (token && token === ADMIN_PASSWORD) return next();
     return res.status(401).json({ error: 'Unauthorized' });
 }
 
-// List bans (usernames + IPs)
 app.get('/admin/bans', adminAuth, (_req, res) => {
     sweepTempIpBans();
     res.json({
@@ -772,11 +827,10 @@ app.get('/admin/bans', adminAuth, (_req, res) => {
             until: meta.until,
             reason: meta.reason || null
         })),
-        audit: adminActions.slice(-100) // last 100 actions
+        audit: adminActions.slice(-100)
     });
 });
 
-// Unban username
 app.post('/admin/unban', adminAuth, (req, res) => {
     const { username } = req.body || {};
     if (!username) return res.status(400).json({ error: 'username required' });
@@ -785,7 +839,6 @@ app.post('/admin/unban', adminAuth, (req, res) => {
     res.json({ ok: true, username });
 });
 
-// Unban IP (perm or temp)
 app.post('/admin/unban-ip', adminAuth, (req, res) => {
     const { ip } = req.body || {};
     if (!ip) return res.status(400).json({ error: 'ip required' });
@@ -795,56 +848,7 @@ app.post('/admin/unban-ip', adminAuth, (req, res) => {
     res.json({ ok: true, ip: maskIp(ip) });
 });
 
-// Ban IP via REST
-app.post('/admin/ban-ip', adminAuth, (req, res) => {
-    const { ip } = req.body || {};
-    if (!ip) return res.status(400).json({ error: 'ip required' });
-    bannedIPs.add(ip);
-    adminActions.push({ type: 'banIp', by: 'REST', ip: maskIp(ip), timestamp: new Date().toISOString() });
-
-    // Disconnect live sockets on that IP
-    wss.clients.forEach((client) => {
-        if (client.ip === ip && client.readyState === WebSocket.OPEN) {
-            client.send(JSON.stringify({ type: 'banned', message: 'Your IP is banned from this server' }));
-            setTimeout(() => client.close(), 250);
-        }
-    });
-
-    res.json({ ok: true, ip: maskIp(ip) });
-});
-
-// Temp ban IP via REST
-app.post('/admin/temp-ban-ip', adminAuth, (req, res) => {
-    const { ip, duration, reason } = req.body || {};
-    if (!ip) return res.status(400).json({ error: 'ip required' });
-    const seconds = Math.max(1, parseInt(duration, 10) || 600);
-    const until = Date.now() + seconds * 1000;
-    tempBannedIPs.set(ip, { until, reason });
-
-    adminActions.push({
-        type: 'tempBanIp',
-        by: 'REST',
-        ip: maskIp(ip),
-        duration: seconds,
-        timestamp: new Date().toISOString()
-    });
-
-    wss.clients.forEach((client) => {
-        if (client.ip === ip && client.readyState === WebSocket.OPEN) {
-            client.send(JSON.stringify({
-                type: 'banned',
-                message: `Your IP is temporarily banned for ${seconds} seconds` + (reason ? ` (Reason: ${reason})` : '')
-            }));
-            setTimeout(() => client.close(), 250);
-        }
-    });
-
-    res.json({ ok: true, ip: maskIp(ip), duration: seconds });
-});
-
-// -----------------
 // Server lifecycle
-// -----------------
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`=================================`);
@@ -856,7 +860,6 @@ server.listen(PORT, () => {
     console.log(`=================================`);
 });
 
-// Graceful shutdown
 process.on('SIGTERM', () => {
     console.log('SIGTERM signal received: closing HTTP server');
     server.close(() => {
@@ -864,5 +867,4 @@ process.on('SIGTERM', () => {
     });
 });
 
-// Periodic housekeeping (sweep temp IP bans)
 setInterval(sweepTempIpBans, 30 * 1000);
