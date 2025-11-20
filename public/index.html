@@ -11,510 +11,6 @@
             box-sizing: border-box;
         }
 
-        function showPrivateChatRequest(from) {
-            const notification = document.createElement('div');
-            notification.className = 'notification';
-            notification.innerHTML = `
-                <div class="notification-header">Private Chat Request</div>
-                <div class="notification-body">${from} wants to chat</div>
-                <div class="notification-actions">
-                    <button class="notification-btn btn-accept">Accept</button>
-                    <button class="notification-btn btn-decline">Decline</button>
-                </div>
-            `;
-            notification.querySelector('.btn-accept').onclick = () => {
-                send({ type: 'privateChatResponse', from, accepted: true });
-                notification.remove();
-            };
-            notification.querySelector('.btn-decline').onclick = () => {
-                send({ type: 'privateChatResponse', from, accepted: false });
-                notification.remove();
-            };
-            notifications.appendChild(notification);
-        }
-
-        function handlePrivateChatAccepted(chatId, withUser) {
-            state.privateChats[chatId] = withUser;
-            addDMToList(chatId, withUser);
-            switchToPrivateChat(chatId, withUser);
-        }
-
-        function addDMToList(chatId, username) {
-            if (document.querySelector(`[data-chat-id="${chatId}"]`)) return;
-            
-            const dmEl = document.createElement('div');
-            dmEl.className = 'channel private';
-            dmEl.dataset.chatId = chatId;
-            dmEl.innerHTML = `
-                <span class="channel-name">${username}</span>
-                <span class="unread-badge">0</span>
-                <button class="close-dm">×</button>
-            `;
-            
-            dmEl.querySelector('.close-dm').onclick = (e) => {
-                e.stopPropagation();
-                dmEl.remove();
-                delete state.privateChats[chatId];
-                delete state.privateMessages[chatId];
-                delete state.unreadDMCounts[chatId];
-                if (state.currentPrivateChat === chatId) switchChannel('general');
-            };
-            
-            dmEl.onclick = () => switchToPrivateChat(chatId, username);
-            dmList.appendChild(dmEl);
-        }
-
-        function switchToPrivateChat(chatId, username) {
-            state.currentChatType = 'private';
-            state.currentPrivateChat = chatId;
-            state.currentChannel = username;
-            currentChannelEl.textContent = username;
-            currentChannelEl.classList.add('private');
-            messageInput.placeholder = `Message @${username}`;
-            
-            document.querySelectorAll('.channel').forEach(c => c.classList.remove('active'));
-            const dm = document.querySelector(`[data-chat-id="${chatId}"]`);
-            if (dm) dm.classList.add('active');
-            
-            if (!state.privateMessages[chatId]) {
-                send({ type: 'getPrivateHistory', chatId });
-            } else {
-                renderMessages();
-            }
-            
-            state.typingUsers = {};
-            updateTypingIndicator();
-            resetUnreadDM(chatId);
-        }
-
-        function requestPrivateChat(username) {
-            if (username === state.username) return;
-            send({ type: 'privateChatRequest', targetUsername: username });
-        }
-
-        function addMessage() {
-            const text = messageInput.value.trim();
-            if (!text || !state.connected) return;
-            
-            if (text.length > adminSettings.maxMessageLength) {
-                alert(`Message too long! Max ${adminSettings.maxMessageLength} characters.`);
-                return;
-            }
-            
-            if (state.currentChatType === 'private') {
-                send({
-                    type: 'privateMessage',
-                    chatId: state.currentPrivateChat,
-                    text: text,
-                    targetUsername: state.privateChats[state.currentPrivateChat]
-                });
-            } else {
-                send({
-                    type: 'message',
-                    channel: state.currentChannel,
-                    text: text
-                });
-            }
-            
-            messageInput.value = '';
-            stopTyping();
-        }
-
-        function addMessageToChannel(message) {
-            if (!state.messages[message.channel]) {
-                state.messages[message.channel] = [];
-            }
-            state.messages[message.channel].push(message);
-            
-            if (message.channel === state.currentChannel && state.currentChatType === 'channel') {
-                renderMessages();
-            } else {
-                incrementUnreadChannel(message.channel);
-            }
-        }
-
-        function addPrivateMessage(message) {
-            if (!state.privateMessages[message.chatId]) {
-                state.privateMessages[message.chatId] = [];
-            }
-            state.privateMessages[message.chatId].push(message);
-            
-            if (message.chatId === state.currentPrivateChat && state.currentChatType === 'private') {
-                renderMessages();
-            } else {
-                incrementUnreadDM(message.chatId);
-            }
-        }
-
-        function loadHistory(channel, messages) {
-            state.messages[channel] = messages;
-            if (channel === state.currentChannel && state.currentChatType === 'channel') {
-                renderMessages();
-            }
-        }
-
-        function loadPrivateHistory(chatId, messages) {
-            state.privateMessages[chatId] = messages;
-            if (chatId === state.currentPrivateChat && state.currentChatType === 'private') {
-                renderMessages();
-            }
-        }
-
-        function renderMessages() {
-            let msgs = state.currentChatType === 'private' 
-                ? state.privateMessages[state.currentPrivateChat] || [] 
-                : state.messages[state.currentChannel] || [];
-            
-            messageArea.innerHTML = '';
-            const MESSAGE_GROUP_THRESHOLD = 5 * 60 * 1000; // 5 minutes
-            
-            msgs.forEach((msg, index) => {
-                const prevMsg = index > 0 ? msgs[index - 1] : null;
-                const isGrouped = prevMsg && 
-                    prevMsg.author === msg.author && 
-                    (new Date(msg.timestamp) - new Date(prevMsg.timestamp)) < MESSAGE_GROUP_THRESHOLD;
-                
-                const msgEl = document.createElement('div');
-                msgEl.className = 'message';
-                if (isGrouped) msgEl.classList.add('grouped');
-                
-                let authorClass = 'message-author';
-                let badge = '';
-                
-                if (msg.isAdmin) {
-                    authorClass = 'message-author admin';
-                    badge = '<span class="admin-badge-text">ADMIN</span>';
-                } else if (msg.isVIP) {
-                    authorClass = 'message-author vip';
-                    badge = '<span class="vip-badge">VIP</span>';
-                }
-                
-                if (isGrouped) {
-                    msgEl.innerHTML = `
-                        <div class="message-avatar-spacer"></div>
-                        <div class="message-content">
-                            <div class="message-text">${msg.text}</div>
-                        </div>
-                    `;
-                } else {
-                    msgEl.innerHTML = `
-                        <div class="message-avatar">${msg.author.charAt(0).toUpperCase()}</div>
-                        <div class="message-content">
-                            <div class="message-header">
-                                <span class="${authorClass}">${msg.author}</span>
-                                ${badge}
-                                <span class="message-timestamp">${formatTime(new Date(msg.timestamp))}</span>
-                            </div>
-                            <div class="message-text">${msg.text}</div>
-                        </div>
-                    `;
-                }
-                messageArea.appendChild(msgEl);
-            });
-            messageArea.scrollTop = messageArea.scrollHeight;
-        }
-
-        function updateUserList(users) {
-            state.users = users;
-            userList.innerHTML = '';
-            vipList.innerHTML = '';
-            adminList.innerHTML = '';
-            
-            const admins = users.filter(u => u.isAdmin && u.username !== state.username);
-            const vips = users.filter(u => u.isVIP && !u.isAdmin && u.username !== state.username);
-            const regularUsers = users.filter(u => !u.isVIP && !u.isAdmin && u.username !== state.username);
-            
-            serverStats.onlineUsers = users.length;
-            
-            // Admins
-            admins.forEach(user => {
-                const adminEl = document.createElement('div');
-                adminEl.className = 'user-list-item';
-                adminEl.innerHTML = `
-                    <span class="user-name">${user.username} <span class="admin-badge-text">ADMIN</span></span>
-                    <button class="dm-btn">DM</button>
-                `;
-                adminEl.querySelector('.dm-btn').onclick = () => requestPrivateChat(user.username);
-                adminList.appendChild(adminEl);
-            });
-            
-            if (admins.length === 0) {
-                adminList.innerHTML = '<div class="empty-list">No admins online</div>';
-            }
-            
-            // VIPs
-            vips.forEach(user => {
-                const vipEl = document.createElement('div');
-                vipEl.className = 'user-list-item';
-                vipEl.innerHTML = `
-                    <span class="user-name">${user.username} <span class="vip-badge">VIP</span></span>
-                    <button class="dm-btn">DM</button>
-                `;
-                vipEl.querySelector('.dm-btn').onclick = () => requestPrivateChat(user.username);
-                vipList.appendChild(vipEl);
-            });
-            
-            if (vips.length === 0) {
-                vipList.innerHTML = '<div class="empty-list">No VIPs online</div>';
-            }
-            
-            // Regular users
-            regularUsers.forEach(user => {
-                const userEl = document.createElement('div');
-                userEl.className = 'user-list-item';
-                userEl.innerHTML = `
-                    <span class="user-name">${user.username}</span>
-                    <button class="dm-btn">DM</button>
-                `;
-                userEl.querySelector('.dm-btn').onclick = () => requestPrivateChat(user.username);
-                userList.appendChild(userEl);
-            });
-            
-            if (regularUsers.length === 0) {
-                userList.innerHTML = '<div class="empty-list">No users online</div>';
-            }
-            
-            if (isAdmin && adminPanel.classList.contains('show')) {
-                updateAdminUserList();
-                updateAdminStats();
-            }
-        }
-
-        function handleTypingIndicator(data) {
-            if (state.currentChatType === 'private') {
-                if (data.isPrivate && data.username === state.privateChats[state.currentPrivateChat]) {
-                    if (data.isTyping) {
-                        state.typingUsers[data.username] = true;
-                    } else {
-                        delete state.typingUsers[data.username];
-                    }
-                    updateTypingIndicator();
-                }
-            } else {
-                if (data.channel === state.currentChannel && !data.isPrivate) {
-                    if (data.isTyping) {
-                        state.typingUsers[data.username] = true;
-                    } else {
-                        delete state.typingUsers[data.username];
-                    }
-                    updateTypingIndicator();
-                }
-            }
-        }
-
-        function updateTypingIndicator() {
-            const typing = Object.keys(state.typingUsers);
-            if (typing.length === 0) {
-                typingIndicator.innerHTML = '';
-                return;
-            }
-            
-            const label = typing.length === 1 
-                ? `${typing[0]} is typing` 
-                : `${typing.length} people are typing`;
-            
-            typingIndicator.innerHTML = `
-                <span>${label}</span>
-                <span class="typing-dots">
-                    <span class="typing-dot"></span>
-                    <span class="typing-dot"></span>
-                    <span class="typing-dot"></span>
-                </span>
-            `;
-        }
-
-        function startTyping() {
-            if (!state.connected) return;
-            
-            if (state.currentChatType === 'private') {
-                send({
-                    type: 'typing',
-                    channel: state.currentPrivateChat,
-                    isTyping: true,
-                    isPrivate: true,
-                    targetUsername: state.privateChats[state.currentPrivateChat]
-                });
-            } else {
-                send({
-                    type: 'typing',
-                    channel: state.currentChannel,
-                    isTyping: true
-                });
-            }
-            
-            clearTimeout(typingTimeout);
-            typingTimeout = setTimeout(stopTyping, 3000);
-        }
-
-        function stopTyping() {
-            if (!state.connected) return;
-            
-            if (state.currentChatType === 'private') {
-                send({
-                    type: 'typing',
-                    channel: state.currentPrivateChat,
-                    isTyping: false,
-                    isPrivate: true,
-                    targetUsername: state.privateChats[state.currentPrivateChat]
-                });
-            } else {
-                send({
-                    type: 'typing',
-                    channel: state.currentChannel,
-                    isTyping: false
-                });
-            }
-        }
-
-        function formatTime(date) {
-            return date.getHours().toString().padStart(2, '0') + ':' + 
-                   date.getMinutes().toString().padStart(2, '0');
-        }
-
-        function switchChannel(channel) {
-            state.currentChatType = 'channel';
-            state.currentPrivateChat = null;
-            state.currentChannel = channel;
-            currentChannelEl.textContent = channel;
-            currentChannelEl.classList.remove('private');
-            messageInput.placeholder = `Message #${channel}`;
-            
-            document.querySelectorAll('.channel').forEach(ch => {
-                ch.classList.remove('active');
-                if (ch.dataset.channel === channel) {
-                    ch.classList.add('active');
-                }
-            });
-            
-            if (!state.messages[channel]) {
-                send({ type: 'getHistory', channel });
-            } else {
-                renderMessages();
-            }
-            
-            state.typingUsers = {};
-            updateTypingIndicator();
-            resetUnreadChannel(channel);
-        }
-
-        function incrementUnreadChannel(channel) {
-            if (state.currentChatType === 'channel' && state.currentChannel === channel) return;
-            state.unreadCounts[channel] = (state.unreadCounts[channel] || 0) + 1;
-            updateUnreadBadgeChannel(channel);
-        }
-
-        function resetUnreadChannel(channel) {
-            state.unreadCounts[channel] = 0;
-            updateUnreadBadgeChannel(channel);
-        }
-
-        function updateUnreadBadgeChannel(channel) {
-            const wrapper = document.querySelector(`.channel[data-channel="${channel}"]`);
-            const badge = wrapper ? wrapper.querySelector('.unread-badge') : null;
-            if (!badge || !wrapper) return;
-            
-            const count = state.unreadCounts[channel] || 0;
-            badge.textContent = count;
-            if (count > 0) {
-                wrapper.classList.add('unread');
-            } else {
-                wrapper.classList.remove('unread');
-            }
-        }
-
-        function incrementUnreadDM(chatId) {
-            if (state.currentChatType === 'private' && state.currentPrivateChat === chatId) return;
-            state.unreadDMCounts[chatId] = (state.unreadDMCounts[chatId] || 0) + 1;
-            updateUnreadBadgeDM(chatId);
-        }
-
-        function resetUnreadDM(chatId) {
-            state.unreadDMCounts[chatId] = 0;
-            updateUnreadBadgeDM(chatId);
-        }
-
-        function updateUnreadBadgeDM(chatId) {
-            const wrapper = document.querySelector(`.channel.private[data-chat-id="${chatId}"]`);
-            const badge = wrapper ? wrapper.querySelector('.unread-badge') : null;
-            if (!badge || !wrapper) return;
-            
-            const count = state.unreadDMCounts[chatId] || 0;
-            badge.textContent = count;
-            if (count > 0) {
-                wrapper.classList.add('unread');
-            } else {
-                wrapper.classList.remove('unread');
-            }
-        }
-
-        // Event Listeners
-        sendBtn.onclick = (e) => {
-            e.preventDefault();
-            addMessage();
-        };
-
-        messageInput.onkeypress = (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                addMessage();
-            }
-        };
-
-        messageInput.oninput = () => {
-            if (messageInput.value.length > 0) {
-                startTyping();
-            } else {
-                stopTyping();
-            }
-        };
-
-        channelList.onclick = (e) => {
-            const channel = e.target.closest('.channel');
-            if (channel && channel.dataset.channel) {
-                switchChannel(channel.dataset.channel);
-            }
-        };
-
-        // Password gate: controls app start
-        (function setupPasswordGate() {
-            const overlay = document.getElementById('loginOverlay');
-            const input = document.getElementById('passwordInput');
-            const btn = document.getElementById('loginBtn');
-            const errorMsg = document.getElementById('errorMsg');
-
-            function unlock(admin = false, vip = false) {
-                isAdmin = admin;
-                isVIP = vip;
-                const username = prompt('Enter your username:', 'User') || 'User';
-                state.username = username;
-                usernameDisplay.textContent = username;
-                userAvatar.textContent = username.charAt(0).toUpperCase();
-                overlay.style.display = 'none';
-                connectWebSocket();
-            }
-
-            function tryLogin() {
-                const val = input.value.trim();
-                if (val === 'classicclassic') {
-                    unlock(true, false);
-                } else if (val === 'very-important-person') {
-                    unlock(false, true);
-                } else if (val === 'classic') {
-                    unlock(false, false);
-                } else {
-                    errorMsg.textContent = 'Incorrect password';
-                }
-            }
-
-            btn.addEventListener('click', tryLogin);
-            input.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') tryLogin();
-            });
-        })();
-    </script>
-</body>
-</html>
-
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             height: 100vh;
@@ -1199,14 +695,14 @@
             position: fixed;
             bottom: 60px;
             left: 8px;
-            width: 480px;
+            width: 360px;
             background: #2f3136;
             border: 1px solid #202225;
             border-radius: 8px;
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
             display: none;
             flex-direction: column;
-            max-height: 600px;
+            max-height: 500px;
             z-index: 999;
             animation: slideUp 0.2s ease;
         }
@@ -1226,7 +722,7 @@
             display: flex;
         }
 
-        .admin-panel-header {
+        .admin-header {
             padding: 16px;
             border-bottom: 1px solid #202225;
             display: flex;
@@ -1259,10 +755,9 @@
 
         .admin-tabs {
             display: flex;
-            padding: 8px 12px;
-            gap: 6px;
+            padding: 8px 16px;
+            gap: 8px;
             border-bottom: 1px solid #202225;
-            overflow-x: auto;
         }
 
         .admin-tab {
@@ -1272,10 +767,9 @@
             color: #96989d;
             cursor: pointer;
             border-radius: 4px;
-            font-size: 12px;
+            font-size: 13px;
             font-weight: 500;
             transition: all 0.15s;
-            white-space: nowrap;
         }
 
         .admin-tab:hover {
@@ -1336,16 +830,15 @@
 
         .admin-actions {
             display: flex;
-            gap: 4px;
-            flex-wrap: wrap;
+            gap: 6px;
         }
 
         .admin-btn {
-            padding: 5px 8px;
+            padding: 6px 10px;
             border: none;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 10px;
+            font-size: 11px;
             font-weight: 600;
             transition: all 0.15s;
         }
@@ -1375,15 +868,6 @@
 
         .admin-btn-ban:hover {
             background: #c03537;
-        }
-
-        .admin-btn-mute {
-            background: #5865f2;
-            color: #fff;
-        }
-
-        .admin-btn-mute:hover {
-            background: #4752c4;
         }
 
         .admin-input-group {
@@ -1423,7 +907,6 @@
             font-weight: 600;
             cursor: pointer;
             transition: background 0.15s;
-            margin-top: 8px;
         }
 
         .admin-submit:hover {
@@ -1451,174 +934,6 @@
             padding: 8px;
             font-size: 11px;
         }
-
-        .stat-card {
-            background: #40444b;
-            border-radius: 6px;
-            padding: 12px;
-            margin-bottom: 8px;
-        }
-
-        .stat-title {
-            color: #96989d;
-            font-size: 11px;
-            font-weight: 600;
-            text-transform: uppercase;
-            margin-bottom: 4px;
-        }
-
-        .stat-value {
-            color: #fff;
-            font-size: 20px;
-            font-weight: 700;
-        }
-
-        .stat-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 8px;
-            margin-bottom: 12px;
-        }
-
-        .log-entry {
-            background: #40444b;
-            border-radius: 4px;
-            padding: 8px;
-            margin-bottom: 6px;
-            font-size: 12px;
-        }
-
-        .log-time {
-            color: #72767d;
-            font-size: 10px;
-        }
-
-        .log-action {
-            color: #fff;
-            margin-top: 2px;
-        }
-
-        .log-action.kick { color: #faa61a; }
-        .log-action.timeout { color: #f47b67; }
-        .log-action.ban { color: #ed4245; }
-        .log-action.mute { color: #5865f2; }
-
-        .admin-toggle {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 10px;
-            background: #40444b;
-            border-radius: 6px;
-            margin-bottom: 8px;
-        }
-
-        .toggle-label {
-            color: #fff;
-            font-size: 13px;
-            font-weight: 500;
-        }
-
-        .toggle-switch {
-            position: relative;
-            width: 40px;
-            height: 20px;
-            background: #72767d;
-            border-radius: 10px;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-
-        .toggle-switch.active {
-            background: #3ba55d;
-        }
-
-        .toggle-switch::after {
-            content: '';
-            position: absolute;
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            background: #fff;
-            top: 2px;
-            left: 2px;
-            transition: left 0.2s;
-        }
-
-        .toggle-switch.active::after {
-            left: 22px;
-        }
-
-        .color-picker-group {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 12px;
-        }
-
-        .color-option {
-            width: 40px;
-            height: 40px;
-            border-radius: 8px;
-            cursor: pointer;
-            border: 2px solid transparent;
-            transition: all 0.2s;
-        }
-
-        .color-option:hover {
-            transform: scale(1.1);
-        }
-
-        .color-option.selected {
-            border-color: #fff;
-        }
-
-        .admin-textarea {
-            width: 100%;
-            padding: 8px 10px;
-            background: #40444b;
-            border: 1px solid #202225;
-            border-radius: 4px;
-            color: #fff;
-            font-size: 13px;
-            outline: none;
-            resize: vertical;
-            min-height: 80px;
-            font-family: inherit;
-        }
-
-        .admin-textarea:focus {
-            border-color: #5865f2;
-        }
-
-        .ban-list-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 8px;
-            background: #40444b;
-            border-radius: 4px;
-            margin-bottom: 6px;
-        }
-
-        .ban-info {
-            color: #fff;
-            font-size: 13px;
-        }
-
-        .unban-btn {
-            background: #3ba55d;
-            color: #fff;
-            border: none;
-            padding: 4px 8px;
-            border-radius: 3px;
-            font-size: 10px;
-            cursor: pointer;
-            font-weight: 600;
-        }
-
-        .unban-btn:hover {
-            background: #2d7d46;
-        }
     </style>
 </head>
 <body>
@@ -1634,136 +949,21 @@
     <div class="notifications" id="notifications"></div>
 
     <div id="adminPanel">
-        <div class="admin-panel-header">
+        <div class="admin-header">
             <div class="admin-title">
                 <span>⚡</span>
-                <span>Admin Dashboard</span>
+                <span>Admin Controls</span>
             </div>
             <button class="admin-close" id="adminClose">×</button>
         </div>
         <div class="admin-tabs">
-            <button class="admin-tab active" data-tab="overview">📊 Overview</button>
-            <button class="admin-tab" data-tab="users">👥 Users</button>
-            <button class="admin-tab" data-tab="moderation">🛡️ Moderation</button>
-            <button class="admin-tab" data-tab="bans">🔨 Bans</button>
-            <button class="admin-tab" data-tab="logs">📜 Logs</button>
-            <button class="admin-tab" data-tab="broadcast">📢 Broadcast</button>
-            <button class="admin-tab" data-tab="settings">⚙️ Settings</button>
-            <button class="admin-tab" data-tab="appearance">🎨 Theme</button>
+            <button class="admin-tab active" data-tab="users">Users</button>
+            <button class="admin-tab" data-tab="settings">Settings</button>
         </div>
         <div class="admin-content">
-            <!-- Overview Tab -->
-            <div class="admin-section active" id="adminOverview">
-                <div class="stat-grid">
-                    <div class="stat-card">
-                        <div class="stat-title">Online Users</div>
-                        <div class="stat-value" id="statOnlineUsers">0</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-title">Total Messages</div>
-                        <div class="stat-value" id="statTotalMessages">0</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-title">Active Bans</div>
-                        <div class="stat-value" id="statActiveBans">0</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-title">Active Timeouts</div>
-                        <div class="stat-value" id="statActiveTimeouts">0</div>
-                    </div>
-                </div>
-                <div class="admin-label">Quick Actions</div>
-                <button class="admin-submit" onclick="clearAllMessages()">🗑️ Clear All Messages</button>
-                <button class="admin-submit" onclick="lockServer()">🔒 Lock Server</button>
-                <button class="admin-submit" onclick="sendSystemMessage()">💬 Send System Message</button>
-            </div>
-
-            <!-- Users Tab -->
-            <div class="admin-section" id="adminUsers">
+            <div class="admin-section active" id="adminUsers">
                 <div id="adminUserList"></div>
             </div>
-
-            <!-- Moderation Tab -->
-            <div class="admin-section" id="adminModeration">
-                <div class="admin-label">Message Filtering</div>
-                <div class="admin-toggle" onclick="toggleFilter('profanity')">
-                    <span class="toggle-label">Profanity Filter</span>
-                    <div class="toggle-switch" id="toggleProfanity"></div>
-                </div>
-                <div class="admin-toggle" onclick="toggleFilter('spam')">
-                    <span class="toggle-label">Anti-Spam</span>
-                    <div class="toggle-switch" id="toggleSpam"></div>
-                </div>
-                <div class="admin-toggle" onclick="toggleFilter('links')">
-                    <span class="toggle-label">Block Links</span>
-                    <div class="toggle-switch" id="toggleLinks"></div>
-                </div>
-                <div class="admin-toggle" onclick="toggleFilter('caps')">
-                    <span class="toggle-label">Block ALL CAPS</span>
-                    <div class="toggle-switch" id="toggleCaps"></div>
-                </div>
-                
-                <div class="admin-label" style="margin-top: 16px;">Slow Mode</div>
-                <div class="admin-input-group">
-                    <input type="number" class="admin-input" id="slowModeSeconds" placeholder="Seconds between messages" value="0">
-                    <button class="admin-submit" onclick="setSlowMode()">Apply Slow Mode</button>
-                </div>
-
-                <div class="admin-label" style="margin-top: 16px;">Auto-Moderation Rules</div>
-                <div class="admin-input-group">
-                    <label class="admin-label">Banned Words (comma separated)</label>
-                    <textarea class="admin-textarea" id="bannedWords" placeholder="word1, word2, word3"></textarea>
-                </div>
-                <button class="admin-submit" onclick="saveBannedWords()">Save Banned Words</button>
-            </div>
-
-            <!-- Bans Tab -->
-            <div class="admin-section" id="adminBans">
-                <div class="admin-label">Username Bans</div>
-                <div id="userBanList"></div>
-                
-                <div class="admin-label" style="margin-top: 16px;">IP Bans</div>
-                <div id="ipBanList"></div>
-                
-                <div class="admin-label" style="margin-top: 16px;">Manual IP Ban</div>
-                <div class="admin-input-group">
-                    <input type="text" class="admin-input" id="manualIpBan" placeholder="Enter IP address">
-                    <button class="admin-submit" onclick="banIpManual()">Ban IP</button>
-                </div>
-            </div>
-
-            <!-- Logs Tab -->
-            <div class="admin-section" id="adminLogs">
-                <div class="admin-label">Recent Actions</div>
-                <div id="adminLogList"></div>
-            </div>
-
-            <!-- Broadcast Tab -->
-            <div class="admin-section" id="adminBroadcast">
-                <div class="admin-label">Server-Wide Announcement</div>
-                <div class="admin-input-group">
-                    <textarea class="admin-textarea" id="broadcastMessage" placeholder="Type your announcement..."></textarea>
-                </div>
-                <div class="admin-label">Announcement Type</div>
-                <div class="admin-input-group">
-                    <select class="admin-input" id="broadcastType">
-                        <option value="info">ℹ️ Info</option>
-                        <option value="warning">⚠️ Warning</option>
-                        <option value="success">✅ Success</option>
-                        <option value="error">❌ Error</option>
-                    </select>
-                </div>
-                <button class="admin-submit" onclick="sendBroadcast()">📢 Send Broadcast</button>
-                
-                <div class="admin-label" style="margin-top: 16px;">Individual User Message</div>
-                <div class="admin-input-group">
-                    <input type="text" class="admin-input" id="targetUser" placeholder="Username">
-                    <textarea class="admin-textarea" id="dmMessage" placeholder="Private message..." style="margin-top: 8px;"></textarea>
-                </div>
-                <button class="admin-submit" onclick="sendAdminDM()">📩 Send DM</button>
-            </div>
-
-            <!-- Settings Tab -->
             <div class="admin-section" id="adminSettings">
                 <div class="admin-input-group">
                     <label class="admin-label">Redirect URL (for kicks)</label>
@@ -1773,44 +973,849 @@
                     <label class="admin-label">Timeout Duration (seconds)</label>
                     <input type="number" class="admin-input" id="timeoutDuration" placeholder="60" value="60">
                 </div>
-                <div class="admin-input-group">
-                    <label class="admin-label">Mute Duration (minutes)</label>
-                    <input type="number" class="admin-input" id="muteDuration" placeholder="5" value="5">
-                </div>
-                <div class="admin-input-group">
-                    <label class="admin-label">Max Message Length</label>
-                    <input type="number" class="admin-input" id="maxMessageLength" placeholder="500" value="500">
-                </div>
-                <div class="admin-toggle" onclick="toggleSetting('readOnly')">
-                    <span class="toggle-label">Read-Only Mode</span>
-                    <div class="toggle-switch" id="toggleReadOnly"></div>
-                </div>
-                <button class="admin-submit" onclick="saveAdminSettings()">💾 Save Settings</button>
+                <button class="admin-submit" onclick="saveAdminSettings()">Save Settings</button>
             </div>
+        </div>
+    </div>
 
-            <!-- Appearance Tab -->
-            <div class="admin-section" id="adminAppearance">
-                <div class="admin-label">Server Theme Color</div>
-                <div class="color-picker-group">
-                    <div class="color-option" style="background: #5865f2;" onclick="setThemeColor('#5865f2')"></div>
-                    <div class="color-option" style="background: #ed4245;" onclick="setThemeColor('#ed4245')"></div>
-                    <div class="color-option" style="background: #3ba55d;" onclick="setThemeColor('#3ba55d')"></div>
-                    <div class="color-option" style="background: #faa61a;" onclick="setThemeColor('#faa61a')"></div>
-                    <div class="color-option" style="background: #f47fff;" onclick="setThemeColor('#f47fff')"></div>
-                    <div class="color-option" style="background: #00d4ff;" onclick="setThemeColor('#00d4ff')"></div>
+    <div class="container">
+        <div class="sidebar">
+            <div class="server-header">My Server</div>
+            <div class="channels" id="channelList">
+                <div class="channel-section">
+                    <div class="section-header">Channels</div>
+                    <div class="channel active" data-channel="general">
+                        <span class="channel-name">general</span>
+                        <span class="unread-badge">0</span>
+                    </div>
+                    <div class="channel" data-channel="random">
+                        <span class="channel-name">random</span>
+                        <span class="unread-badge">0</span>
+                    </div>
+                    <div class="channel" data-channel="gaming">
+                        <span class="channel-name">gaming</span>
+                        <span class="unread-badge">0</span>
+                    </div>
+                    <div class="channel" data-channel="memes">
+                        <span class="channel-name">memes</span>
+                        <span class="unread-badge">0</span>
+                    </div>
                 </div>
-                
-                <div class="admin-label" style="margin-top: 16px;">Server Name</div>
-                <div class="admin-input-group">
-                    <input type="text" class="admin-input" id="serverName" placeholder="My Server" value="My Server">
-                    <button class="admin-submit" onclick="updateServerName()">Update Name</button>
+                <div class="channel-section">
+                    <div class="section-header">Direct Messages</div>
+                    <div id="dmList"></div>
                 </div>
+            </div>
+            <div class="online-admins">
+                <div class="admin-header">Admins</div>
+                <div id="adminList"></div>
+            </div>
+            <div class="online-vips">
+                <div class="vip-header">VIP Users</div>
+                <div id="vipList"></div>
+            </div>
+            <div class="online-users">
+                <div class="online-header">Online Users</div>
+                <div id="userList"></div>
+            </div>
+            <div class="user-area" id="userArea">
+                <div class="user-info">
+                    <div class="user-avatar" id="userAvatar">
+                        U
+                        <div class="admin-badge" id="adminBadge">⚡</div>
+                        <div class="vip-badge-avatar" id="vipBadge">⭐</div>
+                    </div>
+                    <div class="username" id="usernameDisplay">User</div>
+                    <div class="connection-status" id="connectionStatus"></div>
+                </div>
+            </div>
+        </div>
 
-                <div class="admin-label" style="margin-top: 16px;">Welcome Message</div>
-                <div class="admin-input-group">
-                    <textarea class="admin-textarea" id="welcomeMessage" placeholder="Welcome new users with a custom message..."></textarea>
-                    <button class="admin-submit" onclick="saveWelcomeMessage()">Save Welcome Message</button>
+        <div class="main-content">
+            <div class="chat-header">
+                <div class="channel-name-header" id="currentChannel">general</div>
+                <div class="typing-indicator" id="typingIndicator"></div>
+            </div>
+            <div class="messages" id="messageArea"></div>
+            <div class="input-area">
+                <div class="input-wrapper">
+                    <input type="text" class="message-input" id="messageInput" placeholder="Message #general">
+                    <button class="send-btn" id="sendBtn">Send</button>
                 </div>
             </div>
         </div>
     </div>
+
+    <script>
+        let isAdmin = false;
+        let isVIP = false;
+        let adminSettings = {
+            redirectUrl: 'https://google.com',
+            timeoutDuration: 60
+        };
+
+        // Admin Panel Controls
+        const adminPanel = document.getElementById('adminPanel');
+        const userArea = document.getElementById('userArea');
+        const adminClose = document.getElementById('adminClose');
+
+        userArea.addEventListener('click', () => {
+            if (isAdmin) {
+                adminPanel.classList.toggle('show');
+                updateAdminUserList();
+            }
+        });
+
+        adminClose.addEventListener('click', () => {
+            adminPanel.classList.remove('show');
+        });
+
+        // Admin Tabs
+        document.querySelectorAll('.admin-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.admin-section').forEach(s => s.classList.remove('active'));
+                tab.classList.add('active');
+                document.getElementById('admin' + tab.dataset.tab.charAt(0).toUpperCase() + tab.dataset.tab.slice(1)).classList.add('active');
+            });
+        });
+
+        function updateAdminUserList() {
+            const userListEl = document.getElementById('adminUserList');
+            userListEl.innerHTML = '';
+            
+            state.users.forEach(user => {
+                if (user.username === state.username) return;
+                
+                let badgeHTML = '';
+                if (user.isVIP) badgeHTML = ' <span class="vip-badge">VIP</span>';
+                
+                const userItem = document.createElement('div');
+                userItem.className = 'admin-user-item';
+                userItem.innerHTML = `
+                    <div class="admin-user-info">
+                        <div class="admin-user-avatar">${user.username.charAt(0).toUpperCase()}</div>
+                        <div class="admin-user-name">${user.username}${badgeHTML}</div>
+                    </div>
+                    <div class="admin-actions">
+                        <button class="admin-btn admin-btn-kick" onclick="kickUser('${user.username}')">Kick</button>
+                        <button class="admin-btn admin-btn-timeout" onclick="timeoutUser('${user.username}')">Timeout</button>
+                        <button class="admin-btn admin-btn-ban" onclick="banUser('${user.username}')">Ban</button>
+                    </div>
+                `;
+                userListEl.appendChild(userItem);
+            });
+
+            if (state.users.length <= 1) {
+                userListEl.innerHTML = '<div class="admin-empty">No other users online</div>';
+            }
+        }
+
+        function kickUser(username) {
+            if (confirm(`Kick ${username}? They will be redirected to: ${adminSettings.redirectUrl}`)) {
+                send({
+                    type: 'adminKick',
+                    targetUsername: username,
+                    redirectUrl: adminSettings.redirectUrl
+                });
+            }
+        }
+
+        function timeoutUser(username) {
+            if (confirm(`Timeout ${username} for ${adminSettings.timeoutDuration} seconds?`)) {
+                send({
+                    type: 'adminTimeout',
+                    targetUsername: username,
+                    duration: adminSettings.timeoutDuration
+                });
+            }
+        }
+
+        function banUser(username) {
+            if (confirm(`Ban ${username}? This action is permanent!`)) {
+                send({
+                    type: 'adminBan',
+                    targetUsername: username
+                });
+            }
+        }
+
+        function saveAdminSettings() {
+            adminSettings.redirectUrl = document.getElementById('redirectUrl').value;
+            adminSettings.timeoutDuration = parseInt(document.getElementById('timeoutDuration').value);
+            showAdminNotification('✅ Settings saved', 'Admin settings have been updated');
+        }
+
+        function showAdminNotification(title, message) {
+            const notification = document.createElement('div');
+            notification.className = 'notification';
+            notification.innerHTML = `
+                <div class="notification-header">${title}</div>
+                <div class="notification-body">${message}</div>
+            `;
+            notifications.appendChild(notification);
+            setTimeout(() => notification.remove(), 3000);
+        }
+
+        // WebSocket and Chat Logic
+        const WS_URL = window.location.protocol === 'https:' ? `wss://${window.location.host}` : `ws://${window.location.hostname}:${window.location.port || 3000}`;
+        const state = {
+            currentChannel: 'general',
+            currentChatType: 'channel',
+            currentPrivateChat: null,
+            username: '',
+            ws: null,
+            connected: false,
+            messages: {},
+            privateMessages: {},
+            users: [],
+            typingUsers: {},
+            privateChats: {},
+            unreadCounts: {},
+            unreadDMCounts: {}
+        };
+
+        const messageArea = document.getElementById('messageArea');
+        const messageInput = document.getElementById('messageInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const channelList = document.getElementById('channelList');
+        const dmList = document.getElementById('dmList');
+        const currentChannelEl = document.getElementById('currentChannel');
+        const usernameDisplay = document.getElementById('usernameDisplay');
+        const userAvatar = document.getElementById('userAvatar');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const userList = document.getElementById('userList');
+        const vipList = document.getElementById('vipList');
+        const adminList = document.getElementById('adminList');
+        const typingIndicator = document.getElementById('typingIndicator');
+        const notifications = document.getElementById('notifications');
+        let typingTimeout;
+
+        // Helper to send messages
+        function send(data) {
+            if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+                state.ws.send(JSON.stringify(data));
+            }
+        }
+
+        // Connect WebSocket
+        function connectWebSocket() {
+            try {
+                state.ws = new WebSocket(WS_URL);
+            } catch (e) {
+                setTimeout(connectWebSocket, 3000);
+                return;
+            }
+
+            state.ws.onopen = () => {
+                state.connected = true;
+                connectionStatus.classList.add('connected');
+                sendBtn.disabled = false;
+                send({ 
+                    type: 'join', 
+                    username: state.username, 
+                    isAdmin: isAdmin,
+                    isVIP: isVIP,
+                    adminPassword: isAdmin ? 'classicclassic' : undefined,
+                    vipPassword: isVIP ? 'very-important-person' : undefined
+                });
+                send({ type: 'getHistory', channel: state.currentChannel });
+            };
+
+            state.ws.onmessage = (e) => {
+                try {
+                    const data = JSON.parse(e.data);
+                    handleServerMessage(data);
+                } catch (er) {
+                    console.error('Error handling message:', er);
+                }
+            };
+
+            state.ws.onclose = () => {
+                state.connected = false;
+                connectionStatus.classList.remove('connected');
+                sendBtn.disabled = true;
+                setTimeout(connectWebSocket, 3000);
+            };
+
+            state.ws.onerror = (e) => {
+                console.error('WebSocket error:', e);
+            };
+        }
+
+        function handleServerMessage(data) {
+            switch (data.type) {
+                case 'joined':
+                    if (data.isAdmin !== undefined) {
+                        isAdmin = data.isAdmin;
+                        if (isAdmin) {
+                            document.getElementById('adminBadge').classList.add('show');
+                            console.log('✅ Admin status verified by server');
+                        } else {
+                            document.getElementById('adminBadge').classList.remove('show');
+                        }
+                    }
+                    if (data.isVIP !== undefined) {
+                        isVIP = data.isVIP;
+                        if (isVIP) {
+                            document.getElementById('vipBadge').classList.add('show');
+                            console.log('✅ VIP status verified by server');
+                        } else {
+                            document.getElementById('vipBadge').classList.remove('show');
+                        }
+                    }
+                    break;
+                case 'message':
+                    addMessageToChannel(data.message);
+                    break;
+                case 'history':
+                    loadHistory(data.channel, data.messages);
+                    break;
+                case 'userList':
+                    updateUserList(data.users);
+                    break;
+                case 'typing':
+                    handleTypingIndicator(data);
+                    break;
+                case 'privateChatRequest':
+                    showPrivateChatRequest(data.from);
+                    break;
+                case 'privateChatAccepted':
+                    handlePrivateChatAccepted(data.chatId, data.with);
+                    break;
+                case 'privateChatRejected':
+                    alert(`${data.by} declined`);
+                    break;
+                case 'privateMessage':
+                    addPrivateMessage(data.message);
+                    break;
+                case 'privateHistory':
+                    loadPrivateHistory(data.chatId, data.messages);
+                    break;
+                case 'kicked':
+                    alert(data.message);
+                    setTimeout(() => {
+                        window.location.href = data.redirectUrl;
+                    }, 1000);
+                    break;
+                case 'timedOut':
+                    showAdminNotification('⏰ Timed Out', data.message);
+                    break;
+                case 'timeoutEnded':
+                    showAdminNotification('✅ Timeout Ended', data.message);
+                    break;
+                case 'banned':
+                    alert(data.message);
+                    setTimeout(() => {
+                        window.location.href = 'https://google.com';
+                    }, 1000);
+                    break;
+                case 'adminActionSuccess':
+                    const actions = {
+                        kick: '🚪 User Kicked',
+                        timeout: '⏰ User Timed Out',
+                        ban: '🔨 User Banned'
+                    };
+                    showAdminNotification(actions[data.action], `Action completed on ${data.target}`);
+                    break;
+                case 'error':
+                    showAdminNotification('❌ Error', data.message);
+                    break;
+            }
+        }
+
+        function showPrivateChatRequest(from) {
+            const notification = document.createElement('div');
+            notification.className = 'notification';
+            notification.innerHTML = `
+                <div class="notification-header">Private Chat Request</div>
+                <div class="notification-body">${from} wants to chat</div>
+                <div class="notification-actions">
+                    <button class="notification-btn btn-accept">Accept</button>
+                    <button class="notification-btn btn-decline">Decline</button>
+                </div>
+            `;
+            notification.querySelector('.btn-accept').onclick = () => {
+                send({ type: 'privateChatResponse', from, accepted: true });
+                notification.remove();
+            };
+            notification.querySelector('.btn-decline').onclick = () => {
+                send({ type: 'privateChatResponse', from, accepted: false });
+                notification.remove();
+            };
+            notifications.appendChild(notification);
+        }
+
+        function handlePrivateChatAccepted(chatId, withUser) {
+            state.privateChats[chatId] = withUser;
+            addDMToList(chatId, withUser);
+            switchToPrivateChat(chatId, withUser);
+        }
+
+        function addDMToList(chatId, username) {
+            if (document.querySelector(`[data-chat-id="${chatId}"]`)) return;
+            
+            const dmEl = document.createElement('div');
+            dmEl.className = 'channel private';
+            dmEl.dataset.chatId = chatId;
+            dmEl.innerHTML = `
+                <span class="channel-name">${username}</span>
+                <span class="unread-badge">0</span>
+                <button class="close-dm">×</button>
+            `;
+            
+            dmEl.querySelector('.close-dm').onclick = (e) => {
+                e.stopPropagation();
+                dmEl.remove();
+                delete state.privateChats[chatId];
+                delete state.privateMessages[chatId];
+                delete state.unreadDMCounts[chatId];
+                if (state.currentPrivateChat === chatId) switchChannel('general');
+            };
+            
+            dmEl.onclick = () => switchToPrivateChat(chatId, username);
+            dmList.appendChild(dmEl);
+        }
+
+        function switchToPrivateChat(chatId, username) {
+            state.currentChatType = 'private';
+            state.currentPrivateChat = chatId;
+            state.currentChannel = username;
+            currentChannelEl.textContent = username;
+            currentChannelEl.classList.add('private');
+            messageInput.placeholder = `Message @${username}`;
+            
+            document.querySelectorAll('.channel').forEach(c => c.classList.remove('active'));
+            const dm = document.querySelector(`[data-chat-id="${chatId}"]`);
+            if (dm) dm.classList.add('active');
+            
+            if (!state.privateMessages[chatId]) {
+                send({ type: 'getPrivateHistory', chatId });
+            } else {
+                renderMessages();
+            }
+            
+            state.typingUsers = {};
+            updateTypingIndicator();
+            resetUnreadDM(chatId);
+        }
+
+        function requestPrivateChat(username) {
+            if (username === state.username) return;
+            send({ type: 'privateChatRequest', targetUsername: username });
+        }
+
+        function addMessage() {
+            const text = messageInput.value.trim();
+            if (!text || !state.connected) return;
+            
+            if (state.currentChatType === 'private') {
+                send({
+                    type: 'privateMessage',
+                    chatId: state.currentPrivateChat,
+                    text: text,
+                    targetUsername: state.privateChats[state.currentPrivateChat]
+                });
+            } else {
+                send({
+                    type: 'message',
+                    channel: state.currentChannel,
+                    text: text
+                });
+            }
+            
+            messageInput.value = '';
+            stopTyping();
+        }
+
+        function addMessageToChannel(message) {
+            if (!state.messages[message.channel]) {
+                state.messages[message.channel] = [];
+            }
+            state.messages[message.channel].push(message);
+            
+            if (message.channel === state.currentChannel && state.currentChatType === 'channel') {
+                renderMessages();
+            } else {
+                incrementUnreadChannel(message.channel);
+            }
+        }
+
+        function addPrivateMessage(message) {
+            if (!state.privateMessages[message.chatId]) {
+                state.privateMessages[message.chatId] = [];
+            }
+            state.privateMessages[message.chatId].push(message);
+            
+            if (message.chatId === state.currentPrivateChat && state.currentChatType === 'private') {
+                renderMessages();
+            } else {
+                incrementUnreadDM(message.chatId);
+            }
+        }
+
+        function loadHistory(channel, messages) {
+            state.messages[channel] = messages;
+            if (channel === state.currentChannel && state.currentChatType === 'channel') {
+                renderMessages();
+            }
+        }
+
+        function loadPrivateHistory(chatId, messages) {
+            state.privateMessages[chatId] = messages;
+            if (chatId === state.currentPrivateChat && state.currentChatType === 'private') {
+                renderMessages();
+            }
+        }
+
+        function renderMessages() {
+            let msgs = state.currentChatType === 'private' 
+                ? state.privateMessages[state.currentPrivateChat] || [] 
+                : state.messages[state.currentChannel] || [];
+            
+            messageArea.innerHTML = '';
+            const MESSAGE_GROUP_THRESHOLD = 5 * 60 * 1000; // 5 minutes
+            
+            msgs.forEach((msg, index) => {
+                const prevMsg = index > 0 ? msgs[index - 1] : null;
+                const isGrouped = prevMsg && 
+                    prevMsg.author === msg.author && 
+                    (new Date(msg.timestamp) - new Date(prevMsg.timestamp)) < MESSAGE_GROUP_THRESHOLD;
+                
+                const msgEl = document.createElement('div');
+                msgEl.className = 'message';
+                if (isGrouped) msgEl.classList.add('grouped');
+                
+                let authorClass = 'message-author';
+                let badge = '';
+                
+                if (msg.isAdmin) {
+                    authorClass = 'message-author admin';
+                    badge = '<span class="admin-badge-text">ADMIN</span>';
+                } else if (msg.isVIP) {
+                    authorClass = 'message-author vip';
+                    badge = '<span class="vip-badge">VIP</span>';
+                }
+                
+                if (isGrouped) {
+                    msgEl.innerHTML = `
+                        <div class="message-avatar-spacer"></div>
+                        <div class="message-content">
+                            <div class="message-text">${msg.text}</div>
+                        </div>
+                    `;
+                } else {
+                    msgEl.innerHTML = `
+                        <div class="message-avatar">${msg.author.charAt(0).toUpperCase()}</div>
+                        <div class="message-content">
+                            <div class="message-header">
+                                <span class="${authorClass}">${msg.author}</span>
+                                ${badge}
+                                <span class="message-timestamp">${formatTime(new Date(msg.timestamp))}</span>
+                            </div>
+                            <div class="message-text">${msg.text}</div>
+                        </div>
+                    `;
+                }
+                messageArea.appendChild(msgEl);
+            });
+            messageArea.scrollTop = messageArea.scrollHeight;
+        }
+
+        function updateUserList(users) {
+            state.users = users;
+            userList.innerHTML = '';
+            vipList.innerHTML = '';
+            adminList.innerHTML = '';
+            
+            const admins = users.filter(u => u.isAdmin && u.username !== state.username);
+            const vips = users.filter(u => u.isVIP && !u.isAdmin && u.username !== state.username);
+            const regularUsers = users.filter(u => !u.isVIP && !u.isAdmin && u.username !== state.username);
+            
+            // Admins
+            admins.forEach(user => {
+                const adminEl = document.createElement('div');
+                adminEl.className = 'user-list-item';
+                adminEl.innerHTML = `
+                    <span class="user-name">${user.username} <span class="admin-badge-text">ADMIN</span></span>
+                    <button class="dm-btn">DM</button>
+                `;
+                adminEl.querySelector('.dm-btn').onclick = () => requestPrivateChat(user.username);
+                adminList.appendChild(adminEl);
+            });
+            
+            if (admins.length === 0) {
+                adminList.innerHTML = '<div class="empty-list">No admins online</div>';
+            }
+            
+            // VIPs
+            vips.forEach(user => {
+                const vipEl = document.createElement('div');
+                vipEl.className = 'user-list-item';
+                vipEl.innerHTML = `
+                    <span class="user-name">${user.username} <span class="vip-badge">VIP</span></span>
+                    <button class="dm-btn">DM</button>
+                `;
+                vipEl.querySelector('.dm-btn').onclick = () => requestPrivateChat(user.username);
+                vipList.appendChild(vipEl);
+            });
+            
+            if (vips.length === 0) {
+                vipList.innerHTML = '<div class="empty-list">No VIPs online</div>';
+            }
+            
+            // Regular users
+            regularUsers.forEach(user => {
+                const userEl = document.createElement('div');
+                userEl.className = 'user-list-item';
+                userEl.innerHTML = `
+                    <span class="user-name">${user.username}</span>
+                    <button class="dm-btn">DM</button>
+                `;
+                userEl.querySelector('.dm-btn').onclick = () => requestPrivateChat(user.username);
+                userList.appendChild(userEl);
+            });
+            
+            if (regularUsers.length === 0) {
+                userList.innerHTML = '<div class="empty-list">No users online</div>';
+            }
+            
+            if (isAdmin && adminPanel.classList.contains('show')) {
+                updateAdminUserList();
+            }
+        }
+
+        function handleTypingIndicator(data) {
+            if (state.currentChatType === 'private') {
+                if (data.isPrivate && data.username === state.privateChats[state.currentPrivateChat]) {
+                    if (data.isTyping) {
+                        state.typingUsers[data.username] = true;
+                    } else {
+                        delete state.typingUsers[data.username];
+                    }
+                    updateTypingIndicator();
+                }
+            } else {
+                if (data.channel === state.currentChannel && !data.isPrivate) {
+                    if (data.isTyping) {
+                        state.typingUsers[data.username] = true;
+                    } else {
+                        delete state.typingUsers[data.username];
+                    }
+                    updateTypingIndicator();
+                }
+            }
+        }
+
+        function updateTypingIndicator() {
+            const typing = Object.keys(state.typingUsers);
+            if (typing.length === 0) {
+                typingIndicator.innerHTML = '';
+                return;
+            }
+            
+            const label = typing.length === 1 
+                ? `${typing[0]} is typing` 
+                : `${typing.length} people are typing`;
+            
+            typingIndicator.innerHTML = `
+                <span>${label}</span>
+                <span class="typing-dots">
+                    <span class="typing-dot"></span>
+                    <span class="typing-dot"></span>
+                    <span class="typing-dot"></span>
+                </span>
+            `;
+        }
+
+        function startTyping() {
+            if (!state.connected) return;
+            
+            if (state.currentChatType === 'private') {
+                send({
+                    type: 'typing',
+                    channel: state.currentPrivateChat,
+                    isTyping: true,
+                    isPrivate: true,
+                    targetUsername: state.privateChats[state.currentPrivateChat]
+                });
+            } else {
+                send({
+                    type: 'typing',
+                    channel: state.currentChannel,
+                    isTyping: true
+                });
+            }
+            
+            clearTimeout(typingTimeout);
+            typingTimeout = setTimeout(stopTyping, 3000);
+        }
+
+        function stopTyping() {
+            if (!state.connected) return;
+            
+            if (state.currentChatType === 'private') {
+                send({
+                    type: 'typing',
+                    channel: state.currentPrivateChat,
+                    isTyping: false,
+                    isPrivate: true,
+                    targetUsername: state.privateChats[state.currentPrivateChat]
+                });
+            } else {
+                send({
+                    type: 'typing',
+                    channel: state.currentChannel,
+                    isTyping: false
+                });
+            }
+        }
+
+        function formatTime(date) {
+            return date.getHours().toString().padStart(2, '0') + ':' + 
+                   date.getMinutes().toString().padStart(2, '0');
+        }
+
+        function switchChannel(channel) {
+            state.currentChatType = 'channel';
+            state.currentPrivateChat = null;
+            state.currentChannel = channel;
+            currentChannelEl.textContent = channel;
+            currentChannelEl.classList.remove('private');
+            messageInput.placeholder = `Message #${channel}`;
+            
+            document.querySelectorAll('.channel').forEach(ch => {
+                ch.classList.remove('active');
+                if (ch.dataset.channel === channel) {
+                    ch.classList.add('active');
+                }
+            });
+            
+            if (!state.messages[channel]) {
+                send({ type: 'getHistory', channel });
+            } else {
+                renderMessages();
+            }
+            
+            state.typingUsers = {};
+            updateTypingIndicator();
+            resetUnreadChannel(channel);
+        }
+
+        function incrementUnreadChannel(channel) {
+            if (state.currentChatType === 'channel' && state.currentChannel === channel) return;
+            state.unreadCounts[channel] = (state.unreadCounts[channel] || 0) + 1;
+            updateUnreadBadgeChannel(channel);
+        }
+
+        function resetUnreadChannel(channel) {
+            state.unreadCounts[channel] = 0;
+            updateUnreadBadgeChannel(channel);
+        }
+
+        function updateUnreadBadgeChannel(channel) {
+            const wrapper = document.querySelector(`.channel[data-channel="${channel}"]`);
+            const badge = wrapper ? wrapper.querySelector('.unread-badge') : null;
+            if (!badge || !wrapper) return;
+            
+            const count = state.unreadCounts[channel] || 0;
+            badge.textContent = count;
+            if (count > 0) {
+                wrapper.classList.add('unread');
+            } else {
+                wrapper.classList.remove('unread');
+            }
+        }
+
+        function incrementUnreadDM(chatId) {
+            if (state.currentChatType === 'private' && state.currentPrivateChat === chatId) return;
+            state.unreadDMCounts[chatId] = (state.unreadDMCounts[chatId] || 0) + 1;
+            updateUnreadBadgeDM(chatId);
+        }
+
+        function resetUnreadDM(chatId) {
+            state.unreadDMCounts[chatId] = 0;
+            updateUnreadBadgeDM(chatId);
+        }
+
+        function updateUnreadBadgeDM(chatId) {
+            const wrapper = document.querySelector(`.channel.private[data-chat-id="${chatId}"]`);
+            const badge = wrapper ? wrapper.querySelector('.unread-badge') : null;
+            if (!badge || !wrapper) return;
+            
+            const count = state.unreadDMCounts[chatId] || 0;
+            badge.textContent = count;
+            if (count > 0) {
+                wrapper.classList.add('unread');
+            } else {
+                wrapper.classList.remove('unread');
+            }
+        }
+
+        // Event Listeners
+        sendBtn.onclick = (e) => {
+            e.preventDefault();
+            addMessage();
+        };
+
+        messageInput.onkeypress = (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                addMessage();
+            }
+        };
+
+        messageInput.oninput = () => {
+            if (messageInput.value.length > 0) {
+                startTyping();
+            } else {
+                stopTyping();
+            }
+        };
+
+        channelList.onclick = (e) => {
+            const channel = e.target.closest('.channel');
+            if (channel && channel.dataset.channel) {
+                switchChannel(channel.dataset.channel);
+            }
+        };
+
+        // Password gate: controls app start
+        (function setupPasswordGate() {
+            const overlay = document.getElementById('loginOverlay');
+            const input = document.getElementById('passwordInput');
+            const btn = document.getElementById('loginBtn');
+            const errorMsg = document.getElementById('errorMsg');
+
+            function unlock(admin = false, vip = false) {
+                isAdmin = admin;
+                isVIP = vip;
+                const username = prompt('Enter your username:', 'User') || 'User';
+                state.username = username;
+                usernameDisplay.textContent = username;
+                userAvatar.textContent = username.charAt(0).toUpperCase();
+                overlay.style.display = 'none';
+                connectWebSocket();
+            }
+
+            function tryLogin() {
+                const val = input.value.trim();
+                if (val === 'classicclassic') {
+                    unlock(true, false);
+                } else if (val === 'very-important-person') {
+                    unlock(false, true);
+                } else if (val === 'classic') {
+                    unlock(false, false);
+                } else {
+                    errorMsg.textContent = 'Incorrect password';
+                }
+            }
+
+            btn.addEventListener('click', tryLogin);
+            input.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') tryLogin();
+            });
+        })();
+    </script>
+</body>
+</html>
