@@ -1,2374 +1,919 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Canvas</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            height: 100vh;
-            overflow: hidden;
-            background: #36393f;
-        }
-
-        .container {
-            display: flex;
-            height: 100vh;
-        }
-
-        .sidebar {
-            width: 240px;
-            background: #2f3136;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .server-header {
-            height: 48px;
-            padding: 0 16px;
-            display: flex;
-            align-items: center;
-            border-bottom: 1px solid #202225;
-            color: #fff;
-            font-weight: 600;
-            font-size: 15px;
-        }
-
-        .channels {
-            flex: 1;
-            overflow-y: auto;
-            padding: 8px;
-        }
-
-        .channel-section {
-            margin-bottom: 16px;
-        }
-
-        .section-header {
-            color: #96989d;
-            font-size: 12px;
-            font-weight: 600;
-            text-transform: uppercase;
-            margin-bottom: 4px;
-            padding: 0 8px;
-        }
-
-        .channel {
-            padding: 8px 12px;
-            margin: 2px 0;
-            border-radius: 4px;
-            color: #96989d;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            font-size: 14px;
-            transition: all 0.15s;
-            position: relative;
-        }
-
-        .channel:hover {
-            background: #3a3c42;
-            color: #dcddde;
-        }
-
-        .channel.active {
-            background: #404249;
-            color: #fff;
-        }
-
-        .channel-name {
-            display: flex;
-            align-items: center;
-        }
-
-        .channel-name::before {
-            content: '#';
-            margin-right: 6px;
-            font-weight: 600;
-            color: #72767d;
-        }
-
-        .channel.private .channel-name::before {
-            content: '👤';
-            margin-right: 6px;
-        }
-
-        .close-dm {
-            opacity: 0;
-            background: transparent;
-            border: none;
-            color: #96989d;
-            cursor: pointer;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-size: 16px;
-            transition: all 0.15s;
-        }
-
-        .channel:hover .close-dm {
-            opacity: 1;
-        }
-
-        .close-dm:hover {
-            background: #ed4245;
-            color: #fff;
-        }
-
-        .online-admins, .online-vips, .online-users {
-            padding: 8px;
-            border-top: 1px solid #202225;
-            max-height: 120px;
-            overflow-y: auto;
-        }
-
-        .online-header, .admin-header, .vip-header {
-            font-size: 11px;
-            font-weight: 600;
-            text-transform: uppercase;
-            margin-bottom: 6px;
-        }
-
-        .online-header {
-            color: #96989d;
-        }
-
-        .admin-header {
-            color: #faa61a;
-        }
-
-        .vip-header {
-            color: #f47fff;
-        }
-
-        .user-list-item {
-            padding: 3px 6px;
-            color: #96989d;
-            font-size: 13px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            border-radius: 4px;
-            transition: background 0.15s;
-        }
-
-        .user-list-item:hover {
-            background: #3a3c42;
-        }
-
-        .user-name {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-
-        .user-name::before {
-            content: '●';
-            color: #3ba55d;
-            font-size: 10px;
-        }
-
-        .vip-badge {
-            background: linear-gradient(135deg, #f47fff 0%, #ff6ec7 100%);
-            color: #fff;
-            font-size: 8px;
-            font-weight: 700;
-            padding: 2px 4px;
-            border-radius: 3px;
-            user-select: none;
-            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
-        }
-
-        .admin-badge-text {
-            background: linear-gradient(135deg, #faa61a 0%, #ff8c00 100%);
-            color: #fff;
-            font-size: 8px;
-            font-weight: 700;
-            padding: 2px 4px;
-            border-radius: 3px;
-            user-select: none;
-            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
-        }
-
-        .dm-btn {
-            opacity: 0;
-            background: #5865f2;
-            color: #fff;
-            border: none;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-size: 10px;
-            cursor: pointer;
-            transition: all 0.15s;
-        }
-
-        .user-list-item:hover .dm-btn {
-            opacity: 1;
-        }
-
-        .dm-btn:hover {
-            background: #4752c4;
-        }
-
-        .user-area {
-            height: 52px;
-            background: #292b2f;
-            padding: 0 8px;
-            display: flex;
-            align-items: center;
-            border-top: 1px solid #202225;
-            cursor: pointer;
-            transition: background 0.15s;
-        }
-
-        .user-area:hover {
-            background: #2a2d31;
-        }
-
-        .user-info {
-            display: flex;
-            align-items: center;
-            flex: 1;
-        }
-
-        .user-avatar {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #fff;
-            font-weight: 600;
-            margin-right: 8px;
-            position: relative;
-        }
-
-        .admin-badge, .vip-badge-avatar {
-            position: absolute;
-            bottom: -2px;
-            right: -2px;
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            font-size: 8px;
-            border: 2px solid #292b2f;
-        }
-
-        .admin-badge {
-            background: #faa61a;
-        }
-
-        .vip-badge-avatar {
-            background: #f47fff;
-        }
-
-        .admin-badge.show, .vip-badge-avatar.show {
-            display: flex;
-        }
-
-        .username {
-            color: #fff;
-            font-size: 14px;
-            font-weight: 500;
-        }
-
-        .connection-status {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #ed4245;
-            margin-left: 8px;
-        }
-
-        .connection-status.connected {
-            background: #3ba55d;
-        }
-
-        .main-content {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            background: #36393f;
-        }
-
-        .chat-header {
-            height: 48px;
-            padding: 0 16px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            border-bottom: 1px solid #202225;
-            color: #fff;
-        }
-
-        .channel-name-header {
-            font-weight: 600;
-            font-size: 16px;
-        }
-
-        .channel-name-header::before {
-            content: '#';
-            margin-right: 4px;
-            color: #72767d;
-        }
-
-        .channel-name-header.private::before {
-            content: '👤';
-        }
-
-        .typing-indicator {
-            font-size: 12px;
-            color: #72767d;
-            font-style: italic;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .messages {
-            flex: 1;
-            overflow-y: auto;
-            padding: 16px;
-        }
-
-        .message {
-            display: flex;
-            padding: 4px 0;
-            margin-bottom: 12px;
-        }
-
-        .message:hover {
-            background: #32353b;
-            margin: 0 -16px 12px;
-            padding: 4px 16px;
-        }
-
-        .message-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #fff;
-            font-weight: 600;
-            margin-right: 16px;
-            flex-shrink: 0;
-        }
-
-        .message-content {
-            flex: 1;
-        }
-
-        .message-header {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            margin-bottom: 4px;
-        }
-
-        .message-author {
-            color: #fff;
-            font-weight: 500;
-            font-size: 15px;
-        }
-
-        .message-author.vip {
-            background: linear-gradient(135deg, #f47fff 0%, #ff6ec7 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            font-weight: 600;
-        }
-
-        .message-author.admin {
-            background: linear-gradient(135deg, #faa61a 0%, #ff8c00 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            font-weight: 600;
-        }
-
-        .message-timestamp {
-            color: #72767d;
-            font-size: 12px;
-        }
-
-        .message-text {
-            color: #dcddde;
-            font-size: 15px;
-            line-height: 1.4;
-            word-wrap: break-word;
-        }
-
-        .input-area {
-            padding: 16px;
-        }
-
-        .input-wrapper {
-            background: #40444b;
-            border-radius: 8px;
-            padding: 12px;
-            display: flex;
-            align-items: center;
-        }
-
-        .message-input {
-            flex: 1;
-            background: none;
-            border: none;
-            color: #dcddde;
-            font-size: 15px;
-            outline: none;
-        }
-
-        .message-input::placeholder {
-            color: #72767d;
-        }
-
-        .send-btn {
-            background: #5865f2;
-            color: #fff;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: 500;
-            margin-left: 8px;
-            transition: background 0.2s;
-        }
-
-        .send-btn:hover {
-            background: #4752c4;
-        }
-
-        .send-btn:disabled {
-            background: #4e5058;
-            cursor: not-allowed;
-        }
-
-        .notifications {
-            position: fixed;
-            top: 16px;
-            right: 16px;
-            z-index: 1000;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            max-width: 400px;
-        }
-
-        .notification {
-            background: #2f3136;
-            border: 1px solid #202225;
-            border-radius: 8px;
-            padding: 16px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-            animation: slideIn 0.3s ease;
-        }
-
-        @keyframes slideIn {
-            from {
-                transform: translateX(400px);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
-
-        .notification-header {
-            color: #fff;
-            font-weight: 600;
-            font-size: 14px;
-            margin-bottom: 8px;
-        }
-
-        .notification-body {
-            color: #dcddde;
-            font-size: 14px;
-            margin-bottom: 12px;
-        }
-
-        .notification-actions {
-            display: flex;
-            gap: 8px;
-        }
-
-        .notification-btn {
-            flex: 1;
-            padding: 8px;
-            border: none;
-            border-radius: 4px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .btn-accept {
-            background: #3ba55d;
-            color: #fff;
-        }
-
-        .btn-accept:hover {
-            background: #2d7d46;
-        }
-
-        .btn-decline {
-            background: #ed4245;
-            color: #fff;
-        }
-
-        .btn-decline:hover {
-            background: #c03537;
-        }
-
-        ::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: #2f3136;
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: #202225;
-            border-radius: 4px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: #1a1c1f;
-        }
-
-        #loginOverlay {
-            position: fixed;
-            inset: 0;
-            z-index: 2000;
-            background: #202225;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        #loginCard {
-            width: 320px;
-            background: #2f3136;
-            border: 1px solid #202225;
-            border-radius: 8px;
-            padding: 20px;
-            color: #fff;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-            text-align: center;
-        }
-
-        #loginCard h2 {
-            margin-bottom: 12px;
-            font-size: 18px;
-        }
-
-        #passwordInput {
-            width: 100%;
-            padding: 10px;
-            border-radius: 6px;
-            border: none;
-            outline: none;
-            background: #40444b;
-            color: #fff;
-            margin-top: 8px;
-        }
-
-        #loginBtn {
-            width: 100%;
-            margin-top: 12px;
-            padding: 10px;
-            border: none;
-            border-radius: 6px;
-            background: #5865f2;
-            color: #fff;
-            cursor: pointer;
-            font-weight: 600;
-        }
-
-        #loginBtn:hover {
-            background: #4752c4;
-        }
-
-        #errorMsg {
-            margin-top: 8px;
-            color: #ed4245;
-            min-height: 18px;
-        }
-
-        .typing-dots {
-            display: inline-flex;
-            gap: 4px;
-            align-items: center;
-        }
-
-        .typing-dot {
-            width: 6px;
-            height: 6px;
-            background: #72767d;
-            border-radius: 50%;
-            animation: typing-bounce 1.2s infinite ease-in-out;
-        }
-
-        .typing-dot:nth-child(2) {
-            animation-delay: 0.2s;
-        }
-
-        .typing-dot:nth-child(3) {
-            animation-delay: 0.4s;
-        }
-
-        @keyframes typing-bounce {
-            0%, 80%, 100% {
-                transform: scale(0);
-            }
-            40% {
-                transform: scale(1);
-            }
-        }
-
-        .unread-badge {
-            background: #ed4245;
-            color: #fff;
-            font-size: 11px;
-            font-weight: 600;
-            border-radius: 10px;
-            padding: 2px 6px;
-            margin-left: 6px;
-            display: none;
-        }
-
-        .channel.unread .unread-badge {
-            display: inline-block;
-        }
-
-        /* Enhanced Admin Panel */
-        #adminPanel {
-            position: fixed;
-            bottom: 60px;
-            left: 8px;
-            width: 480px;
-            max-height: 600px;
-            background: #2f3136;
-            border: 1px solid #202225;
-            border-radius: 8px;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
-            display: none;
-            flex-direction: column;
-            z-index: 999;
-            animation: slideUp 0.2s ease;
-        }
-
-        @keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        #adminPanel.show {
-            display: flex;
-        }
-
-        .panel-header {
-            padding: 16px;
-            border-bottom: 1px solid #202225;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .panel-title {
-            color: #fff;
-            font-weight: 600;
-            font-size: 15px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .panel-close {
-            background: transparent;
-            border: none;
-            color: #96989d;
-            cursor: pointer;
-            font-size: 20px;
-            padding: 4px;
-            transition: color 0.15s;
-        }
-
-        .panel-close:hover {
-            color: #fff;
-        }
-
-        .admin-tabs {
-            display: flex;
-            padding: 8px 16px;
-            gap: 8px;
-            border-bottom: 1px solid #202225;
-            overflow-x: auto;
-        }
-
-        .admin-tab {
-            padding: 6px 12px;
-            background: transparent;
-            border: none;
-            color: #96989d;
-            cursor: pointer;
-            border-radius: 4px;
-            font-size: 13px;
-            font-weight: 500;
-            transition: all 0.15s;
-            white-space: nowrap;
-        }
-
-        .admin-tab:hover {
-            background: #3a3c42;
-            color: #dcddde;
-        }
-
-        .admin-tab.active {
-            background: #5865f2;
-            color: #fff;
-        }
-
-        .admin-content {
-            flex: 1;
-            overflow-y: auto;
-            padding: 12px;
-        }
-
-        .admin-section {
-            display: none;
-        }
-
-        .admin-section.active {
-            display: block;
-        }
-
-        .admin-user-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 10px;
-            background: #40444b;
-            border-radius: 6px;
-            margin-bottom: 8px;
-            transition: background 0.15s;
-        }
-
-        .admin-user-item:hover {
-            background: #484c52;
-        }
-
-        .admin-user-info {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            flex: 1;
-        }
-
-        .admin-user-avatar {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #fff;
-            font-weight: 600;
-            font-size: 14px;
-        }
-
-        .admin-user-name {
-            color: #fff;
-            font-weight: 500;
-            font-size: 14px;
-        }
-
-        .admin-actions {
-            display: flex;
-            gap: 6px;
-            flex-wrap: wrap;
-        }
-
-        .admin-btn {
-            padding: 6px 10px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 11px;
-            font-weight: 600;
-            transition: all 0.15s;
-        }
-
-        .admin-btn-kick {
-            background: #faa61a;
-            color: #fff;
-        }
-
-        .admin-btn-kick:hover {
-            background: #ee8e00;
-        }
-
-        .admin-btn-timeout {
-            background: #f47b67;
-            color: #fff;
-        }
-
-        .admin-btn-timeout:hover {
-            background: #e0614d;
-        }
-
-        .admin-btn-ban {
-            background: #ed4245;
-            color: #fff;
-        }
-
-        .admin-btn-ban:hover {
-            background: #c03537;
-        }
-
-        .admin-input-group {
-            margin-bottom: 12px;
-        }
-
-        .admin-label {
-            color: #96989d;
-            font-size: 12px;
-            font-weight: 600;
-            margin-bottom: 6px;
-            display: block;
-        }
-
-        .admin-input, .admin-select {
-            width: 100%;
-            padding: 8px 10px;
-            background: #40444b;
-            border: 1px solid #202225;
-            border-radius: 4px;
-            color: #fff;
-            font-size: 13px;
-            outline: none;
-        }
-
-        .admin-input:focus, .admin-select:focus {
-            border-color: #5865f2;
-        }
-
-        .admin-select {
-            cursor: pointer;
-        }
-
-        .admin-submit {
-            width: 100%;
-            padding: 10px;
-            background: #5865f2;
-            color: #fff;
-            border: none;
-            border-radius: 4px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.15s;
-        }
-
-        .admin-submit:hover {
-            background: #4752c4;
-        }
-
-        .admin-empty {
-            text-align: center;
-            color: #72767d;
-            padding: 20px;
-            font-size: 13px;
-        }
-
-        .empty-list {
-            text-align: center;
-            color: #72767d;
-            padding: 8px;
-            font-size: 11px;
-        }
-
-        .ban-option-group {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 12px;
-        }
-
-        .ban-option {
-            flex: 1;
-            padding: 10px;
-            background: #40444b;
-            border: 2px solid #202225;
-            border-radius: 6px;
-            color: #dcddde;
-            cursor: pointer;
-            text-align: center;
-            font-size: 13px;
-            font-weight: 500;
-            transition: all 0.15s;
-        }
-
-        .ban-option:hover {
-            background: #484c52;
-        }
-
-        .ban-option.selected {
-            border-color: #5865f2;
-            background: #5865f2;
-            color: #fff;
-        }
-
-        .troll-btn {
-            width: 100%;
-            padding: 10px;
-            margin-bottom: 8px;
-            background: #5865f2;
-            color: #fff;
-            border: none;
-            border-radius: 4px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.15s;
-        }
-
-        .troll-btn:hover {
-            background: #4752c4;
-        }
-
-        .troll-btn.danger {
-            background: #ed4245;
-        }
-
-        .troll-btn.danger:hover {
-            background: #c03537;
-        }
-
-        .troll-btn.warning {
-            background: #faa61a;
-        }
-
-        .troll-btn.warning:hover {
-            background: #ee8e00;
-        }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-            margin-bottom: 16px;
-        }
-
-        .stat-card {
-            background: #40444b;
-            padding: 12px;
-            border-radius: 6px;
-            text-align: center;
-        }
-
-        .stat-value {
-            color: #fff;
-            font-size: 24px;
-            font-weight: 700;
-        }
-
-        .stat-label {
-            color: #96989d;
-            font-size: 11px;
-            text-transform: uppercase;
-            margin-top: 4px;
-        }
-
-        .action-log {
-            background: #40444b;
-            padding: 8px;
-            border-radius: 6px;
-            max-height: 300px;
-            overflow-y: auto;
-        }
-
-        .log-entry {
-            padding: 6px;
-            margin-bottom: 4px;
-            background: #2f3136;
-            border-radius: 4px;
-            font-size: 12px;
-            color: #dcddde;
-        }
-
-        .log-time {
-            color: #72767d;
-            font-size: 10px;
-        }
-
-        .checkbox-group {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 12px;
-        }
-
-        .checkbox-group input[type="checkbox"] {
-            width: 18px;
-            height: 18px;
-            cursor: pointer;
-        }
-
-        .checkbox-group label {
-            color: #dcddde;
-            font-size: 13px;
-            cursor: pointer;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Chet</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Great+Vibes&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; height: 100vh; overflow: hidden; background: #36393f; }
+    .container { display: flex; height: 100vh; }
+    .sidebar { width: 240px; background: #2f3136; display: flex; flex-direction: column; }
+    .server-header { height: 48px; padding: 0 16px; display: flex; align-items: center; border-bottom: 1px solid #202225; color: #fff; font-weight: 600; font-size: 15px; }
+    .channels { flex: 1; overflow-y: auto; padding: 8px; }
+    .channel-section { margin-bottom: 16px; }
+    .section-header { color: #96989d; font-size: 12px; font-weight: 600; text-transform: uppercase; margin-bottom: 4px; padding: 0 8px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+    .section-header:hover { color: #dcddde; }
+    .collapse-icon { transition: transform 0.2s; }
+    .section-header.collapsed .collapse-icon { transform: rotate(-90deg); }
+    .channel-list { transition: all 0.2s; }
+    .channel-list.collapsed { display: none; }
+    .channel { padding: 8px 12px; margin: 2px 0; border-radius: 4px; color: #96989d; cursor: pointer; display: flex; align-items: center; justify-content: space-between; font-size: 14px; transition: all 0.15s; }
+    .channel:hover { background: #3a3c42; color: #dcddde; }
+    .channel.active { background: #404249; color: #fff; }
+    .channel-name { display: flex; align-items: center; }
+    .channel-name::before { content: '#'; margin-right: 6px; font-weight: 600; color: #72767d; }
+    .channel.private .channel-name::before { content: '👤'; }
+    .close-dm { opacity: 0; background: transparent; border: none; color: #96989d; cursor: pointer; padding: 2px 6px; border-radius: 3px; font-size: 16px; }
+    .channel:hover .close-dm { opacity: 1; }
+    .close-dm:hover { background: #ed4245; color: #fff; }
+    .users-section { border-top: 1px solid #202225; max-height: 300px; overflow-y: auto; transition: max-height 0.3s; }
+    .users-section.minimized { max-height: 32px; overflow: hidden; }
+    .users-section-header { padding: 8px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+    .users-section-header:hover { background: #3a3c42; }
+    .minimize-btn { background: none; border: none; color: #96989d; cursor: pointer; font-size: 16px; }
+    .online-admins, .online-vips, .online-users { padding: 8px; }
+    .online-header, .admin-header, .vip-header { font-size: 11px; font-weight: 600; text-transform: uppercase; margin-bottom: 6px; }
+    .online-header { color: #96989d; }
+    .admin-header { color: #faa61a; }
+    .vip-header { color: #f47fff; }
+    .user-list-item { padding: 3px 6px; color: #96989d; font-size: 13px; display: flex; align-items: center; justify-content: space-between; border-radius: 4px; }
+    .user-list-item:hover { background: #3a3c42; }
+    .user-name { display: flex; align-items: center; gap: 4px; }
+    .user-name::before { content: '●'; color: #3ba55d; font-size: 10px; }
+    .vip-badge { background: linear-gradient(135deg, #f47fff, #ff6ec7); color: #fff; font-size: 8px; font-weight: 700; padding: 2px 4px; border-radius: 3px; }
+    .admin-badge-text { background: linear-gradient(135deg, #faa61a, #ff8c00); color: #fff; font-size: 8px; font-weight: 700; padding: 2px 4px; border-radius: 3px; }
+    .dm-btn { opacity: 0; background: #5865f2; color: #fff; border: none; padding: 2px 6px; border-radius: 3px; font-size: 10px; cursor: pointer; }
+    .user-list-item:hover .dm-btn { opacity: 1; }
+    .user-area { height: 52px; background: #292b2f; padding: 0 8px; display: flex; align-items: center; border-top: 1px solid #202225; cursor: pointer; }
+    .user-area:hover { background: #2a2d31; }
+    .user-info { display: flex; align-items: center; flex: 1; }
+    .user-avatar { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #667eea, #764ba2); display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 600; margin-right: 8px; position: relative; }
+    .admin-badge, .vip-badge-avatar { position: absolute; bottom: -2px; right: -2px; width: 14px; height: 14px; border-radius: 50%; display: none; align-items: center; justify-content: center; font-size: 8px; border: 2px solid #292b2f; }
+    .admin-badge { background: #faa61a; }
+    .vip-badge-avatar { background: #f47fff; }
+    .admin-badge.show, .vip-badge-avatar.show { display: flex; }
+    .username { color: #fff; font-size: 14px; font-weight: 500; }
+    .connection-status { width: 8px; height: 8px; border-radius: 50%; background: #ed4245; margin-left: 8px; }
+    .connection-status.connected { background: #3ba55d; }
+    .main-content { flex: 1; display: flex; flex-direction: column; background: #36393f; }
+    .chat-header { height: 48px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #202225; color: #fff; }
+    .channel-name-header { font-weight: 600; font-size: 16px; }
+    .channel-name-header::before { content: '#'; margin-right: 4px; color: #72767d; }
+    .channel-name-header.private::before { content: '👤'; }
+    .typing-indicator { font-size: 12px; color: #72767d; font-style: italic; display: inline-flex; align-items: center; gap: 6px; }
+    .char-counter { font-size: 12px; color: #72767d; margin-right: 10px; }
+    .char-counter.over-limit { color: #ed4245; }
+    .messages { flex: 1; overflow-y: auto; padding: 16px; }
+    .message { display: flex; padding: 4px 0; margin-bottom: 12px; position: relative; }
+    .message:hover { background: #32353b; margin: 0 -16px 12px; padding: 4px 16px; }
+    .message-avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #667eea, #764ba2); display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 600; margin-right: 16px; flex-shrink: 0; }
+    .message-content { flex: 1; }
+    .message-header { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+    .message-author { color: #fff; font-weight: 500; font-size: 15px; }
+    .message-author.vip { background: linear-gradient(135deg, #f47fff, #ff6ec7); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; font-weight: 600; }
+    .message-author.admin { background: linear-gradient(135deg, #faa61a, #ff8c00); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; font-weight: 600; }
+    .message-timestamp { color: #72767d; font-size: 12px; }
+    .message-text { color: #dcddde; font-size: 15px; line-height: 1.4; word-wrap: break-word; }
+    .reply-preview { background: #2f3136; border-left: 3px solid #5865f2; padding: 4px 8px; margin-bottom: 6px; border-radius: 0 4px 4px 0; font-size: 13px; color: #96989d; cursor: pointer; }
+    .reply-preview:hover { background: #3a3c42; }
+    .reply-author { color: #5865f2; font-weight: 500; }
+    .message-actions { position: absolute; right: 8px; top: -12px; background: #2f3136; border-radius: 4px; display: none; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+    .message:hover .message-actions { display: flex; }
+    .msg-action-btn { background: none; border: none; color: #96989d; padding: 6px 8px; cursor: pointer; font-size: 14px; }
+    .msg-action-btn:hover { color: #fff; background: #3a3c42; }
+    .reactions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+    .reaction { background: #3a3c42; border: 1px solid transparent; border-radius: 8px; padding: 2px 6px; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 4px; }
+    .reaction:hover { border-color: #5865f2; }
+    .reaction.reacted { background: rgba(88, 101, 242, 0.3); border-color: #5865f2; }
+    .reaction-count { font-size: 12px; color: #dcddde; }
+    .reaction-picker { position: absolute; bottom: 100%; right: 0; background: #2f3136; border-radius: 8px; padding: 8px; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.4); z-index: 100; }
+    .reaction-picker.show { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
+    .reaction-picker button { background: none; border: none; font-size: 20px; cursor: pointer; padding: 4px; border-radius: 4px; }
+    .reaction-picker button:hover { background: #3a3c42; }
+    .input-area { padding: 16px; }
+    .reply-bar { background: #40444b; border-radius: 8px 8px 0 0; padding: 8px 12px; display: none; align-items: center; justify-content: space-between; margin-bottom: -8px; }
+    .reply-bar.show { display: flex; }
+    .reply-bar-text { color: #dcddde; font-size: 13px; }
+    .reply-bar-close { background: none; border: none; color: #96989d; cursor: pointer; font-size: 18px; }
+    .input-wrapper { background: #40444b; border-radius: 8px; padding: 12px; display: flex; align-items: center; }
+    .message-input { flex: 1; background: none; border: none; color: #dcddde; font-size: 15px; outline: none; }
+    .message-input::placeholder { color: #72767d; }
+    .send-btn { background: #5865f2; color: #fff; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: 500; margin-left: 8px; }
+    .send-btn:hover { background: #4752c4; }
+    .send-btn:disabled { background: #4e5058; cursor: not-allowed; }
+    .notifications { position: fixed; top: 16px; right: 16px; z-index: 1000; display: flex; flex-direction: column; gap: 12px; max-width: 400px; }
+    .notification { background: #2f3136; border: 1px solid #202225; border-radius: 8px; padding: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.4); animation: slideIn 0.3s ease; }
+    @keyframes slideIn { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    .notification-header { color: #fff; font-weight: 600; font-size: 14px; margin-bottom: 8px; }
+    .notification-body { color: #dcddde; font-size: 14px; margin-bottom: 12px; }
+    .notification-actions { display: flex; gap: 8px; }
+    .notification-btn { flex: 1; padding: 8px; border: none; border-radius: 4px; font-weight: 500; cursor: pointer; }
+    .btn-accept { background: #3ba55d; color: #fff; }
+    .btn-decline { background: #ed4245; color: #fff; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #2f3136; }
+    ::-webkit-scrollbar-thumb { background: #202225; border-radius: 4px; }
+    #loginOverlay { position: fixed; inset: 0; z-index: 2000; background: linear-gradient(135deg, #1a1c20 0%, #2f3136 50%, #1a1c20 100%); display: flex; align-items: center; justify-content: center; flex-direction: column; }
+    .login-title { font-family: 'Great Vibes', cursive; font-size: 72px; color: #fff; margin-bottom: 30px; text-shadow: 0 0 20px rgba(88, 101, 242, 0.5), 0 0 40px rgba(88, 101, 242, 0.3); animation: glow 2s ease-in-out infinite alternate; }
+    @keyframes glow { from { text-shadow: 0 0 20px rgba(88, 101, 242, 0.5), 0 0 40px rgba(88, 101, 242, 0.3); } to { text-shadow: 0 0 30px rgba(88, 101, 242, 0.8), 0 0 60px rgba(88, 101, 242, 0.5), 0 0 80px rgba(88, 101, 242, 0.3); } }
+    #loginCard { width: 320px; background: #2f3136; border: 1px solid #202225; border-radius: 8px; padding: 20px; color: #fff; box-shadow: 0 8px 32px rgba(0,0,0,0.5); text-align: center; }
+    #loginCard h2 { margin-bottom: 12px; font-size: 18px; }
+    #passwordInput { width: 100%; padding: 10px; border-radius: 6px; border: none; outline: none; background: #40444b; color: #fff; margin-top: 8px; }
+    #loginBtn { width: 100%; margin-top: 12px; padding: 10px; border: none; border-radius: 6px; background: #5865f2; color: #fff; cursor: pointer; font-weight: 600; }
+    #errorMsg { margin-top: 8px; color: #ed4245; min-height: 18px; }
+    .typing-dots { display: inline-flex; gap: 4px; }
+    .typing-dot { width: 6px; height: 6px; background: #72767d; border-radius: 50%; animation: typing-bounce 1.2s infinite ease-in-out; }
+    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes typing-bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+    .unread-badge { background: #ed4245; color: #fff; font-size: 11px; font-weight: 600; border-radius: 10px; padding: 2px 6px; margin-left: 6px; display: none; }
+    .channel.unread .unread-badge { display: inline-block; }
+    .empty-list { text-align: center; color: #72767d; padding: 8px; font-size: 11px; }
+    #adminPanel { position: fixed; bottom: 60px; left: 8px; width: 520px; max-height: 650px; background: #2f3136; border: 1px solid #202225; border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.6); display: none; flex-direction: column; z-index: 999; animation: slideUp 0.2s ease; }
+    @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    #adminPanel.show { display: flex; }
+    .panel-header { padding: 16px; border-bottom: 1px solid #202225; display: flex; align-items: center; justify-content: space-between; }
+    .panel-title { color: #fff; font-weight: 600; font-size: 15px; display: flex; align-items: center; gap: 8px; }
+    .panel-close { background: transparent; border: none; color: #96989d; cursor: pointer; font-size: 20px; }
+    .admin-tabs { display: flex; padding: 8px 16px; gap: 8px; border-bottom: 1px solid #202225; overflow-x: auto; }
+    .admin-tab { padding: 6px 12px; background: transparent; border: none; color: #96989d; cursor: pointer; border-radius: 4px; font-size: 13px; font-weight: 500; white-space: nowrap; }
+    .admin-tab:hover { background: #3a3c42; color: #dcddde; }
+    .admin-tab.active { background: #5865f2; color: #fff; }
+    .admin-content { flex: 1; overflow-y: auto; padding: 12px; }
+    .admin-section { display: none; }
+    .admin-section.active { display: block; }
+    .admin-user-item { display: flex; align-items: center; justify-content: space-between; padding: 10px; background: #40444b; border-radius: 6px; margin-bottom: 8px; }
+    .admin-user-info { display: flex; align-items: center; gap: 10px; flex: 1; }
+    .admin-user-avatar { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #667eea, #764ba2); display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 600; font-size: 14px; }
+    .admin-user-name { color: #fff; font-weight: 500; font-size: 14px; }
+    .admin-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .admin-btn { padding: 6px 10px; border: none; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 600; }
+    .admin-btn-kick { background: #faa61a; color: #fff; }
+    .admin-btn-timeout { background: #f47b67; color: #fff; }
+    .admin-btn-ban { background: #ed4245; color: #fff; }
+    .admin-btn-mute { background: #9b59b6; color: #fff; }
+    .admin-input-group { margin-bottom: 12px; }
+    .admin-label { color: #96989d; font-size: 12px; font-weight: 600; margin-bottom: 6px; display: block; }
+    .admin-input, .admin-select { width: 100%; padding: 8px 10px; background: #40444b; border: 1px solid #202225; border-radius: 4px; color: #fff; font-size: 13px; outline: none; }
+    .admin-input:focus, .admin-select:focus { border-color: #5865f2; }
+    .admin-submit { width: 100%; padding: 10px; background: #5865f2; color: #fff; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; }
+    .admin-submit:hover { background: #4752c4; }
+    .admin-empty { text-align: center; color: #72767d; padding: 20px; font-size: 13px; }
+    .ban-option-group { display: flex; gap: 8px; margin-bottom: 12px; }
+    .ban-option { flex: 1; padding: 10px; background: #40444b; border: 2px solid #202225; border-radius: 6px; color: #dcddde; cursor: pointer; text-align: center; font-size: 13px; font-weight: 500; }
+    .ban-option.selected { border-color: #5865f2; background: #5865f2; color: #fff; }
+    .troll-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 16px; }
+    .troll-btn { padding: 10px; background: #5865f2; color: #fff; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; font-size: 12px; }
+    .troll-btn:hover { background: #4752c4; }
+    .troll-btn.danger { background: #ed4245; }
+    .troll-btn.warning { background: #faa61a; }
+    .troll-btn.success { background: #3ba55d; }
+    .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 16px; }
+    .stat-card { background: #40444b; padding: 12px; border-radius: 6px; text-align: center; }
+    .stat-value { color: #fff; font-size: 24px; font-weight: 700; }
+    .stat-label { color: #96989d; font-size: 11px; text-transform: uppercase; margin-top: 4px; }
+    .action-log { background: #40444b; padding: 8px; border-radius: 6px; max-height: 300px; overflow-y: auto; }
+    .log-entry { padding: 6px; margin-bottom: 4px; background: #2f3136; border-radius: 4px; font-size: 12px; color: #dcddde; }
+    .log-time { color: #72767d; font-size: 10px; }
+    .checkbox-group { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+    .checkbox-group input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; }
+    .checkbox-group label { color: #dcddde; font-size: 13px; cursor: pointer; }
+    .ban-list { max-height: 200px; overflow-y: auto; margin-bottom: 12px; }
+    .ban-item { display: flex; justify-content: space-between; align-items: center; padding: 8px; background: #40444b; border-radius: 4px; margin-bottom: 4px; }
+    .ban-item-name { color: #dcddde; font-size: 13px; }
+    .unban-btn { background: #3ba55d; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; cursor: pointer; }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-10px); } 75% { transform: translateX(10px); } }
+    @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; transform: translateY(-50px); } }
+    @keyframes rainbow { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(360deg); } }
+    @keyframes matrix { 0%, 100% { background: #36393f; } 50% { background: #001100; color: #00ff00; } }
+    .confetti { position: fixed; width: 10px; height: 10px; pointer-events: none; z-index: 9999; animation: confetti-fall 3s linear forwards; }
+    @keyframes confetti-fall { to { transform: translateY(100vh) rotate(720deg); opacity: 0; } }
+  </style>
 </head>
 <body>
-    <div id="loginOverlay">
-        <div id="loginCard">
-            <h2>Enter password</h2>
-            <input type="password" id="passwordInput" placeholder="Password">
-            <button id="loginBtn">Login</button>
-            <div id="errorMsg"></div>
-        </div>
+  <div id="loginOverlay">
+    <div class="login-title">The Chet</div>
+    <div id="loginCard">
+      <h2>Enter Password</h2>
+      <input type="password" id="passwordInput" placeholder="Password">
+      <button id="loginBtn">Login</button>
+      <div id="errorMsg"></div>
     </div>
-
-    <div class="notifications" id="notifications"></div>
-
-    <div id="adminPanel">
-        <div class="panel-header">
-            <div class="panel-title">
-                <span>⚡</span>
-                <span>Admin Command Center</span>
-            </div>
-            <button class="panel-close" id="adminClose">×</button>
-        </div>
-        <div class="admin-tabs">
-            <button class="admin-tab active" data-tab="users">Users</button>
-            <button class="admin-tab" data-tab="moderation">Moderation</button>
-            <button class="admin-tab" data-tab="trolling">Fun Tools</button>
-            <button class="admin-tab" data-tab="settings">Settings</button>
-            <button class="admin-tab" data-tab="logs">Logs</button>
-        </div>
-        <div class="admin-content">
-            <!-- Users Tab -->
-            <div class="admin-section active" id="adminUsers">
-                <div id="adminUserList"></div>
-            </div>
-
-            <!-- Moderation Tab -->
-            <div class="admin-section" id="adminModeration">
-                <div class="admin-input-group">
-                    <label class="admin-label">Select User</label>
-                    <select class="admin-select" id="modUserSelect">
-                        <option value="">-- Select User --</option>
-                    </select>
-                </div>
-
-                <div class="admin-label">Ban Type</div>
-                <div class="ban-option-group">
-                    <div class="ban-option selected" data-type="username">
-                        Username Only
-                    </div>
-                    <div class="ban-option" data-type="ip">
-                        IP Address
-                    </div>
-                    <div class="ban-option" data-type="both">
-                        Both
-                    </div>
-                </div>
-
-                <div class="admin-input-group">
-                    <label class="admin-label">Action Type</label>
-                    <select class="admin-select" id="modActionSelect">
-                        <option value="kick">Kick</option>
-                        <option value="timeout">Timeout</option>
-                        <option value="ban">Ban</option>
-                        <option value="warning">Send Warning</option>
-                    </select>
-                </div>
-
-                <div class="admin-input-group" id="timeoutDurationGroup" style="display: none;">
-                    <label class="admin-label">Timeout Duration (seconds)</label>
-                    <input type="number" class="admin-input" id="modTimeoutDuration" value="60" min="1">
-                </div>
-
-                <div class="admin-input-group" id="reasonGroup">
-                    <label class="admin-label">Reason (optional)</label>
-                    <input type="text" class="admin-input" id="modReason" placeholder="Enter reason...">
-                </div>
-
-                <button class="admin-submit" onclick="executeModAction()">Execute Action</button>
-            </div>
-
-            <!-- Trolling Tab -->
-            <div class="admin-section" id="adminTrolling">
-                <div class="admin-input-group">
-                    <label class="admin-label">Target User</label>
-                    <select class="admin-select" id="trollUserSelect">
-                        <option value="">-- Select User --</option>
-                    </select>
-                </div>
-
-                <button class="troll-btn" onclick="sendFakeMessage()">Send Fake Message</button>
-                <button class="troll-btn warning" onclick="forceMute()">Force Mute (30s)</button>
-                <button class="troll-btn warning" onclick="spinUser()">Spin Their Screen</button>
-                <button class="troll-btn warning" onclick="slowMode()">Enable Slow Mode</button>
-                <button class="troll-btn warning" onclick="invertColors()">Invert Their Colors</button>
-                <button class="troll-btn warning" onclick="shakeScreen()">Shake Their Screen</button>
-                <button class="troll-btn warning" onclick="randomEmojis()">Emoji Spam</button>
-                <button class="troll-btn danger" onclick="rickRoll()">Rick Roll</button>
-                <button class="troll-btn danger" onclick="forceDisconnect()">Force Disconnect</button>
-                <button class="troll-btn danger" onclick="flipScreen()">Flip Screen Upside Down</button>
-                
-                <div class="admin-input-group" style="margin-top: 16px;">
-                    <label class="admin-label">Custom Fake Message</label>
-                    <input type="text" class="admin-input" id="fakeMessageText" placeholder="Enter message...">
-                </div>
-
-                <div class="admin-input-group">
-                    <label class="admin-label">Broadcast Announcement</label>
-                    <input type="text" class="admin-input" id="broadcastText" placeholder="Server announcement...">
-                    <button class="admin-submit" style="margin-top: 8px;" onclick="broadcastAnnouncement()">Send to All Users</button>
-                </div>
-            </div>
-
-            <!-- Settings Tab -->
-            <div class="admin-section" id="adminSettings">
-                <div class="admin-input-group">
-                    <label class="admin-label">Redirect URL (for kicks)</label>
-                    <input type="text" class="admin-input" id="redirectUrl" placeholder="https://example.com" value="https://google.com">
-                </div>
-
-                <div class="admin-input-group">
-                    <label class="admin-label">Default Timeout Duration (seconds)</label>
-                    <input type="number" class="admin-input" id="defaultTimeoutDuration" placeholder="60" value="60">
-                </div>
-
-                <div class="checkbox-group">
-                    <input type="checkbox" id="autoModEnabled">
-                    <label for="autoModEnabled">Enable Auto-Moderation (Bad Words)</label>
-                </div>
-
-                <div class="checkbox-group">
-                    <input type="checkbox" id="slowModeEnabled">
-                    <label for="slowModeEnabled">Enable Global Slow Mode (5s)</label>
-                </div>
-
-                <div class="admin-input-group">
-                    <label class="admin-label">Server Message of the Day</label>
-                    <input type="text" class="admin-input" id="serverMotd" placeholder="Welcome to the server!">
-                </div>
-
-                <button class="admin-submit" onclick="saveAdminSettings()">Save Settings</button>
-
-                <div style="margin-top: 20px;">
-                    <div class="stats-grid">
-                        <div class="stat-card">
-                            <div class="stat-value" id="totalUsers">0</div>
-                            <div class="stat-label">Total Users</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-value" id="totalMessages">0</div>
-                            <div class="stat-label">Messages Sent</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-value" id="totalBans">0</div>
-                            <div class="stat-label">Total Bans</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-value" id="totalKicks">0</div>
-                            <div class="stat-label">Total Kicks</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Logs Tab -->
-            <div class="admin-section" id="adminLogs">
-                <div class="admin-label" style="margin-bottom: 8px;">Recent Admin Actions</div>
-                <div class="action-log" id="actionLog">
-                    <div class="admin-empty">No actions logged yet</div>
-                </div>
-            </div>
-        </div>
+  </div>
+  <div class="notifications" id="notifications"></div>
+  <div id="adminPanel">
+    <div class="panel-header">
+      <div class="panel-title"><span>⚡</span><span>Admin Command Center</span></div>
+      <button class="panel-close" id="adminClose">×</button>
     </div>
-
-    <div class="container">
-        <div class="sidebar">
-            <div class="server-header">My Server</div>
-            <div class="channels" id="channelList">
-                <div class="channel-section">
-                    <div class="section-header">Channels</div>
-                    <div class="channel active" data-channel="general">
-                        <span class="channel-name">general</span>
-                        <span class="unread-badge">0</span>
-                    </div>
-                    <div class="channel" data-channel="random">
-                        <span class="channel-name">random</span>
-                        <span class="unread-badge">0</span>
-                    </div>
-                    <div class="channel" data-channel="gaming">
-                        <span class="channel-name">gaming</span>
-                        <span class="unread-badge">0</span>
-                    </div>
-                    <div class="channel" data-channel="memes">
-                        <span class="channel-name">memes</span>
-                        <span class="unread-badge">0</span>
-                    </div>
-                </div>
-                <div class="channel-section">
-                    <div class="section-header">Direct Messages</div>
-                    <div id="dmList"></div>
-                </div>
-            </div>
-            <div class="online-admins">
-                <div class="admin-header">Admins</div>
-                <div id="adminList"></div>
-            </div>
-            <div class="online-vips">
-                <div class="vip-header">VIP Users</div>
-                <div id="vipList"></div>
-            </div>
-            <div class="online-users">
-                <div class="online-header">Online Users</div>
-                <div id="userList"></div>
-            </div>
-            <div class="user-area" id="userArea">
-                <div class="user-info">
-                    <div class="user-avatar" id="userAvatar">
-                        U
-                        <div class="admin-badge" id="adminBadge">⚡</div>
-                        <div class="vip-badge-avatar" id="vipBadge">⭐</div>
-                    </div>
-                    <div class="username" id="usernameDisplay">User</div>
-                    <div class="connection-status" id="connectionStatus"></div>
-                </div>
-            </div>
-        </div>
-
-        <div class="main-content">
-            <div class="chat-header">
-                <div class="channel-name-header" id="currentChannel">general</div>
-                <div class="typing-indicator" id="typingIndicator"></div>
-            </div>
-            <div class="messages" id="messageArea"></div>
-            <div class="input-area">
-                <div class="input-wrapper">
-                    <input type="text" class="message-input" id="messageInput" placeholder="Message #general">
-                    <button class="send-btn" id="sendBtn">Send</button>
-                </div>
-            </div>
-        </div>
+    <div class="admin-tabs">
+      <button class="admin-tab active" data-tab="users">Users</button>
+      <button class="admin-tab" data-tab="moderation">Moderation</button>
+      <button class="admin-tab" data-tab="trolling">Fun Tools</button>
+      <button class="admin-tab" data-tab="bans">Ban Manager</button>
+      <button class="admin-tab" data-tab="settings">Settings</button>
+      <button class="admin-tab" data-tab="logs">Logs</button>
     </div>
+    <div class="admin-content">
+      <div class="admin-section active" id="adminUsers"><div id="adminUserList"></div></div>
+      <div class="admin-section" id="adminModeration">
+        <div class="admin-input-group">
+          <label class="admin-label">Select User</label>
+          <select class="admin-select" id="modUserSelect"><option value="">-- Select --</option></select>
+        </div>
+        <div class="admin-label">Ban Type</div>
+        <div class="ban-option-group">
+          <div class="ban-option selected" data-type="username">Username</div>
+          <div class="ban-option" data-type="ip">IP</div>
+          <div class="ban-option" data-type="both">Both</div>
+        </div>
+        <div class="admin-input-group">
+          <label class="admin-label">Action</label>
+          <select class="admin-select" id="modActionSelect">
+            <option value="kick">Kick</option>
+            <option value="timeout">Timeout</option>
+            <option value="mute">Mute</option>
+            <option value="ban">Ban</option>
+            <option value="tempBanIP">Temp IP Ban</option>
+            <option value="warning">Warning</option>
+          </select>
+        </div>
+        <div class="admin-input-group" id="durationGroup" style="display:none;">
+          <label class="admin-label">Duration</label>
+          <input type="number" class="admin-input" id="modDuration" value="60" min="1">
+          <small style="color:#72767d;font-size:11px;">Seconds for timeout/mute, Minutes for temp IP ban</small>
+        </div>
+        <div class="admin-input-group">
+          <label class="admin-label">Reason (optional)</label>
+          <input type="text" class="admin-input" id="modReason" placeholder="Enter reason...">
+        </div>
+        <button class="admin-submit" onclick="executeModAction()">Execute Action</button>
+      </div>
+      <div class="admin-section" id="adminTrolling">
+        <div class="admin-input-group">
+          <label class="admin-label">Target User</label>
+          <select class="admin-select" id="trollUserSelect"><option value="">-- Select --</option></select>
+        </div>
+        <div class="troll-grid">
+          <button class="troll-btn warning" onclick="trollAction('spinScreen')">🌀 Spin Screen</button>
+          <button class="troll-btn warning" onclick="trollAction('shakeScreen')">📳 Shake Screen</button>
+          <button class="troll-btn warning" onclick="trollAction('flipScreen')">🙃 Flip Screen</button>
+          <button class="troll-btn warning" onclick="trollAction('invertColors')">🎨 Invert Colors</button>
+          <button class="troll-btn" onclick="trollAction('emojiSpam')">😂 Emoji Spam</button>
+          <button class="troll-btn" onclick="trollAction('rainbow')">🌈 Rainbow</button>
+          <button class="troll-btn" onclick="trollAction('blur')">👓 Blur Screen</button>
+          <button class="troll-btn" onclick="trollAction('matrix')">💚 Matrix Mode</button>
+          <button class="troll-btn success" onclick="trollAction('confetti')">🎉 Confetti</button>
+          <button class="troll-btn danger" onclick="trollAction('rickRoll')">🎵 Rick Roll</button>
+          <button class="troll-btn danger" onclick="trollAction('forceDisconnect')">🔌 Disconnect</button>
+          <button class="troll-btn success" onclick="sendConfettiAll()">🎊 Confetti All</button>
+        </div>
+        <div class="admin-input-group">
+          <label class="admin-label">Fake Message Text</label>
+          <input type="text" class="admin-input" id="fakeMessageText" placeholder="Message to show them...">
+          <button class="admin-submit" style="margin-top:8px;" onclick="sendFakeMessage()">Send Fake Message</button>
+        </div>
+        <div class="admin-input-group">
+          <label class="admin-label">Broadcast to All</label>
+          <input type="text" class="admin-input" id="broadcastText" placeholder="Announcement...">
+          <button class="admin-submit" style="margin-top:8px;" onclick="broadcastAnnouncement()">📢 Broadcast</button>
+        </div>
+        <div class="admin-input-group">
+          <label class="admin-label">Global Mute Duration (seconds)</label>
+          <input type="number" class="admin-input" id="globalMuteDuration" value="60" min="1">
+          <button class="admin-submit warning" style="margin-top:8px;background:#faa61a;" onclick="globalMute()">🔇 Global Mute</button>
+        </div>
+      </div>
+      <div class="admin-section" id="adminBans">
+        <div class="admin-label">Banned Usernames</div>
+        <div class="ban-list" id="bannedUsersList"></div>
+        <div class="admin-label">Banned IPs</div>
+        <div class="ban-list" id="bannedIPsList"></div>
+        <div class="admin-label">Temp Banned IPs</div>
+        <div class="ban-list" id="tempBannedIPsList"></div>
+        <button class="admin-submit" onclick="refreshBanList()">🔄 Refresh Ban List</button>
+      </div>
+      <div class="admin-section" id="adminSettings">
+        <div class="admin-input-group">
+          <label class="admin-label">Redirect URL (for kicks)</label>
+          <input type="text" class="admin-input" id="redirectUrl" value="https://google.com">
+        </div>
+        <div class="admin-input-group">
+          <label class="admin-label">Slow Mode Duration (seconds)</label>
+          <input type="number" class="admin-input" id="slowModeDuration" value="5" min="1">
+        </div>
+        <div class="checkbox-group">
+          <input type="checkbox" id="autoModEnabled">
+          <label for="autoModEnabled">Auto-Moderation (Bad Words)</label>
+        </div>
+        <div class="checkbox-group">
+          <input type="checkbox" id="slowModeEnabled">
+          <label for="slowModeEnabled">Global Slow Mode</label>
+        </div>
+        <div class="checkbox-group">
+          <input type="checkbox" id="maintenanceMode">
+          <label for="maintenanceMode">Maintenance Mode</label>
+        </div>
+        <div class="admin-input-group">
+          <label class="admin-label">Server MOTD</label>
+          <input type="text" class="admin-input" id="serverMotd" placeholder="Welcome!">
+        </div>
+        <button class="admin-submit" onclick="saveAdminSettings()">💾 Save Settings</button>
+        <div class="admin-input-group" style="margin-top:16px;">
+          <label class="admin-label">Clear Channel</label>
+          <select class="admin-select" id="clearChannelSelect">
+            <option value="general">general</option>
+            <option value="random">random</option>
+            <option value="gaming">gaming</option>
+            <option value="memes">memes</option>
+          </select>
+          <button class="admin-submit danger" style="margin-top:8px;background:#ed4245;" onclick="clearChannel()">🗑️ Clear Chat</button>
+        </div>
+        <div class="stats-grid" style="margin-top:16px;">
+          <div class="stat-card"><div class="stat-value" id="totalUsers">0</div><div class="stat-label">Online</div></div>
+          <div class="stat-card"><div class="stat-value" id="totalMessages">0</div><div class="stat-label">Messages</div></div>
+        </div>
+      </div>
+      <div class="admin-section" id="adminLogs">
+        <div class="admin-label" style="margin-bottom:8px;">Recent Actions</div>
+        <div class="action-log" id="actionLog"><div class="admin-empty">No actions logged</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="container">
+    <div class="sidebar">
+      <div class="server-header">The Chet</div>
+      <div class="channels" id="channelList">
+        <div class="channel-section">
+          <div class="section-header" onclick="toggleSection(this)">Channels <span class="collapse-icon">▼</span></div>
+          <div class="channel-list">
+            <div class="channel active" data-channel="general"><span class="channel-name">general</span><span class="unread-badge">0</span></div>
+            <div class="channel" data-channel="random"><span class="channel-name">random</span><span class="unread-badge">0</span></div>
+            <div class="channel" data-channel="gaming"><span class="channel-name">gaming</span><span class="unread-badge">0</span></div>
+            <div class="channel" data-channel="memes"><span class="channel-name">memes</span><span class="unread-badge">0</span></div>
+          </div>
+        </div>
+        <div class="channel-section">
+          <div class="section-header" onclick="toggleSection(this)">Direct Messages <span class="collapse-icon">▼</span></div>
+          <div class="channel-list" id="dmList"></div>
+        </div>
+      </div>
+      <div class="users-section" id="usersSection">
+        <div class="users-section-header" onclick="toggleUsersSection()">
+          <span style="color:#96989d;font-size:12px;font-weight:600;">ONLINE USERS</span>
+          <button class="minimize-btn" id="minimizeBtn">−</button>
+        </div>
+        <div class="online-admins"><div class="admin-header">Admins</div><div id="adminList"></div></div>
+        <div class="online-vips"><div class="vip-header">VIP</div><div id="vipList"></div></div>
+        <div class="online-users"><div class="online-header">Users</div><div id="userList"></div></div>
+      </div>
+      <div class="user-area" id="userArea">
+        <div class="user-info">
+          <div class="user-avatar" id="userAvatar">U<div class="admin-badge" id="adminBadge">⚡</div><div class="vip-badge-avatar" id="vipBadge">⭐</div></div>
+          <div class="username" id="usernameDisplay">User</div>
+          <div class="connection-status" id="connectionStatus"></div>
+        </div>
+      </div>
+    </div>
+    <div class="main-content">
+      <div class="chat-header">
+        <div class="channel-name-header" id="currentChannel">general</div>
+        <div style="display:flex;align-items:center;">
+          <div class="char-counter" id="charCounter">0/100</div>
+          <div class="typing-indicator" id="typingIndicator"></div>
+        </div>
+      </div>
+      <div class="messages" id="messageArea"></div>
+      <div class="input-area">
+        <div class="reply-bar" id="replyBar">
+          <span class="reply-bar-text" id="replyBarText">Replying to...</span>
+          <button class="reply-bar-close" onclick="cancelReply()">×</button>
+        </div>
+        <div class="input-wrapper">
+          <input type="text" class="message-input" id="messageInput" placeholder="Message #general" maxlength="500">
+          <button class="send-btn" id="sendBtn">Send</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    const EMOJIS = ['👍','👎','❤️','😂','😮','😢','🔥','🎉','👀','💯'];
+    let isAdmin = false, isVIP = false, selectedBanType = 'username', replyingTo = null, msgLimit = 100;
+    let adminStats = { totalMessages: 0 };
+    const state = { currentChannel: 'general', currentChatType: 'channel', currentPrivateChat: null, username: '', ws: null, connected: false, messages: {}, privateMessages: {}, users: [], typingUsers: {}, privateChats: {}, unreadCounts: {}, unreadDMCounts: {} };
+    const $ = id => document.getElementById(id);
+    const adminPanel = $('adminPanel'), userArea = $('userArea'), notifications = $('notifications');
+    const messageArea = $('messageArea'), messageInput = $('messageInput'), sendBtn = $('sendBtn');
+    const currentChannelEl = $('currentChannel'), usernameDisplay = $('usernameDisplay'), userAvatar = $('userAvatar');
+    const connectionStatus = $('connectionStatus'), typingIndicator = $('typingIndicator'), charCounter = $('charCounter');
+    let typingTimeout;
 
-    <script>
-        let isAdmin = false;
-        let isVIP = false;
-        let selectedBanType = 'username';
-        let adminStats = {
-            totalKicks: 0,
-            totalBans: 0,
-            totalMessages: 0
-        };
+    function toggleSection(header) {
+      header.classList.toggle('collapsed');
+      header.nextElementSibling.classList.toggle('collapsed');
+    }
+    function toggleUsersSection() {
+      $('usersSection').classList.toggle('minimized');
+      $('minimizeBtn').textContent = $('usersSection').classList.contains('minimized') ? '+' : '−';
+    }
+    userArea.onclick = () => { if (isAdmin) { adminPanel.classList.toggle('show'); updateAdminUserList(); updateUserSelects(); refreshBanList(); } };
+    $('adminClose').onclick = () => adminPanel.classList.remove('show');
+    document.querySelectorAll('.admin-tab').forEach(tab => {
+      tab.onclick = () => {
+        document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.admin-section').forEach(s => s.classList.remove('active'));
+        tab.classList.add('active');
+        $('admin' + tab.dataset.tab.charAt(0).toUpperCase() + tab.dataset.tab.slice(1)).classList.add('active');
+      };
+    });
+    document.querySelectorAll('.ban-option').forEach(opt => {
+      opt.onclick = () => {
+        document.querySelectorAll('.ban-option').forEach(o => o.classList.remove('selected'));
+        opt.classList.add('selected');
+        selectedBanType = opt.dataset.type;
+      };
+    });
+    $('modActionSelect').onchange = function() {
+      $('durationGroup').style.display = ['timeout','mute','tempBanIP'].includes(this.value) ? 'block' : 'none';
+    };
+    messageInput.oninput = () => {
+      const len = messageInput.value.length;
+      charCounter.textContent = `${len}/${msgLimit}`;
+      charCounter.classList.toggle('over-limit', len > msgLimit && !isAdmin);
+      if (len > 0) startTyping(); else stopTyping();
+    };
 
-        let adminSettings = {
-            redirectUrl: 'https://google.com',
-            timeoutDuration: 60,
-            autoModEnabled: false,
-            slowModeEnabled: false,
-            serverMotd: ''
-        };
+    function send(data) { if (state.ws?.readyState === WebSocket.OPEN) state.ws.send(JSON.stringify(data)); }
+    function connectWebSocket() {
+      const WS_URL = location.protocol === 'https:' ? `wss://${location.host}` : `ws://${location.hostname}:${location.port||3000}`;
+      try { state.ws = new WebSocket(WS_URL); } catch(e) { setTimeout(connectWebSocket, 3000); return; }
+      state.ws.onopen = () => {
+        state.connected = true; connectionStatus.classList.add('connected'); sendBtn.disabled = false;
+        send({ type: 'join', username: state.username, isAdmin, isVIP, adminPassword: isAdmin ? 'classic-admin-76' : undefined, vipPassword: isVIP ? 'very-important-person' : undefined });
+        send({ type: 'getHistory', channel: state.currentChannel });
+      };
+      state.ws.onmessage = e => { try { handleServerMessage(JSON.parse(e.data)); } catch(er) {} };
+      state.ws.onclose = () => { state.connected = false; connectionStatus.classList.remove('connected'); sendBtn.disabled = true; setTimeout(connectWebSocket, 3000); };
+    }
 
-        const adminPanel = document.getElementById('adminPanel');
-        const userArea = document.getElementById('userArea');
-        const adminClose = document.getElementById('adminClose');
+    function handleServerMessage(data) {
+      const handlers = {
+        joined: () => {
+          if (data.isAdmin !== undefined) { isAdmin = data.isAdmin; if (isAdmin) $('adminBadge').classList.add('show'); }
+          if (data.isVIP !== undefined) { isVIP = data.isVIP; if (isVIP) $('vipBadge').classList.add('show'); }
+          if (data.limits) msgLimit = isAdmin ? 9999 : data.limits.message;
+          charCounter.textContent = `0/${isAdmin ? '∞' : msgLimit}`;
+        },
+        message: () => { addMessageToChannel(data.message); adminStats.totalMessages++; },
+        history: () => loadHistory(data.channel, data.messages),
+        userList: () => updateUserList(data.users),
+        typing: () => handleTypingIndicator(data),
+        privateChatRequest: () => showPrivateChatRequest(data.from),
+        privateChatAccepted: () => handlePrivateChatAccepted(data.chatId, data.with),
+        privateChatRejected: () => notify('❌ Declined', `${data.by} declined your chat request`),
+        privateMessage: () => addPrivateMessage(data.message),
+        privateHistory: () => loadPrivateHistory(data.chatId, data.messages),
+        reactionUpdate: () => updateReactions(data),
+        kicked: () => { alert(data.message); setTimeout(() => location.href = data.redirectUrl, 1000); },
+        timedOut: () => notify('⏰ Timed Out', data.message),
+        timeoutEnded: () => notify('✅ Timeout Ended', data.message),
+        banned: () => { alert(data.message); setTimeout(() => location.href = 'https://google.com', 1000); },
+        warning: () => notify(`⚠️ Warning #${data.count||1}`, data.message),
+        broadcast: () => notify('📢 Announcement', data.message),
+        announcement: () => { notify('📢 Announcement', data.message.text); },
+        adminActionSuccess: () => notify('✅ Success', data.message || `${data.action} completed`),
+        error: () => notify('❌ Error', data.message),
+        unmuted: () => { notify('🔊 Unmuted', data.message); messageInput.disabled = false; sendBtn.disabled = false; },
+        fakeMessage: () => notify('👻 Message', `You said: "${data.fakeText}"`),
+        forceMute: () => { notify('🔇 Muted', `${data.duration}s`); messageInput.disabled = true; sendBtn.disabled = true; setTimeout(() => { messageInput.disabled = false; sendBtn.disabled = !state.connected; notify('🔊 Unmuted', 'You can chat again'); }, data.duration * 1000); },
+        spinScreen: () => { document.body.style.animation = 'spin 2s linear'; setTimeout(() => document.body.style.animation = '', 2000); },
+        invertColors: () => { document.body.style.filter = 'invert(1)'; setTimeout(() => document.body.style.filter = '', 5000); },
+        shakeScreen: () => { document.body.style.animation = 'shake 0.5s'; setTimeout(() => document.body.style.animation = '', 500); },
+        flipScreen: () => { document.body.style.transform = 'rotate(180deg)'; setTimeout(() => document.body.style.transform = '', 5000); },
+        rainbow: () => { document.body.style.animation = 'rainbow 2s linear infinite'; setTimeout(() => document.body.style.animation = '', 5000); },
+        blur: () => { document.body.style.filter = 'blur(5px)'; setTimeout(() => document.body.style.filter = '', 5000); },
+        matrix: () => { document.body.style.animation = 'matrix 0.5s infinite'; setTimeout(() => document.body.style.animation = '', 5000); },
+        emojiSpam: () => spawnEmojis(),
+        confetti: () => spawnConfetti(),
+        rickRoll: () => window.open('https://www.youtube.com/watch?v=dQw4w9WgXcQ', '_blank'),
+        forceDisconnect: () => { alert('Disconnected by admin'); state.ws.close(); },
+        chatCleared: () => { if (state.messages[data.channel]) state.messages[data.channel] = []; if (data.channel === state.currentChannel) renderMessages(); },
+        messageDeleted: () => { if (state.messages[data.channel]) { state.messages[data.channel] = state.messages[data.channel].filter(m => m.id !== data.messageId); if (data.channel === state.currentChannel) renderMessages(); } },
+        banList: () => renderBanList(data)
+      };
+      if (handlers[data.type]) handlers[data.type]();
+    }
 
-        userArea.addEventListener('click', () => {
-            if (isAdmin) {
-                adminPanel.classList.toggle('show');
-                updateAdminUserList();
-                updateUserSelects();
-                updateStats();
-            }
-        });
+    function notify(title, message) {
+      const n = document.createElement('div');
+      n.className = 'notification';
+      n.innerHTML = `<div class="notification-header">${title}</div><div class="notification-body">${message}</div>`;
+      notifications.appendChild(n);
+      setTimeout(() => n.remove(), 4000);
+    }
 
-        adminClose.addEventListener('click', () => {
-            adminPanel.classList.remove('show');
-        });
+    function spawnEmojis() {
+      const emojis = ['😂','🎉','🔥','💀','👻','🤡','💩','🌈'];
+      for (let i = 0; i < 20; i++) setTimeout(() => {
+        const e = document.createElement('div');
+        e.textContent = emojis[Math.floor(Math.random()*emojis.length)];
+        e.style.cssText = `position:fixed;font-size:50px;left:${Math.random()*innerWidth}px;top:${Math.random()*innerHeight}px;animation:fadeOut 2s forwards;pointer-events:none;z-index:9999;`;
+        document.body.appendChild(e);
+        setTimeout(() => e.remove(), 2000);
+      }, i * 100);
+    }
 
-        // Admin Tabs
-        document.querySelectorAll('.admin-tab').forEach(tab => {
-            tab.addEventListener('click', () => {
-                document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
-                document.querySelectorAll('.admin-section').forEach(s => s.classList.remove('active'));
-                tab.classList.add('active');
-                document.getElementById('admin' + tab.dataset.tab.charAt(0).toUpperCase() + tab.dataset.tab.slice(1)).classList.add('active');
-            });
-        });
+    function spawnConfetti() {
+      const colors = ['#ff0','#f0f','#0ff','#f00','#0f0','#00f'];
+      for (let i = 0; i < 50; i++) setTimeout(() => {
+        const c = document.createElement('div');
+        c.className = 'confetti';
+        c.style.cssText = `left:${Math.random()*100}%;top:-10px;background:${colors[Math.floor(Math.random()*colors.length)]};transform:rotate(${Math.random()*360}deg);`;
+        document.body.appendChild(c);
+        setTimeout(() => c.remove(), 3000);
+      }, i * 50);
+    }
 
-        // Ban type selection
-        document.querySelectorAll('.ban-option').forEach(option => {
-            option.addEventListener('click', () => {
-                document.querySelectorAll('.ban-option').forEach(o => o.classList.remove('selected'));
-                option.classList.add('selected');
-                selectedBanType = option.dataset.type;
-            });
-        });
+    function updateAdminUserList() {
+      const el = $('adminUserList');
+      el.innerHTML = '';
+      state.users.filter(u => u.username !== state.username).forEach(user => {
+        const badges = user.isAdmin ? '<span class="admin-badge-text">ADMIN</span>' : user.isVIP ? '<span class="vip-badge">VIP</span>' : '';
+        el.innerHTML += `<div class="admin-user-item"><div class="admin-user-info"><div class="admin-user-avatar">${user.username[0].toUpperCase()}</div><div class="admin-user-name">${user.username} ${badges}</div></div><div class="admin-actions"><button class="admin-btn admin-btn-kick" onclick="quickAction('kick','${user.username}')">Kick</button><button class="admin-btn admin-btn-timeout" onclick="quickAction('timeout','${user.username}')">Timeout</button><button class="admin-btn admin-btn-mute" onclick="quickAction('mute','${user.username}')">Mute</button><button class="admin-btn admin-btn-ban" onclick="quickAction('ban','${user.username}')">Ban</button></div></div>`;
+      });
+      if (!el.innerHTML) el.innerHTML = '<div class="admin-empty">No other users</div>';
+      $('totalUsers').textContent = state.users.length;
+      $('totalMessages').textContent = adminStats.totalMessages;
+    }
 
-        // Moderation action type change
-        document.getElementById('modActionSelect')?.addEventListener('change', function() {
-            const timeoutGroup = document.getElementById('timeoutDurationGroup');
-            if (this.value === 'timeout') {
-                timeoutGroup.style.display = 'block';
-            } else {
-                timeoutGroup.style.display = 'none';
-            }
-        });
+    function updateUserSelects() {
+      [$('modUserSelect'), $('trollUserSelect')].forEach(sel => {
+        if (!sel) return;
+        const v = sel.value;
+        sel.innerHTML = '<option value="">-- Select --</option>';
+        state.users.filter(u => u.username !== state.username).forEach(u => sel.innerHTML += `<option value="${u.username}">${u.username}</option>`);
+        sel.value = v;
+      });
+    }
 
-        function updateAdminUserList() {
-            const userListEl = document.getElementById('adminUserList');
-            userListEl.innerHTML = '';
-            
-            state.users.forEach(user => {
-                if (user.username === state.username) return;
-                
-                let badgeHTML = '';
-                if (user.isVIP) badgeHTML = ' <span class="vip-badge">VIP</span>';
-                if (user.isAdmin) badgeHTML = ' <span class="admin-badge-text">ADMIN</span>';
-                
-                const userItem = document.createElement('div');
-                userItem.className = 'admin-user-item';
-                userItem.innerHTML = `
-                    <div class="admin-user-info">
-                        <div class="admin-user-avatar">${user.username.charAt(0).toUpperCase()}</div>
-                        <div class="admin-user-name">${user.username}${badgeHTML}</div>
-                    </div>
-                    <div class="admin-actions">
-                        <button class="admin-btn admin-btn-kick" onclick="quickAction('kick', '${user.username}')">Kick</button>
-                        <button class="admin-btn admin-btn-timeout" onclick="quickAction('timeout', '${user.username}')">Timeout</button>
-                        <button class="admin-btn admin-btn-ban" onclick="quickAction('ban', '${user.username}')">Ban</button>
-                    </div>
-                `;
-                userListEl.appendChild(userItem);
-            });
+    function quickAction(action, username) {
+      if (action === 'kick') { if (confirm(`Kick ${username}?`)) send({ type: 'adminKick', targetUsername: username, redirectUrl: $('redirectUrl')?.value || 'https://google.com' }); }
+      else if (action === 'timeout') { const d = prompt('Duration (seconds):', '60'); if (d) send({ type: 'adminTimeout', targetUsername: username, duration: parseInt(d) }); }
+      else if (action === 'mute') { const d = prompt('Duration (seconds):', '60'); if (d) send({ type: 'adminForceMute', targetUsername: username, duration: parseInt(d) }); }
+      else if (action === 'ban') { if (confirm(`Ban ${username}?`)) send({ type: 'adminBan', targetUsername: username, banType: 'username' }); }
+      logAction(action.toUpperCase(), username);
+    }
 
-            if (state.users.length <= 1) {
-                userListEl.innerHTML = '<div class="admin-empty">No other users online</div>';
-            }
+    function executeModAction() {
+      const username = $('modUserSelect').value, action = $('modActionSelect').value, reason = $('modReason').value, duration = parseInt($('modDuration').value) || 60;
+      if (!username) return notify('⚠️ Error', 'Select a user');
+      const actions = {
+        kick: () => send({ type: 'adminKick', targetUsername: username, reason, redirectUrl: $('redirectUrl')?.value }),
+        timeout: () => send({ type: 'adminTimeout', targetUsername: username, duration, reason }),
+        mute: () => send({ type: 'adminForceMute', targetUsername: username, duration }),
+        ban: () => send({ type: 'adminBan', targetUsername: username, banType: selectedBanType, reason }),
+        tempBanIP: () => send({ type: 'adminTempBanIP', targetUsername: username, duration, reason }),
+        warning: () => send({ type: 'adminWarning', targetUsername: username, reason: reason || 'Warning' })
+      };
+      if (actions[action]) actions[action]();
+      logAction(action.toUpperCase(), username, reason);
+    }
+
+    function trollAction(type) {
+      const username = $('trollUserSelect').value;
+      if (!username) return notify('⚠️ Error', 'Select a user');
+      send({ type: 'admin' + type[0].toUpperCase() + type.slice(1), targetUsername: username });
+      logAction(type.toUpperCase(), username);
+    }
+
+    function sendFakeMessage() {
+      const username = $('trollUserSelect').value, text = $('fakeMessageText').value;
+      if (!username || !text) return notify('⚠️ Error', 'Select user and enter text');
+      send({ type: 'adminFakeMessage', targetUsername: username, fakeText: text });
+      logAction('FAKE MSG', username);
+    }
+
+    function broadcastAnnouncement() {
+      const text = $('broadcastText').value;
+      if (!text) return notify('⚠️ Error', 'Enter text');
+      send({ type: 'adminBroadcast', message: text });
+      $('broadcastText').value = '';
+      logAction('BROADCAST');
+    }
+
+    function globalMute() {
+      const duration = parseInt($('globalMuteDuration').value) || 60;
+      send({ type: 'adminGlobalMute', duration });
+      logAction('GLOBAL MUTE', 'all', `${duration}s`);
+    }
+
+    function sendConfettiAll() { send({ type: 'adminConfetti' }); logAction('CONFETTI', 'all'); }
+
+    function clearChannel() {
+      const channel = $('clearChannelSelect').value;
+      if (confirm(`Clear #${channel}?`)) { send({ type: 'adminClearChat', channel }); logAction('CLEAR CHAT', channel); }
+    }
+
+    function saveAdminSettings() {
+      send({ type: 'adminUpdateSettings', settings: {
+        autoModEnabled: $('autoModEnabled').checked,
+        slowModeEnabled: $('slowModeEnabled').checked,
+        slowModeDuration: parseInt($('slowModeDuration').value) || 5,
+        serverMotd: $('serverMotd').value,
+        maintenanceMode: $('maintenanceMode').checked
+      }});
+      if ($('slowModeEnabled').checked !== state.slowModeEnabled) send({ type: 'adminSlowMode', enabled: $('slowModeEnabled').checked });
+      notify('✅ Saved', 'Settings updated');
+    }
+
+    function refreshBanList() { send({ type: 'adminGetBanList' }); }
+
+    function renderBanList(data) {
+      $('bannedUsersList').innerHTML = data.bannedUsers.length ? data.bannedUsers.map(u => `<div class="ban-item"><span class="ban-item-name">${u}</span><button class="unban-btn" onclick="unbanUser('${u}')">Unban</button></div>`).join('') : '<div class="admin-empty">None</div>';
+      $('bannedIPsList').innerHTML = data.bannedIPs.length ? data.bannedIPs.map(ip => `<div class="ban-item"><span class="ban-item-name">${ip}</span><button class="unban-btn" onclick="unbanIP('${ip}')">Unban</button></div>`).join('') : '<div class="admin-empty">None</div>';
+      $('tempBannedIPsList').innerHTML = data.tempBannedIPs.length ? data.tempBannedIPs.map(b => `<div class="ban-item"><span class="ban-item-name">${b.ip} (until ${new Date(b.until).toLocaleString()})</span><button class="unban-btn" onclick="unbanIP('${b.ip}')">Remove</button></div>`).join('') : '<div class="admin-empty">None</div>';
+    }
+
+    function unbanUser(username) { send({ type: 'adminUnban', username }); setTimeout(refreshBanList, 500); logAction('UNBAN', username); }
+    function unbanIP(ip) { send({ type: 'adminUnbanIP', ip }); setTimeout(refreshBanList, 500); logAction('UNBAN IP', ip); }
+
+    function logAction(action, target = '', details = '') {
+      const log = $('actionLog');
+      if (log.querySelector('.admin-empty')) log.innerHTML = '';
+      const entry = document.createElement('div');
+      entry.className = 'log-entry';
+      entry.innerHTML = `<div class="log-time">${new Date().toLocaleTimeString()}</div><div>${action} ${target ? '→ ' + target : ''} ${details}</div>`;
+      log.insertBefore(entry, log.firstChild);
+      if (log.children.length > 50) log.removeChild(log.lastChild);
+    }
+
+    function addMessage() {
+      const text = messageInput.value.trim();
+      if (!text || !state.connected) return;
+      if (!isAdmin && text.length > msgLimit) return notify('❌ Error', `Max ${msgLimit} characters`);
+      if (state.currentChatType === 'private') {
+        send({ type: 'privateMessage', chatId: state.currentPrivateChat, text, targetUsername: state.privateChats[state.currentPrivateChat], replyTo: replyingTo });
+      } else {
+        send({ type: 'message', channel: state.currentChannel, text, replyTo: replyingTo });
+      }
+      messageInput.value = '';
+      charCounter.textContent = `0/${isAdmin ? '∞' : msgLimit}`;
+      cancelReply();
+      stopTyping();
+    }
+
+    function setReplyTo(msg) {
+      replyingTo = { id: msg.id, author: msg.author, text: msg.text.slice(0, 50) };
+      $('replyBarText').innerHTML = `Replying to <span class="reply-author">${msg.author}</span>`;
+      $('replyBar').classList.add('show');
+      messageInput.focus();
+    }
+
+    function cancelReply() { replyingTo = null; $('replyBar').classList.remove('show'); }
+
+    function addReaction(msgId, emoji, channel, isPrivate, chatId) {
+      send({ type: 'addReaction', messageId: msgId, emoji, channel, isPrivate, chatId });
+    }
+
+    function removeReaction(msgId, emoji, channel, isPrivate, chatId) {
+      send({ type: 'removeReaction', messageId: msgId, emoji, channel, isPrivate, chatId });
+    }
+
+    function updateReactions(data) {
+      const msgList = data.isPrivate ? state.privateMessages[data.chatId] : state.messages[data.channel];
+      if (!msgList) return;
+      const msg = msgList.find(m => m.id === data.messageId);
+      if (msg) { msg.reactions = data.reactions; renderMessages(); }
+    }
+
+    function addMessageToChannel(msg) {
+      if (!state.messages[msg.channel]) state.messages[msg.channel] = [];
+      state.messages[msg.channel].push(msg);
+      if (msg.channel === state.currentChannel && state.currentChatType === 'channel') renderMessages();
+      else incrementUnreadChannel(msg.channel);
+    }
+
+    function addPrivateMessage(msg) {
+      if (!state.privateMessages[msg.chatId]) state.privateMessages[msg.chatId] = [];
+      state.privateMessages[msg.chatId].push(msg);
+      if (msg.chatId === state.currentPrivateChat && state.currentChatType === 'private') renderMessages();
+      else incrementUnreadDM(msg.chatId);
+    }
+
+    function loadHistory(channel, messages) {
+      state.messages[channel] = messages;
+      if (channel === state.currentChannel && state.currentChatType === 'channel') renderMessages();
+    }
+
+    function loadPrivateHistory(chatId, messages) {
+      state.privateMessages[chatId] = messages;
+      if (chatId === state.currentPrivateChat && state.currentChatType === 'private') renderMessages();
+    }
+
+    function renderMessages() {
+      const msgs = state.currentChatType === 'private' ? state.privateMessages[state.currentPrivateChat] || [] : state.messages[state.currentChannel] || [];
+      messageArea.innerHTML = '';
+      msgs.forEach(msg => {
+        const el = document.createElement('div');
+        el.className = 'message';
+        el.dataset.id = msg.id;
+        let authorClass = msg.isAdmin ? 'message-author admin' : msg.isVIP ? 'message-author vip' : 'message-author';
+        let badge = msg.isAdmin ? '<span class="admin-badge-text">ADMIN</span>' : msg.isVIP ? '<span class="vip-badge">VIP</span>' : '';
+        let replyHtml = '';
+        if (msg.replyTo) {
+          replyHtml = `<div class="reply-preview" onclick="scrollToMessage('${msg.replyTo.id}')"><span class="reply-author">↩ ${msg.replyTo.author}</span>: ${msg.replyTo.text}...</div>`;
         }
-
-        function updateUserSelects() {
-            const modSelect = document.getElementById('modUserSelect');
-            const trollSelect = document.getElementById('trollUserSelect');
-            
-            [modSelect, trollSelect].forEach(select => {
-                if (!select) return;
-                const currentValue = select.value;
-                select.innerHTML = '<option value="">-- Select User --</option>';
-                
-                state.users.forEach(user => {
-                    if (user.username !== state.username) {
-                        const option = document.createElement('option');
-                        option.value = user.username;
-                        option.textContent = user.username;
-                        select.appendChild(option);
-                    }
-                });
-                
-                select.value = currentValue;
-            });
+        let reactionsHtml = '';
+        if (msg.reactions && Object.keys(msg.reactions).length) {
+          reactionsHtml = '<div class="reactions">';
+          for (const [emoji, users] of Object.entries(msg.reactions)) {
+            const reacted = users.includes(state.username);
+            reactionsHtml += `<div class="reaction ${reacted ? 'reacted' : ''}" onclick="${reacted ? 'removeReaction' : 'addReaction'}('${msg.id}','${emoji}','${state.currentChannel}',${state.currentChatType === 'private'},'${state.currentPrivateChat}')">${emoji}<span class="reaction-count">${users.length}</span></div>`;
+          }
+          reactionsHtml += '</div>';
         }
-
-        function updateStats() {
-            document.getElementById('totalUsers').textContent = state.users.length;
-            document.getElementById('totalMessages').textContent = adminStats.totalMessages;
-            document.getElementById('totalBans').textContent = adminStats.totalBans;
-            document.getElementById('totalKicks').textContent = adminStats.totalKicks;
-        }
-
-        function logAction(action, target, details = '') {
-            const logEl = document.getElementById('actionLog');
-            if (logEl.querySelector('.admin-empty')) {
-                logEl.innerHTML = '';
-            }
-            
-            const entry = document.createElement('div');
-            entry.className = 'log-entry';
-            const time = new Date().toLocaleTimeString();
-            entry.innerHTML = `
-                <div class="log-time">${time}</div>
-                <div>${action} ${target ? `→ ${target}` : ''} ${details}</div>
-            `;
-            logEl.insertBefore(entry, logEl.firstChild);
-            
-            if (logEl.children.length > 50) {
-                logEl.removeChild(logEl.lastChild);
-            }
-        }
-
-        function quickAction(action, username) {
-            if (action === 'kick') {
-                if (confirm(`Kick ${username}?`)) {
-                    send({
-                        type: 'adminKick',
-                        targetUsername: username,
-                        redirectUrl: adminSettings.redirectUrl
-                    });
-                    adminStats.totalKicks++;
-                    logAction('KICK', username);
-                }
-            } else if (action === 'timeout') {
-                const duration = prompt('Timeout duration (seconds):', '60');
-                if (duration) {
-                    send({
-                        type: 'adminTimeout',
-                        targetUsername: username,
-                        duration: parseInt(duration)
-                    });
-                    logAction('TIMEOUT', username, `${duration}s`);
-                }
-            } else if (action === 'ban') {
-                if (confirm(`Ban ${username}? This will ban their username only.`)) {
-                    send({
-                        type: 'adminBan',
-                        targetUsername: username,
-                        banType: 'username'
-                    });
-                    adminStats.totalBans++;
-                    logAction('BAN', username, '(username)');
-                }
-            }
-        }
-
-        function executeModAction() {
-            const username = document.getElementById('modUserSelect').value;
-            const action = document.getElementById('modActionSelect').value;
-            const reason = document.getElementById('modReason').value;
-            
-            if (!username) {
-                showAdminNotification('⚠️ Error', 'Please select a user');
-                return;
-            }
-
-            if (action === 'kick') {
-                send({
-                    type: 'adminKick',
-                    targetUsername: username,
-                    redirectUrl: adminSettings.redirectUrl,
-                    reason: reason
-                });
-                adminStats.totalKicks++;
-                logAction('KICK', username, reason ? `(${reason})` : '');
-            } else if (action === 'timeout') {
-                const duration = document.getElementById('modTimeoutDuration').value;
-                send({
-                    type: 'adminTimeout',
-                    targetUsername: username,
-                    duration: parseInt(duration),
-                    reason: reason
-                });
-                logAction('TIMEOUT', username, `${duration}s ${reason ? `(${reason})` : ''}`);
-            } else if (action === 'ban') {
-                send({
-                    type: 'adminBan',
-                    targetUsername: username,
-                    banType: selectedBanType,
-                    reason: reason
-                });
-                adminStats.totalBans++;
-                logAction('BAN', username, `(${selectedBanType}) ${reason ? `- ${reason}` : ''}`);
-            } else if (action === 'warning') {
-                send({
-                    type: 'adminWarning',
-                    targetUsername: username,
-                    reason: reason || 'Warning from admin'
-                });
-                logAction('WARNING', username, reason);
-            }
-            
-            showAdminNotification('✅ Success', `${action} action executed on ${username}`);
-        }
-
-        // Trolling Functions
-        function sendFakeMessage() {
-            const username = document.getElementById('trollUserSelect').value;
-            const messageText = document.getElementById('fakeMessageText').value;
-            
-            if (!username || !messageText) {
-                showAdminNotification('⚠️ Error', 'Please select user and enter message');
-                return;
-            }
-
-            send({
-                type: 'adminFakeMessage',
-                targetUsername: username,
-                fakeText: messageText
-            });
-            logAction('FAKE MESSAGE', username, `"${messageText}"`);
-            showAdminNotification('😈 Sent', 'Fake message delivered');
-        }
-
-        function forceMute() {
-            const username = document.getElementById('trollUserSelect').value;
-            if (!username) {
-                showAdminNotification('⚠️ Error', 'Please select a user');
-                return;
-            }
-            send({ type: 'adminForceMute', targetUsername: username, duration: 30 });
-            logAction('FORCE MUTE', username, '30s');
-            showAdminNotification('🔇 Muted', `${username} cannot send messages for 30s`);
-        }
-
-        function spinUser() {
-            const username = document.getElementById('trollUserSelect').value;
-            if (!username) {
-                showAdminNotification('⚠️ Error', 'Please select a user');
-                return;
-            }
-            send({ type: 'adminSpinScreen', targetUsername: username });
-            logAction('SPIN SCREEN', username);
-            showAdminNotification('🌀 Spinning', 'Their screen is spinning!');
-        }
-
-        function slowMode() {
-            send({ type: 'adminSlowMode', enabled: !adminSettings.slowModeEnabled });
-            adminSettings.slowModeEnabled = !adminSettings.slowModeEnabled;
-            logAction('SLOW MODE', 'all users', adminSettings.slowModeEnabled ? 'enabled' : 'disabled');
-            showAdminNotification('⏱️ Slow Mode', adminSettings.slowModeEnabled ? 'Enabled' : 'Disabled');
-        }
-
-        function invertColors() {
-            const username = document.getElementById('trollUserSelect').value;
-            if (!username) {
-                showAdminNotification('⚠️ Error', 'Please select a user');
-                return;
-            }
-            send({ type: 'adminInvertColors', targetUsername: username });
-            logAction('INVERT COLORS', username);
-            showAdminNotification('🎨 Inverted', 'Their colors are inverted!');
-        }
-
-        function shakeScreen() {
-            const username = document.getElementById('trollUserSelect').value;
-            if (!username) {
-                showAdminNotification('⚠️ Error', 'Please select a user');
-                return;
-            }
-            send({ type: 'adminShakeScreen', targetUsername: username });
-            logAction('SHAKE SCREEN', username);
-            showAdminNotification('📳 Shaking', 'Earthquake initiated!');
-        }
-
-        function randomEmojis() {
-            const username = document.getElementById('trollUserSelect').value;
-            if (!username) {
-                showAdminNotification('⚠️ Error', 'Please select a user');
-                return;
-            }
-            send({ type: 'adminEmojiSpam', targetUsername: username });
-            logAction('EMOJI SPAM', username);
-            showAdminNotification('😂 Emoji Spam', 'Flooding their screen!');
-        }
-
-        function rickRoll() {
-            const username = document.getElementById('trollUserSelect').value;
-            if (!username) {
-                showAdminNotification('⚠️ Error', 'Please select a user');
-                return;
-            }
-            send({ type: 'adminRickRoll', targetUsername: username });
-            logAction('RICK ROLL', username);
-            showAdminNotification('🎵 Rick Roll', 'Never gonna give you up!');
-        }
-
-        function forceDisconnect() {
-            const username = document.getElementById('trollUserSelect').value;
-            if (!username) {
-                showAdminNotification('⚠️ Error', 'Please select a user');
-                return;
-            }
-            if (confirm(`Force disconnect ${username}?`)) {
-                send({ type: 'adminForceDisconnect', targetUsername: username });
-                logAction('FORCE DISCONNECT', username);
-                showAdminNotification('🔌 Disconnected', 'User has been disconnected');
-            }
-        }
-
-        function flipScreen() {
-            const username = document.getElementById('trollUserSelect').value;
-            if (!username) {
-                showAdminNotification('⚠️ Error', 'Please select a user');
-                return;
-            }
-            send({ type: 'adminFlipScreen', targetUsername: username });
-            logAction('FLIP SCREEN', username);
-            showAdminNotification('🙃 Flipped', 'Their world is upside down!');
-        }
-
-        function broadcastAnnouncement() {
-            const text = document.getElementById('broadcastText').value;
-            if (!text) {
-                showAdminNotification('⚠️ Error', 'Please enter announcement text');
-                return;
-            }
-            send({ type: 'adminBroadcast', message: text });
-            logAction('BROADCAST', 'all users', `"${text}"`);
-            showAdminNotification('📢 Broadcasted', 'Announcement sent to all users');
-            document.getElementById('broadcastText').value = '';
-        }
-
-        function saveAdminSettings() {
-            adminSettings.redirectUrl = document.getElementById('redirectUrl').value;
-            adminSettings.timeoutDuration = parseInt(document.getElementById('defaultTimeoutDuration').value);
-            adminSettings.autoModEnabled = document.getElementById('autoModEnabled').checked;
-            adminSettings.slowModeEnabled = document.getElementById('slowModeEnabled').checked;
-            adminSettings.serverMotd = document.getElementById('serverMotd').value;
-            
-            send({ type: 'adminUpdateSettings', settings: adminSettings });
-            showAdminNotification('✅ Settings Saved', 'Admin settings have been updated');
-            logAction('SETTINGS UPDATED', null, 'Admin configuration changed');
-        }
-
-        function showAdminNotification(title, message) {
-            const notification = document.createElement('div');
-            notification.className = 'notification';
-            notification.innerHTML = `
-                <div class="notification-header">${title}</div>
-                <div class="notification-body">${message}</div>
-            `;
-            notifications.appendChild(notification);
-            setTimeout(() => notification.remove(), 3000);
-        }
-
-        // WebSocket and Chat Logic
-        const WS_URL = window.location.protocol === 'https:' ? `wss://${window.location.host}` : `ws://${window.location.hostname}:${window.location.port || 3000}`;
-        const state = {
-            currentChannel: 'general',
-            currentChatType: 'channel',
-            currentPrivateChat: null,
-            username: '',
-            ws: null,
-            connected: false,
-            messages: {},
-            privateMessages: {},
-            users: [],
-            typingUsers: {},
-            privateChats: {},
-            unreadCounts: {},
-            unreadDMCounts: {}
-        };
-
-        const messageArea = document.getElementById('messageArea');
-        const messageInput = document.getElementById('messageInput');
-        const sendBtn = document.getElementById('sendBtn');
-        const channelList = document.getElementById('channelList');
-        const dmList = document.getElementById('dmList');
-        const currentChannelEl = document.getElementById('currentChannel');
-        const usernameDisplay = document.getElementById('usernameDisplay');
-        const userAvatar = document.getElementById('userAvatar');
-        const connectionStatus = document.getElementById('connectionStatus');
-        const userList = document.getElementById('userList');
-        const vipList = document.getElementById('vipList');
-        const adminList = document.getElementById('adminList');
-        const typingIndicator = document.getElementById('typingIndicator');
-        const notifications = document.getElementById('notifications');
-        let typingTimeout;
-
-        function send(data) {
-            if (state.ws && state.ws.readyState === WebSocket.OPEN) {
-                state.ws.send(JSON.stringify(data));
-            }
-        }
-
-        function connectWebSocket() {
-            try {
-                state.ws = new WebSocket(WS_URL);
-            } catch (e) {
-                setTimeout(connectWebSocket, 3000);
-                return;
-            }
-
-            state.ws.onopen = () => {
-                state.connected = true;
-                connectionStatus.classList.add('connected');
-                sendBtn.disabled = false;
-                send({ 
-                    type: 'join', 
-                    username: state.username, 
-                    isAdmin: isAdmin,
-                    isVIP: isVIP,
-                    adminPassword: isAdmin ? 'classicclassic' : undefined,
-                    vipPassword: isVIP ? 'very-important-person' : undefined
-                });
-                send({ type: 'getHistory', channel: state.currentChannel });
-            };
-
-            state.ws.onmessage = (e) => {
-                try {
-                    const data = JSON.parse(e.data);
-                    handleServerMessage(data);
-                } catch (er) {
-                    console.error('Error handling message:', er);
-                }
-            };
-
-            state.ws.onclose = () => {
-                state.connected = false;
-                connectionStatus.classList.remove('connected');
-                sendBtn.disabled = true;
-                setTimeout(connectWebSocket, 3000);
-            };
-
-            state.ws.onerror = (e) => {
-                console.error('WebSocket error:', e);
-            };
-        }
-
-        function handleServerMessage(data) {
-            switch (data.type) {
-                case 'joined':
-                    if (data.isAdmin !== undefined) {
-                        isAdmin = data.isAdmin;
-                        if (isAdmin) {
-                            document.getElementById('adminBadge').classList.add('show');
-                        }
-                    }
-                    if (data.isVIP !== undefined) {
-                        isVIP = data.isVIP;
-                        if (isVIP) {
-                            document.getElementById('vipBadge').classList.add('show');
-                        }
-                    }
-                    break;
-                case 'message':
-                    addMessageToChannel(data.message);
-                    adminStats.totalMessages++;
-                    break;
-                case 'history':
-                    loadHistory(data.channel, data.messages);
-                    break;
-                case 'userList':
-                    updateUserList(data.users);
-                    break;
-                case 'typing':
-                    handleTypingIndicator(data);
-                    break;
-                case 'privateChatRequest':
-                    showPrivateChatRequest(data.from);
-                    break;
-                case 'privateChatAccepted':
-                    handlePrivateChatAccepted(data.chatId, data.with);
-                    break;
-                case 'privateChatRejected':
-                    alert(`${data.by} declined`);
-                    break;
-                case 'privateMessage':
-                    addPrivateMessage(data.message);
-                    break;
-                case 'privateHistory':
-                    loadPrivateHistory(data.chatId, data.messages);
-                    break;
-                case 'kicked':
-                    alert(data.message);
-                    setTimeout(() => {
-                        window.location.href = data.redirectUrl;
-                    }, 1000);
-                    break;
-                case 'timedOut':
-                    showAdminNotification('⏰ Timed Out', data.message);
-                    break;
-                case 'timeoutEnded':
-                    showAdminNotification('✅ Timeout Ended', data.message);
-                    break;
-                case 'banned':
-                    alert(data.message);
-                    setTimeout(() => {
-                        window.location.href = 'https://google.com';
-                    }, 1000);
-                    break;
-                case 'adminActionSuccess':
-                    const actions = {
-                        kick: '🚪 User Kicked',
-                        timeout: '⏰ User Timed Out',
-                        ban: '🔨 User Banned',
-                        warning: '⚠️ Warning Sent'
-                    };
-                    showAdminNotification(actions[data.action] || '✅ Success', data.message || `Action completed on ${data.target}`);
-                    break;
-                case 'warning':
-                    showAdminNotification('⚠️ Admin Warning', data.message);
-                    break;
-                case 'broadcast':
-                    showAdminNotification('📢 Server Announcement', data.message);
-                    break;
-                case 'fakeMessage':
-                    showAdminNotification('👻 Fake Message', `You supposedly said: "${data.fakeText}"`);
-                    break;
-                case 'forceMute':
-                    showAdminNotification('🔇 Force Muted', `You cannot send messages for ${data.duration} seconds`);
-                    messageInput.disabled = true;
-                    sendBtn.disabled = true;
-                    setTimeout(() => {
-                        messageInput.disabled = false;
-                        sendBtn.disabled = false;
-                        showAdminNotification('🔊 Unmuted', 'You can now send messages again');
-                    }, data.duration * 1000);
-                    break;
-                case 'spinScreen':
-                    document.body.style.animation = 'spin 2s linear';
-                    setTimeout(() => { document.body.style.animation = ''; }, 2000);
-                    break;
-                case 'invertColors':
-                    document.body.style.filter = 'invert(1)';
-                    setTimeout(() => { document.body.style.filter = ''; }, 5000);
-                    break;
-                case 'shakeScreen':
-                    document.body.style.animation = 'shake 0.5s';
-                    setTimeout(() => { document.body.style.animation = ''; }, 500);
-                    break;
-                case 'emojiSpam':
-                    const emojis = ['😂', '🎉', '🔥', '💀', '👻', '🤡', '💩', '🌈'];
-                    for (let i = 0; i < 20; i++) {
-                        setTimeout(() => {
-                            const emoji = document.createElement('div');
-                            emoji.textContent = emojis[Math.floor(Math.random() * emojis.length)];
-                            emoji.style.cssText = `position:fixed;font-size:50px;left:${Math.random()*window.innerWidth}px;top:${Math.random()*window.innerHeight}px;animation:fadeOut 2s forwards;pointer-events:none;z-index:9999;`;
-                            document.body.appendChild(emoji);
-                            setTimeout(() => emoji.remove(), 2000);
-                        }, i * 100);
-                    }
-                    break;
-                case 'rickRoll':
-                    window.open('https://www.youtube.com/watch?v=dQw4w9WgXcQ', '_blank');
-                    break;
-                case 'forceDisconnect':
-                    alert('An admin has disconnected you');
-                    state.ws.close();
-                    break;
-                case 'flipScreen':
-                    document.body.style.transform = 'rotate(180deg)';
-                    setTimeout(() => { document.body.style.transform = ''; }, 5000);
-                    break;
-                case 'error':
-                    showAdminNotification('❌ Error', data.message);
-                    break;
-            }
-        }
-
-        function showPrivateChatRequest(from) {
-            const notification = document.createElement('div');
-            notification.className = 'notification';
-            notification.innerHTML = `
-                <div class="notification-header">Private Chat Request</div>
-                <div class="notification-body">${from} wants to chat</div>
-                <div class="notification-actions">
-                    <button class="notification-btn btn-accept">Accept</button>
-                    <button class="notification-btn btn-decline">Decline</button>
-                </div>
-            `;
-            notification.querySelector('.btn-accept').onclick = () => {
-                send({ type: 'privateChatResponse', from, accepted: true });
-                notification.remove();
-            };
-            notification.querySelector('.btn-decline').onclick = () => {
-                send({ type: 'privateChatResponse', from, accepted: false });
-                notification.remove();
-            };
-            notifications.appendChild(notification);
-        }
-
-        function handlePrivateChatAccepted(chatId, withUser) {
-            state.privateChats[chatId] = withUser;
-            addDMToList(chatId, withUser);
-            switchToPrivateChat(chatId, withUser);
-        }
-
-        function addDMToList(chatId, username) {
-            if (document.querySelector(`[data-chat-id="${chatId}"]`)) return;
-            
-            const dmEl = document.createElement('div');
-            dmEl.className = 'channel private';
-            dmEl.dataset.chatId = chatId;
-            dmEl.innerHTML = `
-                <span class="channel-name">${username}</span>
-                <span class="unread-badge">0</span>
-                <button class="close-dm">×</button>
-            `;
-            
-            dmEl.querySelector('.close-dm').onclick = (e) => {
-                e.stopPropagation();
-                dmEl.remove();
-                delete state.privateChats[chatId];
-                delete state.privateMessages[chatId];
-                delete state.unreadDMCounts[chatId];
-                if (state.currentPrivateChat === chatId) switchChannel('general');
-            };
-            
-            dmEl.onclick = () => switchToPrivateChat(chatId, username);
-            dmList.appendChild(dmEl);
-        }
-
-        function switchToPrivateChat(chatId, username) {
-            state.currentChatType = 'private';
-            state.currentPrivateChat = chatId;
-            state.currentChannel = username;
-            currentChannelEl.textContent = username;
-            currentChannelEl.classList.add('private');
-            messageInput.placeholder = `Message @${username}`;
-            
-            document.querySelectorAll('.channel').forEach(c => c.classList.remove('active'));
-            const dm = document.querySelector(`[data-chat-id="${chatId}"]`);
-            if (dm) dm.classList.add('active');
-            
-            if (!state.privateMessages[chatId]) {
-                send({ type: 'getPrivateHistory', chatId });
-            } else {
-                renderMessages();
-            }
-            
-            state.typingUsers = {};
-            updateTypingIndicator();
-            resetUnreadDM(chatId);
-        }
-
-        function requestPrivateChat(username) {
-            if (username === state.username) return;
-            send({ type: 'privateChatRequest', targetUsername: username });
-        }
-
-        function addMessage() {
-            const text = messageInput.value.trim();
-            if (!text || !state.connected) return;
-            
-            if (state.currentChatType === 'private') {
-                send({
-                    type: 'privateMessage',
-                    chatId: state.currentPrivateChat,
-                    text: text,
-                    targetUsername: state.privateChats[state.currentPrivateChat]
-                });
-            } else {
-                send({
-                    type: 'message',
-                    channel: state.currentChannel,
-                    text: text
-                });
-            }
-            
-            messageInput.value = '';
-            stopTyping();
-        }
-
-        function addMessageToChannel(message) {
-            if (!state.messages[message.channel]) {
-                state.messages[message.channel] = [];
-            }
-            state.messages[message.channel].push(message);
-            
-            if (message.channel === state.currentChannel && state.currentChatType === 'channel') {
-                renderMessages();
-            } else {
-                incrementUnreadChannel(message.channel);
-            }
-        }
-
-        function addPrivateMessage(message) {
-            if (!state.privateMessages[message.chatId]) {
-                state.privateMessages[message.chatId] = [];
-            }
-            state.privateMessages[message.chatId].push(message);
-            
-            if (message.chatId === state.currentPrivateChat && state.currentChatType === 'private') {
-                renderMessages();
-            } else {
-                incrementUnreadDM(message.chatId);
-            }
-        }
-
-        function loadHistory(channel, messages) {
-            state.messages[channel] = messages;
-            if (channel === state.currentChannel && state.currentChatType === 'channel') {
-                renderMessages();
-            }
-        }
-
-        function loadPrivateHistory(chatId, messages) {
-            state.privateMessages[chatId] = messages;
-            if (chatId === state.currentPrivateChat && state.currentChatType === 'private') {
-                renderMessages();
-            }
-        }
-
-        function renderMessages() {
-            let msgs = state.currentChatType === 'private' 
-                ? state.privateMessages[state.currentPrivateChat] || [] 
-                : state.messages[state.currentChannel] || [];
-            
-            messageArea.innerHTML = '';
-            msgs.forEach(msg => {
-                const msgEl = document.createElement('div');
-                msgEl.className = 'message';
-                
-                let authorClass = 'message-author';
-                let badge = '';
-                
-                if (msg.isAdmin) {
-                    authorClass = 'message-author admin';
-                    badge = '<span class="admin-badge-text">ADMIN</span>';
-                } else if (msg.isVIP) {
-                    authorClass = 'message-author vip';
-                    badge = '<span class="vip-badge">VIP</span>';
-                }
-                
-                msgEl.innerHTML = `
-                    <div class="message-avatar">${msg.author.charAt(0).toUpperCase()}</div>
-                    <div class="message-content">
-                        <div class="message-header">
-                            <span class="${authorClass}">${msg.author}</span>
-                            ${badge}
-                            <span class="message-timestamp">${formatTime(new Date(msg.timestamp))}</span>
-                        </div>
-                        <div class="message-text">${msg.text}</div>
-                    </div>
-                `;
-                messageArea.appendChild(msgEl);
-            });
-            messageArea.scrollTop = messageArea.scrollHeight;
-        }
-
-        function updateUserList(users) {
-            state.users = users;
-            userList.innerHTML = '';
-            vipList.innerHTML = '';
-            adminList.innerHTML = '';
-            
-            const admins = users.filter(u => u.isAdmin && u.username !== state.username);
-            const vips = users.filter(u => u.isVIP && !u.isAdmin && u.username !== state.username);
-            const regularUsers = users.filter(u => !u.isVIP && !u.isAdmin && u.username !== state.username);
-            
-            admins.forEach(user => {
-                const adminEl = document.createElement('div');
-                adminEl.className = 'user-list-item';
-                adminEl.innerHTML = `
-                    <span class="user-name">${user.username} <span class="admin-badge-text">ADMIN</span></span>
-                    <button class="dm-btn">DM</button>
-                `;
-                adminEl.querySelector('.dm-btn').onclick = () => requestPrivateChat(user.username);
-                adminList.appendChild(adminEl);
-            });
-            
-            if (admins.length === 0) {
-                adminList.innerHTML = '<div class="empty-list">No admins online</div>';
-            }
-            
-            vips.forEach(user => {
-                const vipEl = document.createElement('div');
-                vipEl.className = 'user-list-item';
-                vipEl.innerHTML = `
-                    <span class="user-name">${user.username} <span class="vip-badge">VIP</span></span>
-                    <button class="dm-btn">DM</button>
-                `;
-                vipEl.querySelector('.dm-btn').onclick = () => requestPrivateChat(user.username);
-                vipList.appendChild(vipEl);
-            });
-            
-            if (vips.length === 0) {
-                vipList.innerHTML = '<div class="empty-list">No VIPs online</div>';
-            }
-            
-            regularUsers.forEach(user => {
-                const userEl = document.createElement('div');
-                userEl.className = 'user-list-item';
-                userEl.innerHTML = `
-                    <span class="user-name">${user.username}</span>
-                    <button class="dm-btn">DM</button>
-                `;
-                userEl.querySelector('.dm-btn').onclick = () => requestPrivateChat(user.username);
-                userList.appendChild(userEl);
-            });
-            
-            if (regularUsers.length === 0) {
-                userList.innerHTML = '<div class="empty-list">No users online</div>';
-            }
-            
-            if (isAdmin && adminPanel.classList.contains('show')) {
-                updateAdminUserList();
-                updateUserSelects();
-            }
-        }
-
-        function handleTypingIndicator(data) {
-            if (state.currentChatType === 'private') {
-                if (data.isPrivate && data.username === state.privateChats[state.currentPrivateChat]) {
-                    if (data.isTyping) {
-                        state.typingUsers[data.username] = true;
-                    } else {
-                        delete state.typingUsers[data.username];
-                    }
-                    updateTypingIndicator();
-                }
-            } else {
-                if (data.channel === state.currentChannel && !data.isPrivate) {
-                    if (data.isTyping) {
-                        state.typingUsers[data.username] = true;
-                    } else {
-                        delete state.typingUsers[data.username];
-                    }
-                    updateTypingIndicator();
-                }
-            }
-        }
-
-        function updateTypingIndicator() {
-            const typing = Object.keys(state.typingUsers);
-            if (typing.length === 0) {
-                typingIndicator.innerHTML = '';
-                return;
-            }
-            
-            const label = typing.length === 1 
-                ? `${typing[0]} is typing` 
-                : `${typing.length} people are typing`;
-            
-            typingIndicator.innerHTML = `
-                <span>${label}</span>
-                <span class="typing-dots">
-                    <span class="typing-dot"></span>
-                    <span class="typing-dot"></span>
-                    <span class="typing-dot"></span>
-                </span>
-            `;
-        }
-
-        function startTyping() {
-            if (!state.connected) return;
-            
-            if (state.currentChatType === 'private') {
-                send({
-                    type: 'typing',
-                    channel: state.currentPrivateChat,
-                    isTyping: true,
-                    isPrivate: true,
-                    targetUsername: state.privateChats[state.currentPrivateChat]
-                });
-            } else {
-                send({
-                    type: 'typing',
-                    channel: state.currentChannel,
-                    isTyping: true
-                });
-            }
-            
-            clearTimeout(typingTimeout);
-            typingTimeout = setTimeout(stopTyping, 3000);
-        }
-
-        function stopTyping() {
-            if (!state.connected) return;
-            
-            if (state.currentChatType === 'private') {
-                send({
-                    type: 'typing',
-                    channel: state.currentPrivateChat,
-                    isTyping: false,
-                    isPrivate: true,
-                    targetUsername: state.privateChats[state.currentPrivateChat]
-                });
-            } else {
-                send({
-                    type: 'typing',
-                    channel: state.currentChannel,
-                    isTyping: false
-                });
-            }
-        }
-
-        function formatTime(date) {
-            return date.getHours().toString().padStart(2, '0') + ':' + 
-                   date.getMinutes().toString().padStart(2, '0');
-        }
-
-        function switchChannel(channel) {
-            state.currentChatType = 'channel';
-            state.currentPrivateChat = null;
-            state.currentChannel = channel;
-            currentChannelEl.textContent = channel;
-            currentChannelEl.classList.remove('private');
-            messageInput.placeholder = `Message #${channel}`;
-            
-            document.querySelectorAll('.channel').forEach(ch => {
-                ch.classList.remove('active');
-                if (ch.dataset.channel === channel) {
-                    ch.classList.add('active');
-                }
-            });
-            
-            if (!state.messages[channel]) {
-                send({ type: 'getHistory', channel });
-            } else {
-                renderMessages();
-            }
-            
-            state.typingUsers = {};
-            updateTypingIndicator();
-            resetUnreadChannel(channel);
-        }
-
-        function incrementUnreadChannel(channel) {
-            if (state.currentChatType === 'channel' && state.currentChannel === channel) return;
-            state.unreadCounts[channel] = (state.unreadCounts[channel] || 0) + 1;
-            updateUnreadBadgeChannel(channel);
-        }
-
-        function resetUnreadChannel(channel) {
-            state.unreadCounts[channel] = 0;
-            updateUnreadBadgeChannel(channel);
-        }
-
-        function updateUnreadBadgeChannel(channel) {
-            const wrapper = document.querySelector(`.channel[data-channel="${channel}"]`);
-            const badge = wrapper ? wrapper.querySelector('.unread-badge') : null;
-            if (!badge || !wrapper) return;
-            
-            const count = state.unreadCounts[channel] || 0;
-            badge.textContent = count;
-            if (count > 0) {
-                wrapper.classList.add('unread');
-            } else {
-                wrapper.classList.remove('unread');
-            }
-        }
-
-        function incrementUnreadDM(chatId) {
-            if (state.currentChatType === 'private' && state.currentPrivateChat === chatId) return;
-            state.unreadDMCounts[chatId] = (state.unreadDMCounts[chatId] || 0) + 1;
-            updateUnreadBadgeDM(chatId);
-        }
-
-        function resetUnreadDM(chatId) {
-            state.unreadDMCounts[chatId] = 0;
-            updateUnreadBadgeDM(chatId);
-        }
-
-        function updateUnreadBadgeDM(chatId) {
-            const wrapper = document.querySelector(`.channel.private[data-chat-id="${chatId}"]`);
-            const badge = wrapper ? wrapper.querySelector('.unread-badge') : null;
-            if (!badge || !wrapper) return;
-            
-            const count = state.unreadDMCounts[chatId] || 0;
-            badge.textContent = count;
-            if (count > 0) {
-                wrapper.classList.add('unread');
-            } else {
-                wrapper.classList.remove('unread');
-            }
-        }
-
-        // Event Listeners
-        sendBtn.onclick = (e) => {
-            e.preventDefault();
-            addMessage();
-        };
-
-        messageInput.onkeypress = (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                addMessage();
-            }
-        };
-
-        messageInput.oninput = () => {
-            if (messageInput.value.length > 0) {
-                startTyping();
-            } else {
-                stopTyping();
-            }
-        };
-
-        channelList.onclick = (e) => {
-            const channel = e.target.closest('.channel');
-            if (channel && channel.dataset.channel) {
-                switchChannel(channel.dataset.channel);
-            }
-        };
-
-        // Add CSS animations
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes spin {
-                from { transform: rotate(0deg); }
-                to { transform: rotate(360deg); }
-            }
-            @keyframes shake {
-                0%, 100% { transform: translateX(0); }
-                25% { transform: translateX(-10px); }
-                75% { transform: translateX(10px); }
-            }
-            @keyframes fadeOut {
-                from { opacity: 1; }
-                to { opacity: 0; transform: translateY(-50px); }
-            }
+        el.innerHTML = `
+          <div class="message-avatar">${msg.author[0].toUpperCase()}</div>
+          <div class="message-content">
+            ${replyHtml}
+            <div class="message-header">
+              <span class="${authorClass}">${msg.author}</span>${badge}
+              <span class="message-timestamp">${formatTime(new Date(msg.timestamp))}</span>
+            </div>
+            <div class="message-text">${escapeHtml(msg.text)}</div>
+            ${reactionsHtml}
+          </div>
+          <div class="message-actions">
+            <button class="msg-action-btn" onclick="setReplyTo(${JSON.stringify(msg).replace(/"/g, '&quot;')})">↩</button>
+            <button class="msg-action-btn" onclick="toggleReactionPicker('${msg.id}')">😀</button>
+            ${isAdmin ? `<button class="msg-action-btn" onclick="deleteMessage('${msg.id}','${msg.channel || state.currentChannel}')">🗑️</button>` : ''}
+          </div>
+          <div class="reaction-picker" id="picker-${msg.id}">${EMOJIS.map(e => `<button onclick="addReaction('${msg.id}','${e}','${state.currentChannel}',${state.currentChatType === 'private'},'${state.currentPrivateChat}');toggleReactionPicker('${msg.id}')">${e}</button>`).join('')}</div>
         `;
-        document.head.appendChild(style);
+        messageArea.appendChild(el);
+      });
+      messageArea.scrollTop = messageArea.scrollHeight;
+    }
 
-        // Password gate
-        (function setupPasswordGate() {
-            const overlay = document.getElementById('loginOverlay');
-            const input = document.getElementById('passwordInput');
-            const btn = document.getElementById('loginBtn');
-            const errorMsg = document.getElementById('errorMsg');
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
 
-            function unlock(admin = false, vip = false) {
-                isAdmin = admin;
-                isVIP = vip;
-                const username = prompt('Enter your username:', 'User') || 'User';
-                state.username = username;
-                usernameDisplay.textContent = username;
-                userAvatar.textContent = username.charAt(0).toUpperCase();
-                overlay.style.display = 'none';
-                connectWebSocket();
-            }
+    function toggleReactionPicker(msgId) {
+      document.querySelectorAll('.reaction-picker').forEach(p => p.classList.remove('show'));
+      $('picker-' + msgId)?.classList.toggle('show');
+    }
 
-            function tryLogin() {
-                const val = input.value.trim();
-                if (val === 'classicclassic') {
-                    unlock(true, false);
-                } else if (val === 'very-important-person') {
-                    unlock(false, true);
-                } else if (val === 'classic') {
-                    unlock(false, false);
-                } else {
-                    errorMsg.textContent = 'Incorrect password';
-                }
-            }
+    function scrollToMessage(msgId) {
+      const el = document.querySelector(`[data-id="${msgId}"]`);
+      if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.style.background = '#5865f2'; setTimeout(() => el.style.background = '', 1000); }
+    }
 
-            btn.addEventListener('click', tryLogin);
-            input.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') tryLogin();
-            });
-        })();
-    </script>
+    function deleteMessage(msgId, channel) {
+      if (confirm('Delete this message?')) send({ type: 'adminDeleteMessage', messageId: msgId, channel });
+    }
+
+    function formatTime(date) { return date.getHours().toString().padStart(2, '0') + ':' + date.getMinutes().toString().padStart(2, '0'); }
+
+    function updateUserList(users) {
+      state.users = users;
+      const admins = users.filter(u => u.isAdmin && u.username !== state.username);
+      const vips = users.filter(u => u.isVIP && !u.isAdmin && u.username !== state.username);
+      const regular = users.filter(u => !u.isVIP && !u.isAdmin && u.username !== state.username);
+      $('adminList').innerHTML = admins.length ? admins.map(u => `<div class="user-list-item"><span class="user-name">${u.username} <span class="admin-badge-text">ADMIN</span></span><button class="dm-btn" onclick="requestPrivateChat('${u.username}')">DM</button></div>`).join('') : '<div class="empty-list">None</div>';
+      $('vipList').innerHTML = vips.length ? vips.map(u => `<div class="user-list-item"><span class="user-name">${u.username} <span class="vip-badge">VIP</span></span><button class="dm-btn" onclick="requestPrivateChat('${u.username}')">DM</button></div>`).join('') : '<div class="empty-list">None</div>';
+      $('userList').innerHTML = regular.length ? regular.map(u => `<div class="user-list-item"><span class="user-name">${u.username}</span><button class="dm-btn" onclick="requestPrivateChat('${u.username}')">DM</button></div>`).join('') : '<div class="empty-list">None</div>';
+      if (isAdmin && adminPanel.classList.contains('show')) { updateAdminUserList(); updateUserSelects(); }
+    }
+
+    function requestPrivateChat(username) { if (username !== state.username) send({ type: 'privateChatRequest', targetUsername: username }); }
+
+    function showPrivateChatRequest(from) {
+      const n = document.createElement('div');
+      n.className = 'notification';
+      n.innerHTML = `<div class="notification-header">DM Request</div><div class="notification-body">${from} wants to chat</div><div class="notification-actions"><button class="notification-btn btn-accept">Accept</button><button class="notification-btn btn-decline">Decline</button></div>`;
+      n.querySelector('.btn-accept').onclick = () => { send({ type: 'privateChatResponse', from, accepted: true }); n.remove(); };
+      n.querySelector('.btn-decline').onclick = () => { send({ type: 'privateChatResponse', from, accepted: false }); n.remove(); };
+      notifications.appendChild(n);
+    }
+
+    function handlePrivateChatAccepted(chatId, withUser) {
+      state.privateChats[chatId] = withUser;
+      addDMToList(chatId, withUser);
+      switchToPrivateChat(chatId, withUser);
+    }
+
+    function addDMToList(chatId, username) {
+      if (document.querySelector(`[data-chat-id="${chatId}"]`)) return;
+      const el = document.createElement('div');
+      el.className = 'channel private';
+      el.dataset.chatId = chatId;
+      el.innerHTML = `<span class="channel-name">${username}</span><span class="unread-badge">0</span><button class="close-dm">×</button>`;
+      el.querySelector('.close-dm').onclick = e => { e.stopPropagation(); el.remove(); delete state.privateChats[chatId]; delete state.privateMessages[chatId]; if (state.currentPrivateChat === chatId) switchChannel('general'); };
+      el.onclick = () => switchToPrivateChat(chatId, username);
+      $('dmList').appendChild(el);
+    }
+
+    function switchToPrivateChat(chatId, username) {
+      state.currentChatType = 'private';
+      state.currentPrivateChat = chatId;
+      state.currentChannel = username;
+      currentChannelEl.textContent = username;
+      currentChannelEl.classList.add('private');
+      messageInput.placeholder = `Message @${username}`;
+      document.querySelectorAll('.channel').forEach(c => c.classList.remove('active'));
+      document.querySelector(`[data-chat-id="${chatId}"]`)?.classList.add('active');
+      if (!state.privateMessages[chatId]) send({ type: 'getPrivateHistory', chatId });
+      else renderMessages();
+      state.typingUsers = {};
+      updateTypingIndicator();
+      resetUnreadDM(chatId);
+    }
+
+    function switchChannel(channel) {
+      state.currentChatType = 'channel';
+      state.currentPrivateChat = null;
+      state.currentChannel = channel;
+      currentChannelEl.textContent = channel;
+      currentChannelEl.classList.remove('private');
+      messageInput.placeholder = `Message #${channel}`;
+      document.querySelectorAll('.channel').forEach(c => { c.classList.remove('active'); if (c.dataset.channel === channel) c.classList.add('active'); });
+      if (!state.messages[channel]) send({ type: 'getHistory', channel });
+      else renderMessages();
+      state.typingUsers = {};
+      updateTypingIndicator();
+      resetUnreadChannel(channel);
+    }
+
+    function handleTypingIndicator(data) {
+      const key = data.isPrivate ? data.username : data.username;
+      const relevant = data.isPrivate ? data.username === state.privateChats[state.currentPrivateChat] : data.channel === state.currentChannel;
+      if (relevant) { if (data.isTyping) state.typingUsers[key] = true; else delete state.typingUsers[key]; updateTypingIndicator(); }
+    }
+
+    function updateTypingIndicator() {
+      const typing = Object.keys(state.typingUsers);
+      if (!typing.length) { typingIndicator.innerHTML = ''; return; }
+      typingIndicator.innerHTML = `<span>${typing.length === 1 ? typing[0] + ' is typing' : typing.length + ' typing'}</span><span class="typing-dots"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></span>`;
+    }
+
+    function startTyping() {
+      if (!state.connected) return;
+      send({ type: 'typing', channel: state.currentChatType === 'private' ? state.currentPrivateChat : state.currentChannel, isTyping: true, isPrivate: state.currentChatType === 'private', targetUsername: state.privateChats[state.currentPrivateChat] });
+      clearTimeout(typingTimeout);
+      typingTimeout = setTimeout(stopTyping, 3000);
+    }
+
+    function stopTyping() {
+      if (!state.connected) return;
+      send({ type: 'typing', channel: state.currentChatType === 'private' ? state.currentPrivateChat : state.currentChannel, isTyping: false, isPrivate: state.currentChatType === 'private', targetUsername: state.privateChats[state.currentPrivateChat] });
+    }
+
+    function incrementUnreadChannel(channel) { if (state.currentChatType !== 'channel' || state.currentChannel !== channel) { state.unreadCounts[channel] = (state.unreadCounts[channel] || 0) + 1; updateUnreadBadge(channel, false); } }
+    function resetUnreadChannel(channel) { state.unreadCounts[channel] = 0; updateUnreadBadge(channel, false); }
+    function incrementUnreadDM(chatId) { if (state.currentChatType !== 'private' || state.currentPrivateChat !== chatId) { state.unreadDMCounts[chatId] = (state.unreadDMCounts[chatId] || 0) + 1; updateUnreadBadge(chatId, true); } }
+    function resetUnreadDM(chatId) { state.unreadDMCounts[chatId] = 0; updateUnreadBadge(chatId, true); }
+    function updateUnreadBadge(key, isDM) {
+      const selector = isDM ? `[data-chat-id="${key}"]` : `[data-channel="${key}"]`;
+      const el = document.querySelector(selector);
+      if (!el) return;
+      const badge = el.querySelector('.unread-badge');
+      const count = isDM ? state.unreadDMCounts[key] || 0 : state.unreadCounts[key] || 0;
+      if (badge) { badge.textContent = count; el.classList.toggle('unread', count > 0); }
+    }
+
+    sendBtn.onclick = e => { e.preventDefault(); addMessage(); };
+    messageInput.onkeypress = e => { if (e.key === 'Enter') { e.preventDefault(); addMessage(); } };
+    document.getElementById('channelList').onclick = e => { const ch = e.target.closest('.channel'); if (ch?.dataset.channel) switchChannel(ch.dataset.channel); };
+    document.onclick = e => { if (!e.target.closest('.reaction-picker') && !e.target.closest('.msg-action-btn')) document.querySelectorAll('.reaction-picker').forEach(p => p.classList.remove('show')); };
+
+    (function setupLogin() {
+      const overlay = $('loginOverlay'), input = $('passwordInput'), btn = $('loginBtn'), err = $('errorMsg');
+      function unlock(admin, vip) {
+        isAdmin = admin; isVIP = vip;
+        let username = prompt('Enter username (max 30 chars):', 'User') || 'User';
+        username = username.slice(0, 30).trim() || 'User';
+        state.username = username;
+        usernameDisplay.textContent = username;
+        userAvatar.textContent = username[0].toUpperCase();
+        overlay.style.display = 'none';
+        connectWebSocket();
+      }
+      function tryLogin() {
+        const v = input.value.trim();
+        if (v === 'classic-admin-76') unlock(true, false);
+        else if (v === 'very-important-person') unlock(false, true);
+        else if (v === 'classic') unlock(false, false);
+        else err.textContent = 'Incorrect password';
+      }
+      btn.onclick = tryLogin;
+      input.onkeypress = e => { if (e.key === 'Enter') tryLogin(); };
+    })();
+  </script>
 </body>
 </html>
