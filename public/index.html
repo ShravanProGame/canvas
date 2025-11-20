@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Enhanced Canvas Chat</title>
+    <title>Canvas</title>
     <style>
         * {
             margin: 0;
@@ -28,11 +28,6 @@
             background: #2f3136;
             display: flex;
             flex-direction: column;
-            transition: width 0.3s;
-        }
-
-        .sidebar.minimized {
-            width: 60px;
         }
 
         .server-header {
@@ -40,15 +35,10 @@
             padding: 0 16px;
             display: flex;
             align-items: center;
-            justify-content: space-between;
             border-bottom: 1px solid #202225;
             color: #fff;
             font-weight: 600;
             font-size: 15px;
-        }
-
-        .sidebar.minimized .server-header span {
-            display: none;
         }
 
         .channels {
@@ -68,39 +58,6 @@
             text-transform: uppercase;
             margin-bottom: 4px;
             padding: 0 8px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            cursor: pointer;
-            user-select: none;
-        }
-
-        .section-header:hover {
-            color: #dcddde;
-        }
-
-        .section-toggle {
-            font-size: 10px;
-            transition: transform 0.2s;
-        }
-
-        .section-toggle.collapsed {
-            transform: rotate(-90deg);
-        }
-
-        .section-content {
-            max-height: 500px;
-            overflow: hidden;
-            transition: max-height 0.3s ease;
-        }
-
-        .section-content.collapsed {
-            max-height: 0;
-        }
-
-        .sidebar.minimized .section-header,
-        .sidebar.minimized .section-content {
-            display: none;
         }
 
         .channel {
@@ -114,6 +71,7 @@
             justify-content: space-between;
             font-size: 14px;
             transition: all 0.15s;
+            position: relative;
         }
 
         .channel:hover {
@@ -140,6 +98,7 @@
 
         .channel.private .channel-name::before {
             content: '👤';
+            margin-right: 6px;
         }
 
         .close-dm {
@@ -163,27 +122,22 @@
             color: #fff;
         }
 
-        .online-section {
+        .online-admins, .online-vips, .online-users {
             padding: 8px;
             border-top: 1px solid #202225;
             max-height: 120px;
             overflow-y: auto;
         }
 
-        .online-header {
+        .online-header, .admin-header, .vip-header {
             font-size: 11px;
             font-weight: 600;
             text-transform: uppercase;
             margin-bottom: 6px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            cursor: pointer;
-            user-select: none;
         }
 
-        .online-header:hover {
-            color: #dcddde;
+        .online-header {
+            color: #96989d;
         }
 
         .admin-header {
@@ -192,10 +146,6 @@
 
         .vip-header {
             color: #f47fff;
-        }
-
-        .online-header.user {
-            color: #96989d;
         }
 
         .user-list-item {
@@ -232,6 +182,7 @@
             font-weight: 700;
             padding: 2px 4px;
             border-radius: 3px;
+            user-select: none;
             text-shadow: 0 1px 2px rgba(0,0,0,0.3);
         }
 
@@ -242,6 +193,7 @@
             font-weight: 700;
             padding: 2px 4px;
             border-radius: 3px;
+            user-select: none;
             text-shadow: 0 1px 2px rgba(0,0,0,0.3);
         }
 
@@ -332,10 +284,6 @@
             font-weight: 500;
         }
 
-        .sidebar.minimized .username {
-            display: none;
-        }
-
         .connection-status {
             width: 8px;
             height: 8px;
@@ -380,19 +328,13 @@
             content: '👤';
         }
 
-        .char-counter {
+        .typing-indicator {
             font-size: 12px;
             color: #72767d;
-            margin-left: auto;
-            margin-right: 16px;
-        }
-
-        .char-counter.warning {
-            color: #faa61a;
-        }
-
-        .char-counter.error {
-            color: #ed4245;
+            font-style: italic;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
         }
 
         .messages {
@@ -405,17 +347,12 @@
             display: flex;
             padding: 4px 0;
             margin-bottom: 12px;
-            position: relative;
         }
 
         .message:hover {
             background: #32353b;
             margin: 0 -16px 12px;
             padding: 4px 16px;
-        }
-
-        .message:hover .message-actions {
-            opacity: 1;
         }
 
         .message-avatar {
@@ -434,21 +371,6 @@
 
         .message-content {
             flex: 1;
-        }
-
-        .message-reply {
-            margin-bottom: 4px;
-            padding: 4px 8px;
-            background: #2f3136;
-            border-left: 3px solid #4752c4;
-            border-radius: 4px;
-            font-size: 12px;
-            color: #96989d;
-            cursor: pointer;
-        }
-
-        .message-reply:hover {
-            background: #34373c;
         }
 
         .message-header {
@@ -492,76 +414,6 @@
             word-wrap: break-word;
         }
 
-        .message-actions {
-            position: absolute;
-            top: -12px;
-            right: 16px;
-            background: #2f3136;
-            border: 1px solid #202225;
-            border-radius: 8px;
-            padding: 4px;
-            display: flex;
-            gap: 4px;
-            opacity: 0;
-            transition: opacity 0.15s;
-        }
-
-        .message-action-btn {
-            background: transparent;
-            border: none;
-            color: #96989d;
-            cursor: pointer;
-            padding: 6px 8px;
-            border-radius: 4px;
-            font-size: 14px;
-            transition: all 0.15s;
-        }
-
-        .message-action-btn:hover {
-            background: #3a3c42;
-            color: #dcddde;
-        }
-
-        .message-reactions {
-            display: flex;
-            gap: 6px;
-            margin-top: 6px;
-            flex-wrap: wrap;
-        }
-
-        .reaction {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            background: #2f3136;
-            border: 1px solid #202225;
-            border-radius: 12px;
-            padding: 4px 8px;
-            font-size: 13px;
-            cursor: pointer;
-            transition: all 0.15s;
-        }
-
-        .reaction:hover {
-            background: #34373c;
-            border-color: #4752c4;
-        }
-
-        .reaction.user-reacted {
-            background: #404ebc;
-            border-color: #5865f2;
-        }
-
-        .reaction-emoji {
-            font-size: 14px;
-        }
-
-        .reaction-count {
-            color: #dcddde;
-            font-size: 12px;
-            font-weight: 500;
-        }
-
         .input-area {
             padding: 16px;
         }
@@ -570,41 +422,6 @@
             background: #40444b;
             border-radius: 8px;
             padding: 12px;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .reply-preview {
-            display: none;
-            padding: 8px;
-            background: #2f3136;
-            border-left: 3px solid #4752c4;
-            border-radius: 4px;
-            margin-bottom: 8px;
-            font-size: 13px;
-            color: #96989d;
-        }
-
-        .reply-preview.active {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .reply-close {
-            background: transparent;
-            border: none;
-            color: #96989d;
-            cursor: pointer;
-            font-size: 18px;
-            padding: 0 4px;
-        }
-
-        .reply-close:hover {
-            color: #fff;
-        }
-
-        .input-row {
             display: flex;
             align-items: center;
         }
@@ -796,13 +613,59 @@
             min-height: 18px;
         }
 
-        /* Admin Panel Styles */
+        .typing-dots {
+            display: inline-flex;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .typing-dot {
+            width: 6px;
+            height: 6px;
+            background: #72767d;
+            border-radius: 50%;
+            animation: typing-bounce 1.2s infinite ease-in-out;
+        }
+
+        .typing-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes typing-bounce {
+            0%, 80%, 100% {
+                transform: scale(0);
+            }
+            40% {
+                transform: scale(1);
+            }
+        }
+
+        .unread-badge {
+            background: #ed4245;
+            color: #fff;
+            font-size: 11px;
+            font-weight: 600;
+            border-radius: 10px;
+            padding: 2px 6px;
+            margin-left: 6px;
+            display: none;
+        }
+
+        .channel.unread .unread-badge {
+            display: inline-block;
+        }
+
+        /* Enhanced Admin Panel */
         #adminPanel {
             position: fixed;
             bottom: 60px;
             left: 8px;
-            width: 600px;
-            max-height: 700px;
+            width: 480px;
+            max-height: 600px;
             background: #2f3136;
             border: 1px solid #202225;
             border-radius: 8px;
@@ -904,7 +767,7 @@
             display: block;
         }
 
-        .admin-user-item, .ban-item {
+        .admin-user-item {
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -915,11 +778,11 @@
             transition: background 0.15s;
         }
 
-        .admin-user-item:hover, .ban-item:hover {
+        .admin-user-item:hover {
             background: #484c52;
         }
 
-        .admin-user-info, .ban-info {
+        .admin-user-info {
             display: flex;
             align-items: center;
             gap: 10px;
@@ -939,16 +802,10 @@
             font-size: 14px;
         }
 
-        .admin-user-name, .ban-name {
+        .admin-user-name {
             color: #fff;
             font-weight: 500;
             font-size: 14px;
-        }
-
-        .ban-type {
-            color: #96989d;
-            font-size: 12px;
-            margin-left: 8px;
         }
 
         .admin-actions {
@@ -994,15 +851,6 @@
             background: #c03537;
         }
 
-        .admin-btn-unban {
-            background: #3ba55d;
-            color: #fff;
-        }
-
-        .admin-btn-unban:hover {
-            background: #2d7d46;
-        }
-
         .admin-input-group {
             margin-bottom: 12px;
         }
@@ -1030,6 +878,10 @@
             border-color: #5865f2;
         }
 
+        .admin-select {
+            cursor: pointer;
+        }
+
         .admin-submit {
             width: 100%;
             padding: 10px;
@@ -1053,53 +905,41 @@
             font-size: 13px;
         }
 
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-            margin-bottom: 16px;
-        }
-
-        .stat-card {
-            background: #40444b;
-            padding: 12px;
-            border-radius: 6px;
+        .empty-list {
             text-align: center;
-        }
-
-        .stat-value {
-            color: #fff;
-            font-size: 24px;
-            font-weight: 700;
-        }
-
-        .stat-label {
-            color: #96989d;
-            font-size: 11px;
-            text-transform: uppercase;
-            margin-top: 4px;
-        }
-
-        .action-log {
-            background: #40444b;
-            padding: 8px;
-            border-radius: 6px;
-            max-height: 400px;
-            overflow-y: auto;
-        }
-
-        .log-entry {
-            padding: 6px;
-            margin-bottom: 4px;
-            background: #2f3136;
-            border-radius: 4px;
-            font-size: 12px;
-            color: #dcddde;
-        }
-
-        .log-time {
             color: #72767d;
-            font-size: 10px;
+            padding: 8px;
+            font-size: 11px;
+        }
+
+        .ban-option-group {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .ban-option {
+            flex: 1;
+            padding: 10px;
+            background: #40444b;
+            border: 2px solid #202225;
+            border-radius: 6px;
+            color: #dcddde;
+            cursor: pointer;
+            text-align: center;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.15s;
+        }
+
+        .ban-option:hover {
+            background: #484c52;
+        }
+
+        .ban-option.selected {
+            border-color: #5865f2;
+            background: #5865f2;
+            color: #fff;
         }
 
         .troll-btn {
@@ -1135,49 +975,72 @@
             background: #ee8e00;
         }
 
-        .minimize-btn {
-            background: transparent;
-            border: none;
-            color: #96989d;
-            cursor: pointer;
-            font-size: 14px;
-            padding: 4px;
-            transition: color 0.15s;
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 16px;
         }
 
-        .minimize-btn:hover {
+        .stat-card {
+            background: #40444b;
+            padding: 12px;
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .stat-value {
+            color: #fff;
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .stat-label {
+            color: #96989d;
+            font-size: 11px;
+            text-transform: uppercase;
+            margin-top: 4px;
+        }
+
+        .action-log {
+            background: #40444b;
+            padding: 8px;
+            border-radius: 6px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .log-entry {
+            padding: 6px;
+            margin-bottom: 4px;
+            background: #2f3136;
+            border-radius: 4px;
+            font-size: 12px;
             color: #dcddde;
         }
 
-        @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
+        .log-time {
+            color: #72767d;
+            font-size: 10px;
         }
 
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-10px); }
-            75% { transform: translateX(10px); }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
         }
 
-        @keyframes fadeOut {
-            from { opacity: 1; }
-            to { opacity: 0; transform: translateY(-50px); }
+        .checkbox-group input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
         }
 
-        .unread-badge {
-            background: #ed4245;
-            color: #fff;
-            font-size: 11px;
-            font-weight: 600;
-            border-radius: 10px;
-            padding: 2px 6px;
-            margin-left: 6px;
-            display: none;
-        }
-
-        .channel.unread .unread-badge {
-            display: inline-block;
+        .checkbox-group label {
+            color: #dcddde;
+            font-size: 13px;
+            cursor: pointer;
         }
     </style>
 </head>
@@ -1204,7 +1067,6 @@
         <div class="admin-tabs">
             <button class="admin-tab active" data-tab="users">Users</button>
             <button class="admin-tab" data-tab="moderation">Moderation</button>
-            <button class="admin-tab" data-tab="bans">Ban List</button>
             <button class="admin-tab" data-tab="trolling">Fun Tools</button>
             <button class="admin-tab" data-tab="settings">Settings</button>
             <button class="admin-tab" data-tab="logs">Logs</button>
@@ -1222,6 +1084,19 @@
                     <select class="admin-select" id="modUserSelect">
                         <option value="">-- Select User --</option>
                     </select>
+                </div>
+
+                <div class="admin-label">Ban Type</div>
+                <div class="ban-option-group">
+                    <div class="ban-option selected" data-type="username">
+                        Username Only
+                    </div>
+                    <div class="ban-option" data-type="ip">
+                        IP Address
+                    </div>
+                    <div class="ban-option" data-type="both">
+                        Both
+                    </div>
                 </div>
 
                 <div class="admin-input-group">
@@ -1247,17 +1122,6 @@
                 <button class="admin-submit" onclick="executeModAction()">Execute Action</button>
             </div>
 
-            <!-- Ban List Tab -->
-            <div class="admin-section" id="adminBans">
-                <div class="admin-label" style="margin-bottom: 8px;">Banned Users</div>
-                <div id="bannedUsersList"></div>
-                
-                <div class="admin-label" style="margin-top: 16px; margin-bottom: 8px;">Banned IPs</div>
-                <div id="bannedIPsList"></div>
-                
-                <button class="admin-submit" style="margin-top: 16px;" onclick="refreshBanList()">Refresh Ban List</button>
-            </div>
-
             <!-- Trolling Tab -->
             <div class="admin-section" id="adminTrolling">
                 <div class="admin-input-group">
@@ -1270,7 +1134,7 @@
                 <button class="troll-btn" onclick="sendFakeMessage()">Send Fake Message</button>
                 <button class="troll-btn warning" onclick="forceMute()">Force Mute (30s)</button>
                 <button class="troll-btn warning" onclick="spinUser()">Spin Their Screen</button>
-                <button class="troll-btn warning" onclick="slowMode()">Toggle Slow Mode</button>
+                <button class="troll-btn warning" onclick="slowMode()">Enable Slow Mode</button>
                 <button class="troll-btn warning" onclick="invertColors()">Invert Their Colors</button>
                 <button class="troll-btn warning" onclick="shakeScreen()">Shake Their Screen</button>
                 <button class="troll-btn warning" onclick="randomEmojis()">Emoji Spam</button>
@@ -1288,36 +1152,28 @@
                     <input type="text" class="admin-input" id="broadcastText" placeholder="Server announcement...">
                     <button class="admin-submit" style="margin-top: 8px;" onclick="broadcastAnnouncement()">Send to All Users</button>
                 </div>
-
-                <div class="admin-input-group" style="margin-top: 16px;">
-                    <button class="admin-submit" onclick="clearAllTimeouts()">Clear All Timeouts</button>
-                </div>
             </div>
 
             <!-- Settings Tab -->
             <div class="admin-section" id="adminSettings">
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-value" id="totalUsers">0</div>
-                        <div class="stat-label">Total Users</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value" id="totalMessages">0</div>
-                        <div class="stat-label">Messages Sent</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value" id="totalBans">0</div>
-                        <div class="stat-label">Total Bans</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value" id="totalKicks">0</div>
-                        <div class="stat-label">Total Kicks</div>
-                    </div>
-                </div>
-
                 <div class="admin-input-group">
                     <label class="admin-label">Redirect URL (for kicks)</label>
                     <input type="text" class="admin-input" id="redirectUrl" placeholder="https://example.com" value="https://google.com">
+                </div>
+
+                <div class="admin-input-group">
+                    <label class="admin-label">Default Timeout Duration (seconds)</label>
+                    <input type="number" class="admin-input" id="defaultTimeoutDuration" placeholder="60" value="60">
+                </div>
+
+                <div class="checkbox-group">
+                    <input type="checkbox" id="autoModEnabled">
+                    <label for="autoModEnabled">Enable Auto-Moderation (Bad Words)</label>
+                </div>
+
+                <div class="checkbox-group">
+                    <input type="checkbox" id="slowModeEnabled">
+                    <label for="slowModeEnabled">Enable Global Slow Mode (5s)</label>
                 </div>
 
                 <div class="admin-input-group">
@@ -1326,6 +1182,27 @@
                 </div>
 
                 <button class="admin-submit" onclick="saveAdminSettings()">Save Settings</button>
+
+                <div style="margin-top: 20px;">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value" id="totalUsers">0</div>
+                            <div class="stat-label">Total Users</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="totalMessages">0</div>
+                            <div class="stat-label">Messages Sent</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="totalBans">0</div>
+                            <div class="stat-label">Total Bans</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="totalKicks">0</div>
+                            <div class="stat-label">Total Kicks</div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Logs Tab -->
@@ -1334,70 +1211,49 @@
                 <div class="action-log" id="actionLog">
                     <div class="admin-empty">No actions logged yet</div>
                 </div>
-                <button class="admin-submit" style="margin-top: 12px;" onclick="clearLogs()">Clear Logs</button>
             </div>
         </div>
     </div>
 
     <div class="container">
-        <div class="sidebar" id="sidebar">
-            <div class="server-header">
-                <span>My Server</span>
-                <button class="minimize-btn" onclick="toggleSidebar()">◀</button>
-            </div>
+        <div class="sidebar">
+            <div class="server-header">My Server</div>
             <div class="channels" id="channelList">
                 <div class="channel-section">
-                    <div class="section-header" onclick="toggleSection(this)">
-                        <span>Channels</span>
-                        <span class="section-toggle">▼</span>
+                    <div class="section-header">Channels</div>
+                    <div class="channel active" data-channel="general">
+                        <span class="channel-name">general</span>
+                        <span class="unread-badge">0</span>
                     </div>
-                    <div class="section-content">
-                        <div class="channel active" data-channel="general">
-                            <span class="channel-name">general</span>
-                            <span class="unread-badge">0</span>
-                        </div>
-                        <div class="channel" data-channel="random">
-                            <span class="channel-name">random</span>
-                            <span class="unread-badge">0</span>
-                        </div>
-                        <div class="channel" data-channel="gaming">
-                            <span class="channel-name">gaming</span>
-                            <span class="unread-badge">0</span>
-                        </div>
-                        <div class="channel" data-channel="memes">
-                            <span class="channel-name">memes</span>
-                            <span class="unread-badge">0</span>
-                        </div>
+                    <div class="channel" data-channel="random">
+                        <span class="channel-name">random</span>
+                        <span class="unread-badge">0</span>
+                    </div>
+                    <div class="channel" data-channel="gaming">
+                        <span class="channel-name">gaming</span>
+                        <span class="unread-badge">0</span>
+                    </div>
+                    <div class="channel" data-channel="memes">
+                        <span class="channel-name">memes</span>
+                        <span class="unread-badge">0</span>
                     </div>
                 </div>
                 <div class="channel-section">
-                    <div class="section-header" onclick="toggleSection(this)">
-                        <span>Direct Messages</span>
-                        <span class="section-toggle">▼</span>
-                    </div>
-                    <div class="section-content" id="dmList"></div>
+                    <div class="section-header">Direct Messages</div>
+                    <div id="dmList"></div>
                 </div>
             </div>
-            <div class="online-section">
-                <div class="online-header admin-header" onclick="toggleSection(this)">
-                    <span>Admins</span>
-                    <span class="section-toggle">▼</span>
-                </div>
-                <div class="section-content" id="adminList"></div>
+            <div class="online-admins">
+                <div class="admin-header">Admins</div>
+                <div id="adminList"></div>
             </div>
-            <div class="online-section">
-                <div class="online-header vip-header" onclick="toggleSection(this)">
-                    <span>VIP Users</span>
-                    <span class="section-toggle">▼</span>
-                </div>
-                <div class="section-content" id="vipList"></div>
+            <div class="online-vips">
+                <div class="vip-header">VIP Users</div>
+                <div id="vipList"></div>
             </div>
-            <div class="online-section">
-                <div class="online-header user" onclick="toggleSection(this)">
-                    <span>Online Users</span>
-                    <span class="section-toggle">▼</span>
-                </div>
-                <div class="section-content" id="userList"></div>
+            <div class="online-users">
+                <div class="online-header">Online Users</div>
+                <div id="userList"></div>
             </div>
             <div class="user-area" id="userArea">
                 <div class="user-info">
@@ -1415,98 +1271,46 @@
         <div class="main-content">
             <div class="chat-header">
                 <div class="channel-name-header" id="currentChannel">general</div>
-                <div class="char-counter" id="charCounter">0/100</div>
+                <div class="typing-indicator" id="typingIndicator"></div>
             </div>
             <div class="messages" id="messageArea"></div>
             <div class="input-area">
                 <div class="input-wrapper">
-                    <div class="reply-preview" id="replyPreview">
-                        <span id="replyText">Replying to...</span>
-                        <button class="reply-close" onclick="cancelReply()">×</button>
-                    </div>
-                    <div class="input-row">
-                        <input type="text" class="message-input" id="messageInput" placeholder="Message #general" maxlength="100">
-                        <button class="send-btn" id="sendBtn">Send</button>
-                    </div>
+                    <input type="text" class="message-input" id="messageInput" placeholder="Message #general">
+                    <button class="send-btn" id="sendBtn">Send</button>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        const WS_URL = window.location.protocol === 'https:' ? `wss://${window.location.host}` : `ws://${window.location.hostname}:${window.location.port || 3000}`;
-        
         let isAdmin = false;
         let isVIP = false;
+        let selectedBanType = 'username';
         let adminStats = {
             totalKicks: 0,
             totalBans: 0,
             totalMessages: 0
         };
 
-        let replyingTo = null;
-        let bannedUsersList = [];
-        let bannedIPsList = [];
-
-        const state = {
-            currentChannel: 'general',
-            currentChatType: 'channel',
-            currentPrivateChat: null,
-            username: '',
-            ws: null,
-            connected: false,
-            messages: {},
-            privateMessages: {},
-            users: [],
-            typingUsers: {},
-            privateChats: {},
-            unreadCounts: {},
-            unreadDMCounts: {}
+        let adminSettings = {
+            redirectUrl: 'https://google.com',
+            timeoutDuration: 60,
+            autoModEnabled: false,
+            slowModeEnabled: false,
+            serverMotd: ''
         };
 
-        const messageArea = document.getElementById('messageArea');
-        const messageInput = document.getElementById('messageInput');
-        const sendBtn = document.getElementById('sendBtn');
-        const channelList = document.getElementById('channelList');
-        const dmList = document.getElementById('dmList');
-        const currentChannelEl = document.getElementById('currentChannel');
-        const usernameDisplay = document.getElementById('usernameDisplay');
-        const userAvatar = document.getElementById('userAvatar');
-        const connectionStatus = document.getElementById('connectionStatus');
-        const userList = document.getElementById('userList');
-        const vipList = document.getElementById('vipList');
-        const adminList = document.getElementById('adminList');
-        const notifications = document.getElementById('notifications');
         const adminPanel = document.getElementById('adminPanel');
         const userArea = document.getElementById('userArea');
         const adminClose = document.getElementById('adminClose');
-        const charCounter = document.getElementById('charCounter');
-        const replyPreview = document.getElementById('replyPreview');
 
-        // Character counter
-        messageInput.addEventListener('input', () => {
-            const length = messageInput.value.length;
-            charCounter.textContent = `${length}/100`;
-            
-            if (length > 90) {
-                charCounter.classList.add('error');
-                charCounter.classList.remove('warning');
-            } else if (length > 75) {
-                charCounter.classList.add('warning');
-                charCounter.classList.remove('error');
-            } else {
-                charCounter.classList.remove('warning', 'error');
-            }
-        });
-
-        // Admin panel
         userArea.addEventListener('click', () => {
             if (isAdmin) {
                 adminPanel.classList.toggle('show');
                 updateAdminUserList();
                 updateUserSelects();
                 updateStats();
-                refreshBanList();
             }
         });
 
@@ -1514,676 +1318,35 @@
             adminPanel.classList.remove('show');
         });
 
-        // Admin tabs
+        // Admin Tabs
         document.querySelectorAll('.admin-tab').forEach(tab => {
             tab.addEventListener('click', () => {
                 document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
                 document.querySelectorAll('.admin-section').forEach(s => s.classList.remove('active'));
                 tab.classList.add('active');
-                const tabName = tab.dataset.tab.charAt(0).toUpperCase() + tab.dataset.tab.slice(1);
-                document.getElementById('admin' + tabName).classList.add('active');
-                
-                if (tab.dataset.tab === 'bans') {
-                    refreshBanList();
-                }
+                document.getElementById('admin' + tab.dataset.tab.charAt(0).toUpperCase() + tab.dataset.tab.slice(1)).classList.add('active');
             });
         });
 
-        // Section toggle
-        function toggleSection(header) {
-            const toggle = header.querySelector('.section-toggle');
-            const content = header.nextElementSibling;
-            
-            if (toggle && content) {
-                toggle.classList.toggle('collapsed');
-                content.classList.toggle('collapsed');
-            }
-        }
-
-        // Sidebar toggle
-        function toggleSidebar() {
-            document.getElementById('sidebar').classList.toggle('minimized');
-        }
-
-        // Reply functions
-        function replyToMessage(messageId, author, text) {
-            replyingTo = { id: messageId, author, text };
-            replyPreview.classList.add('active');
-            document.getElementById('replyText').textContent = `Replying to ${author}: ${text.substring(0, 50)}${text.length > 50 ? '...' : ''}`;
-            messageInput.focus();
-        }
-
-        function cancelReply() {
-            replyingTo = null;
-            replyPreview.classList.remove('active');
-        }
-
-        // Reaction functions
-        function addReaction(messageId, emoji) {
-            send({
-                type: 'addReaction',
-                messageId,
-                emoji,
-                channel: state.currentChannel,
-                isPrivate: state.currentChatType === 'private',
-                chatId: state.currentPrivateChat
+        // Ban type selection
+        document.querySelectorAll('.ban-option').forEach(option => {
+            option.addEventListener('click', () => {
+                document.querySelectorAll('.ban-option').forEach(o => o.classList.remove('selected'));
+                option.classList.add('selected');
+                selectedBanType = option.dataset.type;
             });
-        }
+        });
 
-        // WebSocket functions
-        function send(data) {
-            if (state.ws && state.ws.readyState === WebSocket.OPEN) {
-                state.ws.send(JSON.stringify(data));
-            }
-        }
-
-        function connectWebSocket() {
-            try {
-                state.ws = new WebSocket(WS_URL);
-            } catch (e) {
-                setTimeout(connectWebSocket, 3000);
-                return;
-            }
-
-            state.ws.onopen = () => {
-                state.connected = true;
-                connectionStatus.classList.add('connected');
-                sendBtn.disabled = false;
-                send({ 
-                    type: 'join', 
-                    username: state.username, 
-                    isAdmin: isAdmin,
-                    isVIP: isVIP,
-                    adminPassword: isAdmin ? 'classic-admin-76' : undefined,
-                    vipPassword: isVIP ? 'very-important-person' : undefined
-                });
-                send({ type: 'getHistory', channel: state.currentChannel });
-            };
-
-            state.ws.onmessage = (e) => {
-                try {
-                    const data = JSON.parse(e.data);
-                    handleServerMessage(data);
-                } catch (er) {
-                    console.error('Error handling message:', er);
-                }
-            };
-
-            state.ws.onclose = () => {
-                state.connected = false;
-                connectionStatus.classList.remove('connected');
-                sendBtn.disabled = true;
-                setTimeout(connectWebSocket, 3000);
-            };
-
-            state.ws.onerror = (e) => {
-                console.error('WebSocket error:', e);
-            };
-        }
-
-        function handleServerMessage(data) {
-            switch (data.type) {
-                case 'joined':
-                    if (data.isAdmin !== undefined) {
-                        isAdmin = data.isAdmin;
-                        if (isAdmin) {
-                            document.getElementById('adminBadge').classList.add('show');
-                            messageInput.removeAttribute('maxlength');
-                            charCounter.textContent = `${messageInput.value.length} (Admin - No Limit)`;
-                        }
-                    }
-                    if (data.isVIP !== undefined) {
-                        isVIP = data.isVIP;
-                        if (isVIP) {
-                            document.getElementById('vipBadge').classList.add('show');
-                        }
-                    }
-                    break;
-                case 'message':
-                    addMessageToChannel(data.message);
-                    adminStats.totalMessages++;
-                    break;
-                case 'reactionAdded':
-                    updateMessageReactions(data.messageId, data.reactions);
-                    break;
-                case 'history':
-                    loadHistory(data.channel, data.messages);
-                    break;
-                case 'userList':
-                    updateUserList(data.users);
-                    break;
-                case 'privateChatRequest':
-                    showPrivateChatRequest(data.from);
-                    break;
-                case 'privateChatAccepted':
-                    handlePrivateChatAccepted(data.chatId, data.with);
-                    break;
-                case 'privateChatRejected':
-                    showNotification('❌ Request Declined', `${data.by} declined your chat request`);
-                    break;
-                case 'privateMessage':
-                    addPrivateMessage(data.message);
-                    break;
-                case 'privateHistory':
-                    loadPrivateHistory(data.chatId, data.messages);
-                    break;
-                case 'kicked':
-                    alert(data.message);
-                    setTimeout(() => {
-                        window.location.href = data.redirectUrl;
-                    }, 1000);
-                    break;
-                case 'timedOut':
-                    showNotification('⏰ Timed Out', data.message);
-                    messageInput.disabled = true;
-                    sendBtn.disabled = true;
-                    break;
-                case 'timeoutEnded':
-                    showNotification('✅ Timeout Ended', data.message);
-                    messageInput.disabled = false;
-                    sendBtn.disabled = false;
-                    break;
-                case 'banned':
-                    alert(data.message);
-                    setTimeout(() => {
-                        window.location.href = 'https://google.com';
-                    }, 1000);
-                    break;
-                case 'adminActionSuccess':
-                    const actions = {
-                        kick: '🚪 User Kicked',
-                        timeout: '⏰ User Timed Out',
-                        ban: '🔨 User Banned',
-                        warning: '⚠️ Warning Sent',
-                        unban: '✅ User Unbanned',
-                        unbanIP: '✅ IP Unbanned'
-                    };
-                    showNotification(actions[data.action] || '✅ Success', data.message || 'Action completed');
-                    if (data.action === 'unban' || data.action === 'unbanIP') {
-                        refreshBanList();
-                    }
-                    break;
-                case 'warning':
-                    showNotification('⚠️ Admin Warning', data.message);
-                    break;
-                case 'broadcast':
-                    showNotification('📢 Server Announcement', data.message);
-                    break;
-                case 'fakeMessage':
-                    showNotification('👻 Fake Message', `You supposedly said: "${data.fakeText}"`);
-                    break;
-                case 'forceMute':
-                    showNotification('🔇 Force Muted', `You cannot send messages for ${data.duration} seconds`);
-                    messageInput.disabled = true;
-                    sendBtn.disabled = true;
-                    setTimeout(() => {
-                        messageInput.disabled = false;
-                        sendBtn.disabled = false;
-                        showNotification('🔊 Unmuted', 'You can now send messages again');
-                    }, data.duration * 1000);
-                    break;
-                case 'spinScreen':
-                    document.body.style.animation = 'spin 2s linear';
-                    setTimeout(() => { document.body.style.animation = ''; }, 2000);
-                    break;
-                case 'invertColors':
-                    document.body.style.filter = 'invert(1)';
-                    setTimeout(() => { document.body.style.filter = ''; }, 5000);
-                    break;
-                case 'shakeScreen':
-                    document.body.style.animation = 'shake 0.5s';
-                    setTimeout(() => { document.body.style.animation = ''; }, 500);
-                    break;
-                case 'emojiSpam':
-                    const emojis = ['😂', '🎉', '🔥', '💀', '👻', '🤡', '💩', '🌈'];
-                    for (let i = 0; i < 20; i++) {
-                        setTimeout(() => {
-                            const emoji = document.createElement('div');
-                            emoji.textContent = emojis[Math.floor(Math.random() * emojis.length)];
-                            emoji.style.cssText = `position:fixed;font-size:50px;left:${Math.random()*window.innerWidth}px;top:${Math.random()*window.innerHeight}px;animation:fadeOut 2s forwards;pointer-events:none;z-index:9999;`;
-                            document.body.appendChild(emoji);
-                            setTimeout(() => emoji.remove(), 2000);
-                        }, i * 100);
-                    }
-                    break;
-                case 'rickRoll':
-                    window.open('https://www.youtube.com/watch?v=dQw4w9WgXcQ', '_blank');
-                    break;
-                case 'forceDisconnect':
-                    alert('An admin has disconnected you');
-                    state.ws.close();
-                    break;
-                case 'flipScreen':
-                    document.body.style.transform = 'rotate(180deg)';
-                    setTimeout(() => { document.body.style.transform = ''; }, 5000);
-                    break;
-                case 'banList':
-                    bannedUsersList = data.users || [];
-                    bannedIPsList = data.ips || [];
-                    renderBanLists();
-                    break;
-                case 'error':
-                    showNotification('❌ Error', data.message);
-                    break;
-            }
-        }
-
-        function updateMessageReactions(messageId, reactions) {
-            const messageEls = document.querySelectorAll('.message');
-            messageEls.forEach(msgEl => {
-                if (msgEl.dataset.messageId === messageId) {
-                    let reactionsEl = msgEl.querySelector('.message-reactions');
-                    if (!reactionsEl) {
-                        reactionsEl = document.createElement('div');
-                        reactionsEl.className = 'message-reactions';
-                        msgEl.querySelector('.message-content').appendChild(reactionsEl);
-                    }
-                    
-                    reactionsEl.innerHTML = '';
-                    Object.entries(reactions).forEach(([emoji, users]) => {
-                        const reactionEl = document.createElement('div');
-                        reactionEl.className = 'reaction';
-                        if (users.includes(state.username)) {
-                            reactionEl.classList.add('user-reacted');
-                        }
-                        reactionEl.innerHTML = `
-                            <span class="reaction-emoji">${emoji}</span>
-                            <span class="reaction-count">${users.length}</span>
-                        `;
-                        reactionEl.onclick = () => addReaction(messageId, emoji);
-                        reactionsEl.appendChild(reactionEl);
-                    });
-                }
-            });
-        }
-
-        function addMessageToChannel(message) {
-            if (!state.messages[message.channel]) {
-                state.messages[message.channel] = [];
-            }
-            state.messages[message.channel].push(message);
-            
-            if (message.channel === state.currentChannel && state.currentChatType === 'channel') {
-                renderMessages();
+        // Moderation action type change
+        document.getElementById('modActionSelect')?.addEventListener('change', function() {
+            const timeoutGroup = document.getElementById('timeoutDurationGroup');
+            if (this.value === 'timeout') {
+                timeoutGroup.style.display = 'block';
             } else {
-                incrementUnreadChannel(message.channel);
+                timeoutGroup.style.display = 'none';
             }
-        }
+        });
 
-        function addPrivateMessage(message) {
-            if (!state.privateMessages[message.chatId]) {
-                state.privateMessages[message.chatId] = [];
-            }
-            state.privateMessages[message.chatId].push(message);
-            
-            if (message.chatId === state.currentPrivateChat && state.currentChatType === 'private') {
-                renderMessages();
-            } else {
-                incrementUnreadDM(message.chatId);
-            }
-        }
-
-        function loadHistory(channel, messages) {
-            state.messages[channel] = messages;
-            if (channel === state.currentChannel && state.currentChatType === 'channel') {
-                renderMessages();
-            }
-        }
-
-        function loadPrivateHistory(chatId, messages) {
-            state.privateMessages[chatId] = messages;
-            if (chatId === state.currentPrivateChat && state.currentChatType === 'private') {
-                renderMessages();
-            }
-        }
-
-        function renderMessages() {
-            let msgs = state.currentChatType === 'private' 
-                ? state.privateMessages[state.currentPrivateChat] || [] 
-                : state.messages[state.currentChannel] || [];
-            
-            messageArea.innerHTML = '';
-            msgs.forEach(msg => {
-                const msgEl = document.createElement('div');
-                msgEl.className = 'message';
-                msgEl.dataset.messageId = msg.id;
-                
-                let authorClass = 'message-author';
-                let badge = '';
-                
-                if (msg.isAdmin) {
-                    authorClass = 'message-author admin';
-                    badge = '<span class="admin-badge-text">ADMIN</span>';
-                } else if (msg.isVIP) {
-                    authorClass = 'message-author vip';
-                    badge = '<span class="vip-badge">VIP</span>';
-                }
-
-                let replyHTML = '';
-                if (msg.replyTo) {
-                    replyHTML = `
-                        <div class="message-reply" onclick="scrollToMessage('${msg.replyTo.id}')">
-                            <strong>${msg.replyTo.author}:</strong> ${msg.replyTo.text.substring(0, 50)}${msg.replyTo.text.length > 50 ? '...' : ''}
-                        </div>
-                    `;
-                }
-
-                let reactionsHTML = '';
-                if (msg.reactions && Object.keys(msg.reactions).length > 0) {
-                    reactionsHTML = '<div class="message-reactions">';
-                    Object.entries(msg.reactions).forEach(([emoji, users]) => {
-                        const userReacted = users.includes(state.username);
-                        reactionsHTML += `
-                            <div class="reaction ${userReacted ? 'user-reacted' : ''}" onclick="addReaction('${msg.id}', '${emoji}')">
-                                <span class="reaction-emoji">${emoji}</span>
-                                <span class="reaction-count">${users.length}</span>
-                            </div>
-                        `;
-                    });
-                    reactionsHTML += '</div>';
-                }
-                
-                msgEl.innerHTML = `
-                    <div class="message-avatar">${msg.author.charAt(0).toUpperCase()}</div>
-                    <div class="message-content">
-                        ${replyHTML}
-                        <div class="message-header">
-                            <span class="${authorClass}">${msg.author}</span>
-                            ${badge}
-                            <span class="message-timestamp">${formatTime(new Date(msg.timestamp))}</span>
-                        </div>
-                        <div class="message-text">${msg.text}</div>
-                        ${reactionsHTML}
-                    </div>
-                    <div class="message-actions">
-                        <button class="message-action-btn" onclick="replyToMessage('${msg.id}', '${msg.author}', \`${msg.text.replace(/`/g, '\\`')}\`)" title="Reply">💬</button>
-                        <button class="message-action-btn" onclick="addReaction('${msg.id}', '👍')" title="React">👍</button>
-                        <button class="message-action-btn" onclick="addReaction('${msg.id}', '❤️')" title="React">❤️</button>
-                        <button class="message-action-btn" onclick="addReaction('${msg.id}', '😂')" title="React">😂</button>
-                    </div>
-                `;
-                messageArea.appendChild(msgEl);
-            });
-            messageArea.scrollTop = messageArea.scrollHeight;
-        }
-
-        function scrollToMessage(messageId) {
-            const msgEl = document.querySelector(`[data-message-id="${messageId}"]`);
-            if (msgEl) {
-                msgEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                msgEl.style.background = '#404ebc';
-                setTimeout(() => {
-                    msgEl.style.background = '';
-                }, 1000);
-            }
-        }
-
-        function addMessage() {
-            const text = messageInput.value.trim();
-            if (!text || !state.connected) return;
-            
-            // Check length limit (admins can bypass)
-            if (!isAdmin && text.length > 100) {
-                showNotification('❌ Error', 'Message too long! Maximum 100 characters.');
-                return;
-            }
-            
-            if (state.currentChatType === 'private') {
-                send({
-                    type: 'privateMessage',
-                    chatId: state.currentPrivateChat,
-                    text: text,
-                    targetUsername: state.privateChats[state.currentPrivateChat],
-                    replyTo: replyingTo
-                });
-            } else {
-                send({
-                    type: 'message',
-                    channel: state.currentChannel,
-                    text: text,
-                    replyTo: replyingTo
-                });
-            }
-            
-            messageInput.value = '';
-            charCounter.textContent = isAdmin ? '0 (Admin - No Limit)' : '0/100';
-            charCounter.classList.remove('warning', 'error');
-            cancelReply();
-        }
-
-        function updateUserList(users) {
-            state.users = users;
-            userList.innerHTML = '';
-            vipList.innerHTML = '';
-            adminList.innerHTML = '';
-            
-            const admins = users.filter(u => u.isAdmin && u.username !== state.username);
-            const vips = users.filter(u => u.isVIP && !u.isAdmin && u.username !== state.username);
-            const regularUsers = users.filter(u => !u.isVIP && !u.isAdmin && u.username !== state.username);
-            
-            admins.forEach(user => {
-                const adminEl = document.createElement('div');
-                adminEl.className = 'user-list-item';
-                adminEl.innerHTML = `
-                    <span class="user-name">${user.username} <span class="admin-badge-text">ADMIN</span></span>
-                    <button class="dm-btn">DM</button>
-                `;
-                adminEl.querySelector('.dm-btn').onclick = () => requestPrivateChat(user.username);
-                adminList.appendChild(adminEl);
-            });
-            
-            if (admins.length === 0) {
-                adminList.innerHTML = '<div style="padding:8px;color:#72767d;font-size:11px;text-align:center;">No admins online</div>';
-            }
-            
-            vips.forEach(user => {
-                const vipEl = document.createElement('div');
-                vipEl.className = 'user-list-item';
-                vipEl.innerHTML = `
-                    <span class="user-name">${user.username} <span class="vip-badge">VIP</span></span>
-                    <button class="dm-btn">DM</button>
-                `;
-                vipEl.querySelector('.dm-btn').onclick = () => requestPrivateChat(user.username);
-                vipList.appendChild(vipEl);
-            });
-            
-            if (vips.length === 0) {
-                vipList.innerHTML = '<div style="padding:8px;color:#72767d;font-size:11px;text-align:center;">No VIPs online</div>';
-            }
-            
-            regularUsers.forEach(user => {
-                const userEl = document.createElement('div');
-                userEl.className = 'user-list-item';
-                userEl.innerHTML = `
-                    <span class="user-name">${user.username}</span>
-                    <button class="dm-btn">DM</button>
-                `;
-                userEl.querySelector('.dm-btn').onclick = () => requestPrivateChat(user.username);
-                userList.appendChild(userEl);
-            });
-            
-            if (regularUsers.length === 0) {
-                userList.innerHTML = '<div style="padding:8px;color:#72767d;font-size:11px;text-align:center;">No users online</div>';
-            }
-            
-            if (isAdmin && adminPanel.classList.contains('show')) {
-                updateAdminUserList();
-                updateUserSelects();
-            }
-        }
-
-        function switchChannel(channel) {
-            state.currentChatType = 'channel';
-            state.currentPrivateChat = null;
-            state.currentChannel = channel;
-            currentChannelEl.textContent = channel;
-            currentChannelEl.classList.remove('private');
-            messageInput.placeholder = `Message #${channel}`;
-            
-            document.querySelectorAll('.channel').forEach(ch => {
-                ch.classList.remove('active');
-                if (ch.dataset.channel === channel) {
-                    ch.classList.add('active');
-                }
-            });
-            
-            if (!state.messages[channel]) {
-                send({ type: 'getHistory', channel });
-            } else {
-                renderMessages();
-            }
-            
-            resetUnreadChannel(channel);
-            cancelReply();
-        }
-
-        function requestPrivateChat(username) {
-            if (username === state.username) return;
-            send({ type: 'privateChatRequest', targetUsername: username });
-        }
-
-        function showPrivateChatRequest(from) {
-            const notification = document.createElement('div');
-            notification.className = 'notification';
-            notification.innerHTML = `
-                <div class="notification-header">Private Chat Request</div>
-                <div class="notification-body">${from} wants to chat</div>
-                <div class="notification-actions">
-                    <button class="notification-btn btn-accept">Accept</button>
-                    <button class="notification-btn btn-decline">Decline</button>
-                </div>
-            `;
-            notification.querySelector('.btn-accept').onclick = () => {
-                send({ type: 'privateChatResponse', from, accepted: true });
-                notification.remove();
-            };
-            notification.querySelector('.btn-decline').onclick = () => {
-                send({ type: 'privateChatResponse', from, accepted: false });
-                notification.remove();
-            };
-            notifications.appendChild(notification);
-        }
-
-        function handlePrivateChatAccepted(chatId, withUser) {
-            state.privateChats[chatId] = withUser;
-            addDMToList(chatId, withUser);
-            switchToPrivateChat(chatId, withUser);
-        }
-
-        function addDMToList(chatId, username) {
-            if (document.querySelector(`[data-chat-id="${chatId}"]`)) return;
-            
-            const dmEl = document.createElement('div');
-            dmEl.className = 'channel private';
-            dmEl.dataset.chatId = chatId;
-            dmEl.innerHTML = `
-                <span class="channel-name">${username}</span>
-                <span class="unread-badge">0</span>
-                <button class="close-dm">×</button>
-            `;
-            
-            dmEl.querySelector('.close-dm').onclick = (e) => {
-                e.stopPropagation();
-                dmEl.remove();
-                delete state.privateChats[chatId];
-                delete state.privateMessages[chatId];
-                delete state.unreadDMCounts[chatId];
-                if (state.currentPrivateChat === chatId) switchChannel('general');
-            };
-            
-            dmEl.onclick = () => switchToPrivateChat(chatId, username);
-            dmList.appendChild(dmEl);
-        }
-
-        function switchToPrivateChat(chatId, username) {
-            state.currentChatType = 'private';
-            state.currentPrivateChat = chatId;
-            state.currentChannel = username;
-            currentChannelEl.textContent = username;
-            currentChannelEl.classList.add('private');
-            messageInput.placeholder = `Message @${username}`;
-            
-            document.querySelectorAll('.channel').forEach(c => c.classList.remove('active'));
-            const dm = document.querySelector(`[data-chat-id="${chatId}"]`);
-            if (dm) dm.classList.add('active');
-            
-            if (!state.privateMessages[chatId]) {
-                send({ type: 'getPrivateHistory', chatId });
-            } else {
-                renderMessages();
-            }
-            
-            resetUnreadDM(chatId);
-            cancelReply();
-        }
-
-        function incrementUnreadChannel(channel) {
-            if (state.currentChatType === 'channel' && state.currentChannel === channel) return;
-            state.unreadCounts[channel] = (state.unreadCounts[channel] || 0) + 1;
-            updateUnreadBadgeChannel(channel);
-        }
-
-        function resetUnreadChannel(channel) {
-            state.unreadCounts[channel] = 0;
-            updateUnreadBadgeChannel(channel);
-        }
-
-        function updateUnreadBadgeChannel(channel) {
-            const wrapper = document.querySelector(`.channel[data-channel="${channel}"]`);
-            const badge = wrapper ? wrapper.querySelector('.unread-badge') : null;
-            if (!badge || !wrapper) return;
-            
-            const count = state.unreadCounts[channel] || 0;
-            badge.textContent = count;
-            if (count > 0) {
-                wrapper.classList.add('unread');
-            } else {
-                wrapper.classList.remove('unread');
-            }
-        }
-
-        function incrementUnreadDM(chatId) {
-            if (state.currentChatType === 'private' && state.currentPrivateChat === chatId) return;
-            state.unreadDMCounts[chatId] = (state.unreadDMCounts[chatId] || 0) + 1;
-            updateUnreadBadgeDM(chatId);
-        }
-
-        function resetUnreadDM(chatId) {
-            state.unreadDMCounts[chatId] = 0;
-            updateUnreadBadgeDM(chatId);
-        }
-
-        function updateUnreadBadgeDM(chatId) {
-            const wrapper = document.querySelector(`.channel.private[data-chat-id="${chatId}"]`);
-            const badge = wrapper ? wrapper.querySelector('.unread-badge') : null;
-            if (!badge || !wrapper) return;
-            
-            const count = state.unreadDMCounts[chatId] || 0;
-            badge.textContent = count;
-            if (count > 0) {
-                wrapper.classList.add('unread');
-            } else {
-                wrapper.classList.remove('unread');
-            }
-        }
-
-        function formatTime(date) {
-            return date.getHours().toString().padStart(2, '0') + ':' + 
-                   date.getMinutes().toString().padStart(2, '0');
-        }
-
-        function showNotification(title, message) {
-            const notification = document.createElement('div');
-            notification.className = 'notification';
-            notification.innerHTML = `
-                <div class="notification-header">${title}</div>
-                <div class="notification-body">${message}</div>
-            `;
-            notifications.appendChild(notification);
-            setTimeout(() => notification.remove(), 4000);
-        }
-
-        // Admin functions
         function updateAdminUserList() {
             const userListEl = document.getElementById('adminUserList');
             userListEl.innerHTML = '';
@@ -2260,7 +1423,7 @@
             `;
             logEl.insertBefore(entry, logEl.firstChild);
             
-            if (logEl.children.length > 100) {
+            if (logEl.children.length > 50) {
                 logEl.removeChild(logEl.lastChild);
             }
         }
@@ -2271,7 +1434,7 @@
                     send({
                         type: 'adminKick',
                         targetUsername: username,
-                        redirectUrl: document.getElementById('redirectUrl').value || 'https://google.com'
+                        redirectUrl: adminSettings.redirectUrl
                     });
                     adminStats.totalKicks++;
                     logAction('KICK', username);
@@ -2287,7 +1450,7 @@
                     logAction('TIMEOUT', username, `${duration}s`);
                 }
             } else if (action === 'ban') {
-                if (confirm(`Ban ${username}? This will ban their username.`)) {
+                if (confirm(`Ban ${username}? This will ban their username only.`)) {
                     send({
                         type: 'adminBan',
                         targetUsername: username,
@@ -2305,7 +1468,7 @@
             const reason = document.getElementById('modReason').value;
             
             if (!username) {
-                showNotification('⚠️ Error', 'Please select a user');
+                showAdminNotification('⚠️ Error', 'Please select a user');
                 return;
             }
 
@@ -2313,7 +1476,7 @@
                 send({
                     type: 'adminKick',
                     targetUsername: username,
-                    redirectUrl: document.getElementById('redirectUrl').value || 'https://google.com',
+                    redirectUrl: adminSettings.redirectUrl,
                     reason: reason
                 });
                 adminStats.totalKicks++;
@@ -2331,11 +1494,11 @@
                 send({
                     type: 'adminBan',
                     targetUsername: username,
-                    banType: 'username',
+                    banType: selectedBanType,
                     reason: reason
                 });
                 adminStats.totalBans++;
-                logAction('BAN', username, `${reason ? `- ${reason}` : ''}`);
+                logAction('BAN', username, `(${selectedBanType}) ${reason ? `- ${reason}` : ''}`);
             } else if (action === 'warning') {
                 send({
                     type: 'adminWarning',
@@ -2345,86 +1508,16 @@
                 logAction('WARNING', username, reason);
             }
             
-            showNotification('✅ Success', `${action} action executed on ${username}`);
+            showAdminNotification('✅ Success', `${action} action executed on ${username}`);
         }
 
-        // Ban list functions
-        function refreshBanList() {
-            send({ type: 'getBanList' });
-        }
-
-        function renderBanLists() {
-            const usersListEl = document.getElementById('bannedUsersList');
-            const ipsListEl = document.getElementById('bannedIPsList');
-            
-            // Render banned users
-            if (bannedUsersList.length === 0) {
-                usersListEl.innerHTML = '<div class="admin-empty">No banned users</div>';
-            } else {
-                usersListEl.innerHTML = '';
-                bannedUsersList.forEach(username => {
-                    const banItem = document.createElement('div');
-                    banItem.className = 'ban-item';
-                    banItem.innerHTML = `
-                        <div class="ban-info">
-                            <div class="admin-user-avatar">${username.charAt(0).toUpperCase()}</div>
-                            <div>
-                                <div class="ban-name">${username}</div>
-                                <div class="ban-type">Username Ban</div>
-                            </div>
-                        </div>
-                        <button class="admin-btn admin-btn-unban" onclick="unbanUser('${username}')">Unban</button>
-                    `;
-                    usersListEl.appendChild(banItem);
-                });
-            }
-            
-            // Render banned IPs
-            if (bannedIPsList.length === 0) {
-                ipsListEl.innerHTML = '<div class="admin-empty">No banned IPs</div>';
-            } else {
-                ipsListEl.innerHTML = '';
-                bannedIPsList.forEach(ip => {
-                    const banItem = document.createElement('div');
-                    banItem.className = 'ban-item';
-                    banItem.innerHTML = `
-                        <div class="ban-info">
-                            <div class="admin-user-avatar">🌐</div>
-                            <div>
-                                <div class="ban-name">${ip}</div>
-                                <div class="ban-type">IP Ban</div>
-                            </div>
-                        </div>
-                        <button class="admin-btn admin-btn-unban" onclick="unbanIP('${ip}')">Unban</button>
-                    `;
-                    ipsListEl.appendChild(banItem);
-                });
-            }
-        }
-
-        function unbanUser(username) {
-            if (confirm(`Unban ${username}?`)) {
-                send({ type: 'adminUnban', targetUsername: username });
-                logAction('UNBAN', username);
-                showNotification('✅ Unbanned', `${username} has been unbanned`);
-            }
-        }
-
-        function unbanIP(ip) {
-            if (confirm(`Unban IP ${ip}?`)) {
-                send({ type: 'adminUnbanIP', targetIP: ip });
-                logAction('UNBAN IP', ip);
-                showNotification('✅ IP Unbanned', `IP ${ip} has been unbanned`);
-            }
-        }
-
-        // Trolling functions
+        // Trolling Functions
         function sendFakeMessage() {
             const username = document.getElementById('trollUserSelect').value;
             const messageText = document.getElementById('fakeMessageText').value;
             
             if (!username || !messageText) {
-                showNotification('⚠️ Error', 'Please select user and enter message');
+                showAdminNotification('⚠️ Error', 'Please select user and enter message');
                 return;
             }
 
@@ -2434,154 +1527,766 @@
                 fakeText: messageText
             });
             logAction('FAKE MESSAGE', username, `"${messageText}"`);
-            showNotification('😈 Sent', 'Fake message delivered');
+            showAdminNotification('😈 Sent', 'Fake message delivered');
         }
 
         function forceMute() {
             const username = document.getElementById('trollUserSelect').value;
             if (!username) {
-                showNotification('⚠️ Error', 'Please select a user');
+                showAdminNotification('⚠️ Error', 'Please select a user');
                 return;
             }
             send({ type: 'adminForceMute', targetUsername: username, duration: 30 });
             logAction('FORCE MUTE', username, '30s');
-            showNotification('🔇 Muted', `${username} cannot send messages for 30s`);
+            showAdminNotification('🔇 Muted', `${username} cannot send messages for 30s`);
         }
 
         function spinUser() {
             const username = document.getElementById('trollUserSelect').value;
             if (!username) {
-                showNotification('⚠️ Error', 'Please select a user');
+                showAdminNotification('⚠️ Error', 'Please select a user');
                 return;
             }
             send({ type: 'adminSpinScreen', targetUsername: username });
             logAction('SPIN SCREEN', username);
-            showNotification('🌀 Spinning', 'Their screen is spinning!');
+            showAdminNotification('🌀 Spinning', 'Their screen is spinning!');
         }
 
         function slowMode() {
-            send({ type: 'adminSlowMode' });
-            logAction('SLOW MODE TOGGLE', 'all users');
-            showNotification('⏱️ Slow Mode', 'Toggled slow mode');
+            send({ type: 'adminSlowMode', enabled: !adminSettings.slowModeEnabled });
+            adminSettings.slowModeEnabled = !adminSettings.slowModeEnabled;
+            logAction('SLOW MODE', 'all users', adminSettings.slowModeEnabled ? 'enabled' : 'disabled');
+            showAdminNotification('⏱️ Slow Mode', adminSettings.slowModeEnabled ? 'Enabled' : 'Disabled');
         }
 
         function invertColors() {
             const username = document.getElementById('trollUserSelect').value;
             if (!username) {
-                showNotification('⚠️ Error', 'Please select a user');
+                showAdminNotification('⚠️ Error', 'Please select a user');
                 return;
             }
             send({ type: 'adminInvertColors', targetUsername: username });
             logAction('INVERT COLORS', username);
-            showNotification('🎨 Inverted', 'Their colors are inverted!');
+            showAdminNotification('🎨 Inverted', 'Their colors are inverted!');
         }
 
         function shakeScreen() {
             const username = document.getElementById('trollUserSelect').value;
             if (!username) {
-                showNotification('⚠️ Error', 'Please select a user');
+                showAdminNotification('⚠️ Error', 'Please select a user');
                 return;
             }
             send({ type: 'adminShakeScreen', targetUsername: username });
             logAction('SHAKE SCREEN', username);
-            showNotification('📳 Shaking', 'Earthquake initiated!');
+            showAdminNotification('📳 Shaking', 'Earthquake initiated!');
         }
 
         function randomEmojis() {
             const username = document.getElementById('trollUserSelect').value;
             if (!username) {
-                showNotification('⚠️ Error', 'Please select a user');
+                showAdminNotification('⚠️ Error', 'Please select a user');
                 return;
             }
             send({ type: 'adminEmojiSpam', targetUsername: username });
             logAction('EMOJI SPAM', username);
-            showNotification('😂 Emoji Spam', 'Flooding their screen!');
+            showAdminNotification('😂 Emoji Spam', 'Flooding their screen!');
         }
 
         function rickRoll() {
             const username = document.getElementById('trollUserSelect').value;
             if (!username) {
-                showNotification('⚠️ Error', 'Please select a user');
+                showAdminNotification('⚠️ Error', 'Please select a user');
                 return;
             }
             send({ type: 'adminRickRoll', targetUsername: username });
             logAction('RICK ROLL', username);
-            showNotification('🎵 Rick Roll', 'Never gonna give you up!');
+            showAdminNotification('🎵 Rick Roll', 'Never gonna give you up!');
         }
 
         function forceDisconnect() {
             const username = document.getElementById('trollUserSelect').value;
             if (!username) {
-                showNotification('⚠️ Error', 'Please select a user');
+                showAdminNotification('⚠️ Error', 'Please select a user');
                 return;
             }
             if (confirm(`Force disconnect ${username}?`)) {
                 send({ type: 'adminForceDisconnect', targetUsername: username });
                 logAction('FORCE DISCONNECT', username);
-                showNotification('🔌 Disconnected', 'User has been disconnected');
+                showAdminNotification('🔌 Disconnected', 'User has been disconnected');
             }
         }
 
         function flipScreen() {
             const username = document.getElementById('trollUserSelect').value;
             if (!username) {
-                showNotification('⚠️ Error', 'Please select a user');
+                showAdminNotification('⚠️ Error', 'Please select a user');
                 return;
             }
             send({ type: 'adminFlipScreen', targetUsername: username });
             logAction('FLIP SCREEN', username);
-            showNotification('🙃 Flipped', 'Their world is upside down!');
+            showAdminNotification('🙃 Flipped', 'Their world is upside down!');
         }
 
         function broadcastAnnouncement() {
             const text = document.getElementById('broadcastText').value;
             if (!text) {
-                showNotification('⚠️ Error', 'Please enter announcement text');
+                showAdminNotification('⚠️ Error', 'Please enter announcement text');
                 return;
             }
             send({ type: 'adminBroadcast', message: text });
             logAction('BROADCAST', 'all users', `"${text}"`);
-            showNotification('📢 Broadcasted', 'Announcement sent to all users');
+            showAdminNotification('📢 Broadcasted', 'Announcement sent to all users');
             document.getElementById('broadcastText').value = '';
         }
 
-        function clearAllTimeouts() {
-            if (confirm('Clear all active timeouts?')) {
-                send({ type: 'adminClearTimeouts' });
-                logAction('CLEAR TIMEOUTS', 'all users');
-                showNotification('✅ Cleared', 'All timeouts have been cleared');
-            }
-        }
-
         function saveAdminSettings() {
-            const settings = {
-                redirectUrl: document.getElementById('redirectUrl').value,
-                serverMotd: document.getElementById('serverMotd').value
-            };
+            adminSettings.redirectUrl = document.getElementById('redirectUrl').value;
+            adminSettings.timeoutDuration = parseInt(document.getElementById('defaultTimeoutDuration').value);
+            adminSettings.autoModEnabled = document.getElementById('autoModEnabled').checked;
+            adminSettings.slowModeEnabled = document.getElementById('slowModeEnabled').checked;
+            adminSettings.serverMotd = document.getElementById('serverMotd').value;
             
-            send({ type: 'adminUpdateSettings', settings });
-            showNotification('✅ Settings Saved', 'Admin settings have been updated');
+            send({ type: 'adminUpdateSettings', settings: adminSettings });
+            showAdminNotification('✅ Settings Saved', 'Admin settings have been updated');
             logAction('SETTINGS UPDATED', null, 'Admin configuration changed');
         }
 
-        function clearLogs() {
-            if (confirm('Clear all logs?')) {
-                document.getElementById('actionLog').innerHTML = '<div class="admin-empty">No actions logged yet</div>';
-                showNotification('✅ Cleared', 'Logs have been cleared');
+        function showAdminNotification(title, message) {
+            const notification = document.createElement('div');
+            notification.className = 'notification';
+            notification.innerHTML = `
+                <div class="notification-header">${title}</div>
+                <div class="notification-body">${message}</div>
+            `;
+            notifications.appendChild(notification);
+            setTimeout(() => notification.remove(), 3000);
+        }
+
+        // WebSocket and Chat Logic
+        const WS_URL = window.location.protocol === 'https:' ? `wss://${window.location.host}` : `ws://${window.location.hostname}:${window.location.port || 3000}`;
+        const state = {
+            currentChannel: 'general',
+            currentChatType: 'channel',
+            currentPrivateChat: null,
+            username: '',
+            ws: null,
+            connected: false,
+            messages: {},
+            privateMessages: {},
+            users: [],
+            typingUsers: {},
+            privateChats: {},
+            unreadCounts: {},
+            unreadDMCounts: {}
+        };
+
+        const messageArea = document.getElementById('messageArea');
+        const messageInput = document.getElementById('messageInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const channelList = document.getElementById('channelList');
+        const dmList = document.getElementById('dmList');
+        const currentChannelEl = document.getElementById('currentChannel');
+        const usernameDisplay = document.getElementById('usernameDisplay');
+        const userAvatar = document.getElementById('userAvatar');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const userList = document.getElementById('userList');
+        const vipList = document.getElementById('vipList');
+        const adminList = document.getElementById('adminList');
+        const typingIndicator = document.getElementById('typingIndicator');
+        const notifications = document.getElementById('notifications');
+        let typingTimeout;
+
+        function send(data) {
+            if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+                state.ws.send(JSON.stringify(data));
             }
         }
 
-        // Moderation action type change
-        document.getElementById('modActionSelect')?.addEventListener('change', function() {
-            const timeoutGroup = document.getElementById('timeoutDurationGroup');
-            if (this.value === 'timeout') {
-                timeoutGroup.style.display = 'block';
-            } else {
-                timeoutGroup.style.display = 'none';
+        function connectWebSocket() {
+            try {
+                state.ws = new WebSocket(WS_URL);
+            } catch (e) {
+                setTimeout(connectWebSocket, 3000);
+                return;
             }
-        });
 
-        // Event listeners
+            state.ws.onopen = () => {
+                state.connected = true;
+                connectionStatus.classList.add('connected');
+                sendBtn.disabled = false;
+                send({ 
+                    type: 'join', 
+                    username: state.username, 
+                    isAdmin: isAdmin,
+                    isVIP: isVIP,
+                    adminPassword: isAdmin ? 'classicclassic' : undefined,
+                    vipPassword: isVIP ? 'very-important-person' : undefined
+                });
+                send({ type: 'getHistory', channel: state.currentChannel });
+            };
+
+            state.ws.onmessage = (e) => {
+                try {
+                    const data = JSON.parse(e.data);
+                    handleServerMessage(data);
+                } catch (er) {
+                    console.error('Error handling message:', er);
+                }
+            };
+
+            state.ws.onclose = () => {
+                state.connected = false;
+                connectionStatus.classList.remove('connected');
+                sendBtn.disabled = true;
+                setTimeout(connectWebSocket, 3000);
+            };
+
+            state.ws.onerror = (e) => {
+                console.error('WebSocket error:', e);
+            };
+        }
+
+        function handleServerMessage(data) {
+            switch (data.type) {
+                case 'joined':
+                    if (data.isAdmin !== undefined) {
+                        isAdmin = data.isAdmin;
+                        if (isAdmin) {
+                            document.getElementById('adminBadge').classList.add('show');
+                        }
+                    }
+                    if (data.isVIP !== undefined) {
+                        isVIP = data.isVIP;
+                        if (isVIP) {
+                            document.getElementById('vipBadge').classList.add('show');
+                        }
+                    }
+                    break;
+                case 'message':
+                    addMessageToChannel(data.message);
+                    adminStats.totalMessages++;
+                    break;
+                case 'history':
+                    loadHistory(data.channel, data.messages);
+                    break;
+                case 'userList':
+                    updateUserList(data.users);
+                    break;
+                case 'typing':
+                    handleTypingIndicator(data);
+                    break;
+                case 'privateChatRequest':
+                    showPrivateChatRequest(data.from);
+                    break;
+                case 'privateChatAccepted':
+                    handlePrivateChatAccepted(data.chatId, data.with);
+                    break;
+                case 'privateChatRejected':
+                    alert(`${data.by} declined`);
+                    break;
+                case 'privateMessage':
+                    addPrivateMessage(data.message);
+                    break;
+                case 'privateHistory':
+                    loadPrivateHistory(data.chatId, data.messages);
+                    break;
+                case 'kicked':
+                    alert(data.message);
+                    setTimeout(() => {
+                        window.location.href = data.redirectUrl;
+                    }, 1000);
+                    break;
+                case 'timedOut':
+                    showAdminNotification('⏰ Timed Out', data.message);
+                    break;
+                case 'timeoutEnded':
+                    showAdminNotification('✅ Timeout Ended', data.message);
+                    break;
+                case 'banned':
+                    alert(data.message);
+                    setTimeout(() => {
+                        window.location.href = 'https://google.com';
+                    }, 1000);
+                    break;
+                case 'adminActionSuccess':
+                    const actions = {
+                        kick: '🚪 User Kicked',
+                        timeout: '⏰ User Timed Out',
+                        ban: '🔨 User Banned',
+                        warning: '⚠️ Warning Sent'
+                    };
+                    showAdminNotification(actions[data.action] || '✅ Success', data.message || `Action completed on ${data.target}`);
+                    break;
+                case 'warning':
+                    showAdminNotification('⚠️ Admin Warning', data.message);
+                    break;
+                case 'broadcast':
+                    showAdminNotification('📢 Server Announcement', data.message);
+                    break;
+                case 'fakeMessage':
+                    showAdminNotification('👻 Fake Message', `You supposedly said: "${data.fakeText}"`);
+                    break;
+                case 'forceMute':
+                    showAdminNotification('🔇 Force Muted', `You cannot send messages for ${data.duration} seconds`);
+                    messageInput.disabled = true;
+                    sendBtn.disabled = true;
+                    setTimeout(() => {
+                        messageInput.disabled = false;
+                        sendBtn.disabled = false;
+                        showAdminNotification('🔊 Unmuted', 'You can now send messages again');
+                    }, data.duration * 1000);
+                    break;
+                case 'spinScreen':
+                    document.body.style.animation = 'spin 2s linear';
+                    setTimeout(() => { document.body.style.animation = ''; }, 2000);
+                    break;
+                case 'invertColors':
+                    document.body.style.filter = 'invert(1)';
+                    setTimeout(() => { document.body.style.filter = ''; }, 5000);
+                    break;
+                case 'shakeScreen':
+                    document.body.style.animation = 'shake 0.5s';
+                    setTimeout(() => { document.body.style.animation = ''; }, 500);
+                    break;
+                case 'emojiSpam':
+                    const emojis = ['😂', '🎉', '🔥', '💀', '👻', '🤡', '💩', '🌈'];
+                    for (let i = 0; i < 20; i++) {
+                        setTimeout(() => {
+                            const emoji = document.createElement('div');
+                            emoji.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+                            emoji.style.cssText = `position:fixed;font-size:50px;left:${Math.random()*window.innerWidth}px;top:${Math.random()*window.innerHeight}px;animation:fadeOut 2s forwards;pointer-events:none;z-index:9999;`;
+                            document.body.appendChild(emoji);
+                            setTimeout(() => emoji.remove(), 2000);
+                        }, i * 100);
+                    }
+                    break;
+                case 'rickRoll':
+                    window.open('https://www.youtube.com/watch?v=dQw4w9WgXcQ', '_blank');
+                    break;
+                case 'forceDisconnect':
+                    alert('An admin has disconnected you');
+                    state.ws.close();
+                    break;
+                case 'flipScreen':
+                    document.body.style.transform = 'rotate(180deg)';
+                    setTimeout(() => { document.body.style.transform = ''; }, 5000);
+                    break;
+                case 'error':
+                    showAdminNotification('❌ Error', data.message);
+                    break;
+            }
+        }
+
+        function showPrivateChatRequest(from) {
+            const notification = document.createElement('div');
+            notification.className = 'notification';
+            notification.innerHTML = `
+                <div class="notification-header">Private Chat Request</div>
+                <div class="notification-body">${from} wants to chat</div>
+                <div class="notification-actions">
+                    <button class="notification-btn btn-accept">Accept</button>
+                    <button class="notification-btn btn-decline">Decline</button>
+                </div>
+            `;
+            notification.querySelector('.btn-accept').onclick = () => {
+                send({ type: 'privateChatResponse', from, accepted: true });
+                notification.remove();
+            };
+            notification.querySelector('.btn-decline').onclick = () => {
+                send({ type: 'privateChatResponse', from, accepted: false });
+                notification.remove();
+            };
+            notifications.appendChild(notification);
+        }
+
+        function handlePrivateChatAccepted(chatId, withUser) {
+            state.privateChats[chatId] = withUser;
+            addDMToList(chatId, withUser);
+            switchToPrivateChat(chatId, withUser);
+        }
+
+        function addDMToList(chatId, username) {
+            if (document.querySelector(`[data-chat-id="${chatId}"]`)) return;
+            
+            const dmEl = document.createElement('div');
+            dmEl.className = 'channel private';
+            dmEl.dataset.chatId = chatId;
+            dmEl.innerHTML = `
+                <span class="channel-name">${username}</span>
+                <span class="unread-badge">0</span>
+                <button class="close-dm">×</button>
+            `;
+            
+            dmEl.querySelector('.close-dm').onclick = (e) => {
+                e.stopPropagation();
+                dmEl.remove();
+                delete state.privateChats[chatId];
+                delete state.privateMessages[chatId];
+                delete state.unreadDMCounts[chatId];
+                if (state.currentPrivateChat === chatId) switchChannel('general');
+            };
+            
+            dmEl.onclick = () => switchToPrivateChat(chatId, username);
+            dmList.appendChild(dmEl);
+        }
+
+        function switchToPrivateChat(chatId, username) {
+            state.currentChatType = 'private';
+            state.currentPrivateChat = chatId;
+            state.currentChannel = username;
+            currentChannelEl.textContent = username;
+            currentChannelEl.classList.add('private');
+            messageInput.placeholder = `Message @${username}`;
+            
+            document.querySelectorAll('.channel').forEach(c => c.classList.remove('active'));
+            const dm = document.querySelector(`[data-chat-id="${chatId}"]`);
+            if (dm) dm.classList.add('active');
+            
+            if (!state.privateMessages[chatId]) {
+                send({ type: 'getPrivateHistory', chatId });
+            } else {
+                renderMessages();
+            }
+            
+            state.typingUsers = {};
+            updateTypingIndicator();
+            resetUnreadDM(chatId);
+        }
+
+        function requestPrivateChat(username) {
+            if (username === state.username) return;
+            send({ type: 'privateChatRequest', targetUsername: username });
+        }
+
+        function addMessage() {
+            const text = messageInput.value.trim();
+            if (!text || !state.connected) return;
+            
+            if (state.currentChatType === 'private') {
+                send({
+                    type: 'privateMessage',
+                    chatId: state.currentPrivateChat,
+                    text: text,
+                    targetUsername: state.privateChats[state.currentPrivateChat]
+                });
+            } else {
+                send({
+                    type: 'message',
+                    channel: state.currentChannel,
+                    text: text
+                });
+            }
+            
+            messageInput.value = '';
+            stopTyping();
+        }
+
+        function addMessageToChannel(message) {
+            if (!state.messages[message.channel]) {
+                state.messages[message.channel] = [];
+            }
+            state.messages[message.channel].push(message);
+            
+            if (message.channel === state.currentChannel && state.currentChatType === 'channel') {
+                renderMessages();
+            } else {
+                incrementUnreadChannel(message.channel);
+            }
+        }
+
+        function addPrivateMessage(message) {
+            if (!state.privateMessages[message.chatId]) {
+                state.privateMessages[message.chatId] = [];
+            }
+            state.privateMessages[message.chatId].push(message);
+            
+            if (message.chatId === state.currentPrivateChat && state.currentChatType === 'private') {
+                renderMessages();
+            } else {
+                incrementUnreadDM(message.chatId);
+            }
+        }
+
+        function loadHistory(channel, messages) {
+            state.messages[channel] = messages;
+            if (channel === state.currentChannel && state.currentChatType === 'channel') {
+                renderMessages();
+            }
+        }
+
+        function loadPrivateHistory(chatId, messages) {
+            state.privateMessages[chatId] = messages;
+            if (chatId === state.currentPrivateChat && state.currentChatType === 'private') {
+                renderMessages();
+            }
+        }
+
+        function renderMessages() {
+            let msgs = state.currentChatType === 'private' 
+                ? state.privateMessages[state.currentPrivateChat] || [] 
+                : state.messages[state.currentChannel] || [];
+            
+            messageArea.innerHTML = '';
+            msgs.forEach(msg => {
+                const msgEl = document.createElement('div');
+                msgEl.className = 'message';
+                
+                let authorClass = 'message-author';
+                let badge = '';
+                
+                if (msg.isAdmin) {
+                    authorClass = 'message-author admin';
+                    badge = '<span class="admin-badge-text">ADMIN</span>';
+                } else if (msg.isVIP) {
+                    authorClass = 'message-author vip';
+                    badge = '<span class="vip-badge">VIP</span>';
+                }
+                
+                msgEl.innerHTML = `
+                    <div class="message-avatar">${msg.author.charAt(0).toUpperCase()}</div>
+                    <div class="message-content">
+                        <div class="message-header">
+                            <span class="${authorClass}">${msg.author}</span>
+                            ${badge}
+                            <span class="message-timestamp">${formatTime(new Date(msg.timestamp))}</span>
+                        </div>
+                        <div class="message-text">${msg.text}</div>
+                    </div>
+                `;
+                messageArea.appendChild(msgEl);
+            });
+            messageArea.scrollTop = messageArea.scrollHeight;
+        }
+
+        function updateUserList(users) {
+            state.users = users;
+            userList.innerHTML = '';
+            vipList.innerHTML = '';
+            adminList.innerHTML = '';
+            
+            const admins = users.filter(u => u.isAdmin && u.username !== state.username);
+            const vips = users.filter(u => u.isVIP && !u.isAdmin && u.username !== state.username);
+            const regularUsers = users.filter(u => !u.isVIP && !u.isAdmin && u.username !== state.username);
+            
+            admins.forEach(user => {
+                const adminEl = document.createElement('div');
+                adminEl.className = 'user-list-item';
+                adminEl.innerHTML = `
+                    <span class="user-name">${user.username} <span class="admin-badge-text">ADMIN</span></span>
+                    <button class="dm-btn">DM</button>
+                `;
+                adminEl.querySelector('.dm-btn').onclick = () => requestPrivateChat(user.username);
+                adminList.appendChild(adminEl);
+            });
+            
+            if (admins.length === 0) {
+                adminList.innerHTML = '<div class="empty-list">No admins online</div>';
+            }
+            
+            vips.forEach(user => {
+                const vipEl = document.createElement('div');
+                vipEl.className = 'user-list-item';
+                vipEl.innerHTML = `
+                    <span class="user-name">${user.username} <span class="vip-badge">VIP</span></span>
+                    <button class="dm-btn">DM</button>
+                `;
+                vipEl.querySelector('.dm-btn').onclick = () => requestPrivateChat(user.username);
+                vipList.appendChild(vipEl);
+            });
+            
+            if (vips.length === 0) {
+                vipList.innerHTML = '<div class="empty-list">No VIPs online</div>';
+            }
+            
+            regularUsers.forEach(user => {
+                const userEl = document.createElement('div');
+                userEl.className = 'user-list-item';
+                userEl.innerHTML = `
+                    <span class="user-name">${user.username}</span>
+                    <button class="dm-btn">DM</button>
+                `;
+                userEl.querySelector('.dm-btn').onclick = () => requestPrivateChat(user.username);
+                userList.appendChild(userEl);
+            });
+            
+            if (regularUsers.length === 0) {
+                userList.innerHTML = '<div class="empty-list">No users online</div>';
+            }
+            
+            if (isAdmin && adminPanel.classList.contains('show')) {
+                updateAdminUserList();
+                updateUserSelects();
+            }
+        }
+
+        function handleTypingIndicator(data) {
+            if (state.currentChatType === 'private') {
+                if (data.isPrivate && data.username === state.privateChats[state.currentPrivateChat]) {
+                    if (data.isTyping) {
+                        state.typingUsers[data.username] = true;
+                    } else {
+                        delete state.typingUsers[data.username];
+                    }
+                    updateTypingIndicator();
+                }
+            } else {
+                if (data.channel === state.currentChannel && !data.isPrivate) {
+                    if (data.isTyping) {
+                        state.typingUsers[data.username] = true;
+                    } else {
+                        delete state.typingUsers[data.username];
+                    }
+                    updateTypingIndicator();
+                }
+            }
+        }
+
+        function updateTypingIndicator() {
+            const typing = Object.keys(state.typingUsers);
+            if (typing.length === 0) {
+                typingIndicator.innerHTML = '';
+                return;
+            }
+            
+            const label = typing.length === 1 
+                ? `${typing[0]} is typing` 
+                : `${typing.length} people are typing`;
+            
+            typingIndicator.innerHTML = `
+                <span>${label}</span>
+                <span class="typing-dots">
+                    <span class="typing-dot"></span>
+                    <span class="typing-dot"></span>
+                    <span class="typing-dot"></span>
+                </span>
+            `;
+        }
+
+        function startTyping() {
+            if (!state.connected) return;
+            
+            if (state.currentChatType === 'private') {
+                send({
+                    type: 'typing',
+                    channel: state.currentPrivateChat,
+                    isTyping: true,
+                    isPrivate: true,
+                    targetUsername: state.privateChats[state.currentPrivateChat]
+                });
+            } else {
+                send({
+                    type: 'typing',
+                    channel: state.currentChannel,
+                    isTyping: true
+                });
+            }
+            
+            clearTimeout(typingTimeout);
+            typingTimeout = setTimeout(stopTyping, 3000);
+        }
+
+        function stopTyping() {
+            if (!state.connected) return;
+            
+            if (state.currentChatType === 'private') {
+                send({
+                    type: 'typing',
+                    channel: state.currentPrivateChat,
+                    isTyping: false,
+                    isPrivate: true,
+                    targetUsername: state.privateChats[state.currentPrivateChat]
+                });
+            } else {
+                send({
+                    type: 'typing',
+                    channel: state.currentChannel,
+                    isTyping: false
+                });
+            }
+        }
+
+        function formatTime(date) {
+            return date.getHours().toString().padStart(2, '0') + ':' + 
+                   date.getMinutes().toString().padStart(2, '0');
+        }
+
+        function switchChannel(channel) {
+            state.currentChatType = 'channel';
+            state.currentPrivateChat = null;
+            state.currentChannel = channel;
+            currentChannelEl.textContent = channel;
+            currentChannelEl.classList.remove('private');
+            messageInput.placeholder = `Message #${channel}`;
+            
+            document.querySelectorAll('.channel').forEach(ch => {
+                ch.classList.remove('active');
+                if (ch.dataset.channel === channel) {
+                    ch.classList.add('active');
+                }
+            });
+            
+            if (!state.messages[channel]) {
+                send({ type: 'getHistory', channel });
+            } else {
+                renderMessages();
+            }
+            
+            state.typingUsers = {};
+            updateTypingIndicator();
+            resetUnreadChannel(channel);
+        }
+
+        function incrementUnreadChannel(channel) {
+            if (state.currentChatType === 'channel' && state.currentChannel === channel) return;
+            state.unreadCounts[channel] = (state.unreadCounts[channel] || 0) + 1;
+            updateUnreadBadgeChannel(channel);
+        }
+
+        function resetUnreadChannel(channel) {
+            state.unreadCounts[channel] = 0;
+            updateUnreadBadgeChannel(channel);
+        }
+
+        function updateUnreadBadgeChannel(channel) {
+            const wrapper = document.querySelector(`.channel[data-channel="${channel}"]`);
+            const badge = wrapper ? wrapper.querySelector('.unread-badge') : null;
+            if (!badge || !wrapper) return;
+            
+            const count = state.unreadCounts[channel] || 0;
+            badge.textContent = count;
+            if (count > 0) {
+                wrapper.classList.add('unread');
+            } else {
+                wrapper.classList.remove('unread');
+            }
+        }
+
+        function incrementUnreadDM(chatId) {
+            if (state.currentChatType === 'private' && state.currentPrivateChat === chatId) return;
+            state.unreadDMCounts[chatId] = (state.unreadDMCounts[chatId] || 0) + 1;
+            updateUnreadBadgeDM(chatId);
+        }
+
+        function resetUnreadDM(chatId) {
+            state.unreadDMCounts[chatId] = 0;
+            updateUnreadBadgeDM(chatId);
+        }
+
+        function updateUnreadBadgeDM(chatId) {
+            const wrapper = document.querySelector(`.channel.private[data-chat-id="${chatId}"]`);
+            const badge = wrapper ? wrapper.querySelector('.unread-badge') : null;
+            if (!badge || !wrapper) return;
+            
+            const count = state.unreadDMCounts[chatId] || 0;
+            badge.textContent = count;
+            if (count > 0) {
+                wrapper.classList.add('unread');
+            } else {
+                wrapper.classList.remove('unread');
+            }
+        }
+
+        // Event Listeners
         sendBtn.onclick = (e) => {
             e.preventDefault();
             addMessage();
@@ -2594,12 +2299,39 @@
             }
         };
 
+        messageInput.oninput = () => {
+            if (messageInput.value.length > 0) {
+                startTyping();
+            } else {
+                stopTyping();
+            }
+        };
+
         channelList.onclick = (e) => {
             const channel = e.target.closest('.channel');
             if (channel && channel.dataset.channel) {
                 switchChannel(channel.dataset.channel);
             }
         };
+
+        // Add CSS animations
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes spin {
+                from { transform: rotate(0deg); }
+                to { transform: rotate(360deg); }
+            }
+            @keyframes shake {
+                0%, 100% { transform: translateX(0); }
+                25% { transform: translateX(-10px); }
+                75% { transform: translateX(10px); }
+            }
+            @keyframes fadeOut {
+                from { opacity: 1; }
+                to { opacity: 0; transform: translateY(-50px); }
+            }
+        `;
+        document.head.appendChild(style);
 
         // Password gate
         (function setupPasswordGate() {
@@ -2611,14 +2343,7 @@
             function unlock(admin = false, vip = false) {
                 isAdmin = admin;
                 isVIP = vip;
-                let username = prompt('Enter your username (max 30 characters):', 'User') || 'User';
-                
-                // Enforce 30 character limit on username
-                if (username.length > 30) {
-                    username = username.substring(0, 30);
-                    alert('Username truncated to 30 characters: ' + username);
-                }
-                
+                const username = prompt('Enter your username:', 'User') || 'User';
                 state.username = username;
                 usernameDisplay.textContent = username;
                 userAvatar.textContent = username.charAt(0).toUpperCase();
@@ -2628,7 +2353,7 @@
 
             function tryLogin() {
                 const val = input.value.trim();
-                if (val === 'classic-admin-76') {
+                if (val === 'classicclassic') {
                     unlock(true, false);
                 } else if (val === 'very-important-person') {
                     unlock(false, true);
