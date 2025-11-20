@@ -47,9 +47,9 @@ let serverSettings = {
 
 // Bad words list for auto-moderation
 const badWords = [
-    'fuck', 'shit', 'bitch', 'ass', 'damn', 'hell', 
+    'fuck', 'shit', 'bitch', 'ass', 'damn', 'nigga', 
     'bastard', 'crap', 'piss', 'dick', 'pussy', 'cock',
-    'fck', 'fuk', 'sht', 'btch', 'dmn'
+    'fck', 'fuk', 'sht', 'btch', 'dmn', 'nigger', 'vagina', 
 ];
 
 // Utility functions
