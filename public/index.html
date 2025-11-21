@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>The Chet</title>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Great+Vibes&display=swap     " rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Great+Vibes&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; height: 100vh; overflow: hidden; background: #36393f; }
@@ -92,6 +92,17 @@
     .reaction-picker.show { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
     .reaction-picker button { background: none; border: none; font-size: 20px; cursor: pointer; padding: 4px; border-radius: 4px; }
     .reaction-picker button:hover { background: #3a3c42; }
+    .input-area { padding: 16px; }
+    .reply-bar { background: #40444b; border-radius: 8px 8px 0 0; padding: 8px 12px; display: none; align-items: center; justify-content: space-between; margin-bottom: -8px; }
+    .reply-bar.show { display: flex; }
+    .reply-bar-text { color: #dcddde; font-size: 13px; }
+    .reply-bar-close { background: none; border: none; color: #96989d; cursor: pointer; font-size: 18px; }
+    .input-wrapper { background: #40444b; border-radius: 8px; padding: 12px; display: flex; align-items: center; }
+    .message-input { flex: 1; background: none; border: none; color: #dcddde; font-size: 15px; outline: none; }
+    .message-input::placeholder { color: #72767d; }
+    .send-btn { background: #5865f2; color: #fff; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: 500; margin-left: 8px; }
+    .send-btn:hover { background: #4752c4; }
+    .send-btn:disabled { background: #4e5058; cursor: not-allowed; }
     .notifications { position: fixed; top: 16px; right: 16px; z-index: 1000; display: flex; flex-direction: column; gap: 12px; max-width: 400px; }
     .notification { background: #2f3136; border: 1px solid #202225; border-radius: 8px; padding: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.4); animation: slideIn 0.3s ease; }
     @keyframes slideIn { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
@@ -288,7 +299,7 @@
       <div class="admin-section" id="adminSettings">
         <div class="admin-input-group">
           <label class="admin-label">Redirect URL (for kicks)</label>
-          <input type="text" class="admin-input" id="redirectUrl" value="https://google.com     ">
+          <input type="text" class="admin-input" id="redirectUrl" value="https://google.com">
         </div>
         <div class="admin-input-group">
           <label class="admin-label">Slow Mode Duration (seconds)</label>
@@ -469,7 +480,7 @@
         kicked: () => { alert(data.message); setTimeout(() => location.href = data.redirectUrl, 1000); },
         timedOut: () => notify('⏰ Timed Out', data.message),
         timeoutEnded: () => notify('✅ Timeout Ended', data.message),
-        banned: () => { alert(data.message); setTimeout(() => location.href = 'https://google.com     ', 1000); },
+        banned: () => { alert(data.message); setTimeout(() => location.href = 'https://google.com', 1000); },
         warning: () => notify(`⚠️ Warning #${data.count||1}`, data.message),
         broadcast: () => notify('📢 Announcement', data.message),
         announcement: () => { notify('📢 Announcement', data.message.text); },
@@ -487,12 +498,11 @@
         matrix: () => { document.body.style.animation = 'matrix 0.5s infinite'; setTimeout(() => document.body.style.animation = '', 5000); },
         emojiSpam: () => spawnEmojis(),
         confetti: () => spawnConfetti(),
-        rickRoll: () => window.open('https://www.youtube.com/watch?v=dQw4w9WgXcQ     ', '_blank'),
+        rickRoll: () => window.open('https://www.youtube.com/watch?v=dQw4w9WgXcQ', '_blank'),
         forceDisconnect: () => { alert('Disconnected by admin'); state.ws.close(); },
         chatCleared: () => { if (state.messages[data.channel]) state.messages[data.channel] = []; if (data.channel === state.currentChannel) renderMessages(); },
         messageDeleted: () => { if (state.messages[data.channel]) { state.messages[data.channel] = state.messages[data.channel].filter(m => m.id !== data.messageId); if (data.channel === state.currentChannel) renderMessages(); } },
-        banList: () => renderBanList(data),
-        gambleRequest: () => showGambleRequest(data)
+        banList: () => renderBanList(data)
       };
       if (handlers[data.type]) handlers[data.type]();
     }
@@ -531,4 +541,380 @@
       const el = $('adminUserList');
       el.innerHTML = '';
       state.users.filter(u => u.username !== state.username).forEach(user => {
-        const badges = user.isAdmin ? '<span class="admin-badge-text">ADMIN</span>' : user.isVIP ? '<span class="vip-badge">VIP</span>
+        const badges = user.isAdmin ? '<span class="admin-badge-text">ADMIN</span>' : user.isVIP ? '<span class="vip-badge">VIP</span>' : '';
+        el.innerHTML += `<div class="admin-user-item"><div class="admin-user-info"><div class="admin-user-avatar">${user.username[0].toUpperCase()}</div><div class="admin-user-name">${user.username} ${badges}</div></div><div class="admin-actions"><button class="admin-btn admin-btn-kick" onclick="quickAction('kick','${user.username}')">Kick</button><button class="admin-btn admin-btn-timeout" onclick="quickAction('timeout','${user.username}')">Timeout</button><button class="admin-btn admin-btn-mute" onclick="quickAction('mute','${user.username}')">Mute</button><button class="admin-btn admin-btn-ban" onclick="quickAction('ban','${user.username}')">Ban</button></div></div>`;
+      });
+      if (!el.innerHTML) el.innerHTML = '<div class="admin-empty">No other users</div>';
+      $('totalUsers').textContent = state.users.length;
+      $('totalMessages').textContent = adminStats.totalMessages;
+    }
+
+    function updateUserSelects() {
+      [$('modUserSelect'), $('trollUserSelect')].forEach(sel => {
+        if (!sel) return;
+        const v = sel.value;
+        sel.innerHTML = '<option value="">-- Select --</option>';
+        state.users.filter(u => u.username !== state.username).forEach(u => sel.innerHTML += `<option value="${u.username}">${u.username}</option>`);
+        sel.value = v;
+      });
+    }
+
+    function quickAction(action, username) {
+      if (action === 'kick') { if (confirm(`Kick ${username}?`)) send({ type: 'adminKick', targetUsername: username, redirectUrl: $('redirectUrl')?.value || 'https://google.com' }); }
+      else if (action === 'timeout') { const d = prompt('Duration (seconds):', '60'); if (d) send({ type: 'adminTimeout', targetUsername: username, duration: parseInt(d) }); }
+      else if (action === 'mute') { const d = prompt('Duration (seconds):', '60'); if (d) send({ type: 'adminForceMute', targetUsername: username, duration: parseInt(d) }); }
+      else if (action === 'ban') { if (confirm(`Ban ${username}?`)) send({ type: 'adminBan', targetUsername: username, banType: 'username' }); }
+      logAction(action.toUpperCase(), username);
+    }
+
+    function executeModAction() {
+      const username = $('modUserSelect').value, action = $('modActionSelect').value, reason = $('modReason').value, duration = parseInt($('modDuration').value) || 60;
+      if (!username) return notify('⚠️ Error', 'Select a user');
+      const actions = {
+        kick: () => send({ type: 'adminKick', targetUsername: username, reason, redirectUrl: $('redirectUrl')?.value }),
+        timeout: () => send({ type: 'adminTimeout', targetUsername: username, duration, reason }),
+        mute: () => send({ type: 'adminForceMute', targetUsername: username, duration }),
+        ban: () => send({ type: 'adminBan', targetUsername: username, banType: selectedBanType, reason }),
+        tempBanIP: () => send({ type: 'adminTempBanIP', targetUsername: username, duration, reason }),
+        warning: () => send({ type: 'adminWarning', targetUsername: username, reason: reason || 'Warning' })
+      };
+      if (actions[action]) actions[action]();
+      logAction(action.toUpperCase(), username, reason);
+    }
+
+    function trollAction(type) {
+      const username = $('trollUserSelect').value;
+      if (!username) return notify('⚠️ Error', 'Select a user');
+      send({ type: 'admin' + type[0].toUpperCase() + type.slice(1), targetUsername: username });
+      logAction(type.toUpperCase(), username);
+    }
+
+    function sendFakeMessage() {
+      const username = $('trollUserSelect').value, text = $('fakeMessageText').value;
+      if (!username || !text) return notify('⚠️ Error', 'Select user and enter text');
+      send({ type: 'adminFakeMessage', targetUsername: username, fakeText: text });
+      logAction('FAKE MSG', username);
+    }
+
+    function broadcastAnnouncement() {
+      const text = $('broadcastText').value;
+      if (!text) return notify('⚠️ Error', 'Enter text');
+      send({ type: 'adminBroadcast', message: text });
+      $('broadcastText').value = '';
+      logAction('BROADCAST');
+    }
+
+    function globalMute() {
+      const duration = parseInt($('globalMuteDuration').value) || 60;
+      send({ type: 'adminGlobalMute', duration });
+      logAction('GLOBAL MUTE', 'all', `${duration}s`);
+    }
+
+    function sendConfettiAll() { send({ type: 'adminConfetti' }); logAction('CONFETTI', 'all'); }
+
+    function clearChannel() {
+      const channel = $('clearChannelSelect').value;
+      if (confirm(`Clear #${channel}?`)) { send({ type: 'adminClearChat', channel }); logAction('CLEAR CHAT', channel); }
+    }
+
+    function saveAdminSettings() {
+      send({ type: 'adminUpdateSettings', settings: {
+        autoModEnabled: $('autoModEnabled').checked,
+        slowModeEnabled: $('slowModeEnabled').checked,
+        slowModeDuration: parseInt($('slowModeDuration').value) || 5,
+        serverMotd: $('serverMotd').value,
+        maintenanceMode: $('maintenanceMode').checked
+      }});
+      if ($('slowModeEnabled').checked !== state.slowModeEnabled) send({ type: 'adminSlowMode', enabled: $('slowModeEnabled').checked });
+      notify('✅ Saved', 'Settings updated');
+    }
+
+    function refreshBanList() { send({ type: 'adminGetBanList' }); }
+
+    function renderBanList(data) {
+      $('bannedUsersList').innerHTML = data.bannedUsers.length ? data.bannedUsers.map(u => `<div class="ban-item"><span class="ban-item-name">${u}</span><button class="unban-btn" onclick="unbanUser('${u}')">Unban</button></div>`).join('') : '<div class="admin-empty">None</div>';
+      $('bannedIPsList').innerHTML = data.bannedIPs.length ? data.bannedIPs.map(ip => `<div class="ban-item"><span class="ban-item-name">${ip}</span><button class="unban-btn" onclick="unbanIP('${ip}')">Unban</button></div>`).join('') : '<div class="admin-empty">None</div>';
+      $('tempBannedIPsList').innerHTML = data.tempBannedIPs.length ? data.tempBannedIPs.map(b => `<div class="ban-item"><span class="ban-item-name">${b.ip} (until ${new Date(b.until).toLocaleString()})</span><button class="unban-btn" onclick="unbanIP('${b.ip}')">Remove</button></div>`).join('') : '<div class="admin-empty">None</div>';
+    }
+
+    function unbanUser(username) { send({ type: 'adminUnban', username }); setTimeout(refreshBanList, 500); logAction('UNBAN', username); }
+    function unbanIP(ip) { send({ type: 'adminUnbanIP', ip }); setTimeout(refreshBanList, 500); logAction('UNBAN IP', ip); }
+
+    function logAction(action, target = '', details = '') {
+      const log = $('actionLog');
+      if (log.querySelector('.admin-empty')) log.innerHTML = '';
+      const entry = document.createElement('div');
+      entry.className = 'log-entry';
+      entry.innerHTML = `<div class="log-time">${new Date().toLocaleTimeString()}</div><div>${action} ${target ? '→ ' + target : ''} ${details}</div>`;
+      log.insertBefore(entry, log.firstChild);
+      if (log.children.length > 50) log.removeChild(log.lastChild);
+    }
+
+    function addMessage() {
+      const text = messageInput.value.trim();
+      if (!text || !state.connected) return;
+      if (!isAdmin && text.length > msgLimit) return notify('❌ Error', `Max ${msgLimit} characters`);
+      if (state.currentChatType === 'private') {
+        send({ type: 'privateMessage', chatId: state.currentPrivateChat, text, targetUsername: state.privateChats[state.currentPrivateChat], replyTo: replyingTo });
+      } else {
+        send({ type: 'message', channel: state.currentChannel, text, replyTo: replyingTo });
+      }
+      messageInput.value = '';
+      charCounter.textContent = `0/${isAdmin ? '∞' : msgLimit}`;
+      cancelReply();
+      stopTyping();
+    }
+
+    function setReplyTo(msg) {
+      replyingTo = { id: msg.id, author: msg.author, text: msg.text.slice(0, 50) };
+      $('replyBarText').innerHTML = `Replying to <span class="reply-author">${msg.author}</span>`;
+      $('replyBar').classList.add('show');
+      messageInput.focus();
+    }
+
+    function cancelReply() { replyingTo = null; $('replyBar').classList.remove('show'); }
+
+    function addReaction(msgId, emoji, channel, isPrivate, chatId) {
+      send({ type: 'addReaction', messageId: msgId, emoji, channel, isPrivate, chatId });
+    }
+
+    function removeReaction(msgId, emoji, channel, isPrivate, chatId) {
+      send({ type: 'removeReaction', messageId: msgId, emoji, channel, isPrivate, chatId });
+    }
+
+    function updateReactions(data) {
+      const msgList = data.isPrivate ? state.privateMessages[data.chatId] : state.messages[data.channel];
+      if (!msgList) return;
+      const msg = msgList.find(m => m.id === data.messageId);
+      if (msg) { msg.reactions = data.reactions; renderMessages(); }
+    }
+
+    function addMessageToChannel(msg) {
+      if (!state.messages[msg.channel]) state.messages[msg.channel] = [];
+      state.messages[msg.channel].push(msg);
+      if (msg.channel === state.currentChannel && state.currentChatType === 'channel') renderMessages();
+      else incrementUnreadChannel(msg.channel);
+    }
+
+    function addPrivateMessage(msg) {
+      if (!state.privateMessages[msg.chatId]) state.privateMessages[msg.chatId] = [];
+      state.privateMessages[msg.chatId].push(msg);
+      if (msg.chatId === state.currentPrivateChat && state.currentChatType === 'private') renderMessages();
+      else incrementUnreadDM(msg.chatId);
+    }
+
+    function loadHistory(channel, messages) {
+      state.messages[channel] = messages;
+      if (channel === state.currentChannel && state.currentChatType === 'channel') renderMessages();
+    }
+
+    function loadPrivateHistory(chatId, messages) {
+      state.privateMessages[chatId] = messages;
+      if (chatId === state.currentPrivateChat && state.currentChatType === 'private') renderMessages();
+    }
+
+    function renderMessages() {
+      const msgs = state.currentChatType === 'private' ? state.privateMessages[state.currentPrivateChat] || [] : state.messages[state.currentChannel] || [];
+      messageArea.innerHTML = '';
+      msgs.forEach(msg => {
+        const el = document.createElement('div');
+        el.className = 'message';
+        el.dataset.id = msg.id;
+        let authorClass = msg.isAdmin ? 'message-author admin' : msg.isVIP ? 'message-author vip' : 'message-author';
+        let badge = msg.isAdmin ? '<span class="admin-badge-text">ADMIN</span>' : msg.isVIP ? '<span class="vip-badge">VIP</span>' : '';
+        let replyHtml = '';
+        if (msg.replyTo) {
+          replyHtml = `<div class="reply-preview" onclick="scrollToMessage('${msg.replyTo.id}')"><span class="reply-author">↩ ${msg.replyTo.author}</span>: ${msg.replyTo.text}...</div>`;
+        }
+        let reactionsHtml = '';
+        if (msg.reactions && Object.keys(msg.reactions).length) {
+          reactionsHtml = '<div class="reactions">';
+          for (const [emoji, users] of Object.entries(msg.reactions)) {
+            const reacted = users.includes(state.username);
+            reactionsHtml += `<div class="reaction ${reacted ? 'reacted' : ''}" onclick="${reacted ? 'removeReaction' : 'addReaction'}('${msg.id}','${emoji}','${state.currentChannel}',${state.currentChatType === 'private'},'${state.currentPrivateChat}')">${emoji}<span class="reaction-count">${users.length}</span></div>`;
+          }
+          reactionsHtml += '</div>';
+        }
+        el.innerHTML = `
+          <div class="message-avatar">${msg.author[0].toUpperCase()}</div>
+          <div class="message-content">
+            ${replyHtml}
+            <div class="message-header">
+              <span class="${authorClass}">${msg.author}</span>${badge}
+              <span class="message-timestamp">${formatTime(new Date(msg.timestamp))}</span>
+            </div>
+            <div class="message-text">${escapeHtml(msg.text)}</div>
+            ${reactionsHtml}
+          </div>
+          <div class="message-actions">
+            <button class="msg-action-btn" onclick="setReplyTo(${JSON.stringify(msg).replace(/"/g, '&quot;')})">↩</button>
+            <button class="msg-action-btn" onclick="toggleReactionPicker('${msg.id}')">😀</button>
+            ${isAdmin ? `<button class="msg-action-btn" onclick="deleteMessage('${msg.id}','${msg.channel || state.currentChannel}')">🗑️</button>` : ''}
+          </div>
+          <div class="reaction-picker" id="picker-${msg.id}">${EMOJIS.map(e => `<button onclick="addReaction('${msg.id}','${e}','${state.currentChannel}',${state.currentChatType === 'private'},'${state.currentPrivateChat}');toggleReactionPicker('${msg.id}')">${e}</button>`).join('')}</div>
+        `;
+        messageArea.appendChild(el);
+      });
+      messageArea.scrollTop = messageArea.scrollHeight;
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function toggleReactionPicker(msgId) {
+      document.querySelectorAll('.reaction-picker').forEach(p => p.classList.remove('show'));
+      $('picker-' + msgId)?.classList.toggle('show');
+    }
+
+    function scrollToMessage(msgId) {
+      const el = document.querySelector(`[data-id="${msgId}"]`);
+      if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.style.background = '#5865f2'; setTimeout(() => el.style.background = '', 1000); }
+    }
+
+    function deleteMessage(msgId, channel) {
+      if (confirm('Delete this message?')) send({ type: 'adminDeleteMessage', messageId: msgId, channel });
+    }
+
+    function formatTime(date) { return date.getHours().toString().padStart(2, '0') + ':' + date.getMinutes().toString().padStart(2, '0'); }
+
+    function updateUserList(users) {
+      state.users = users;
+      const admins = users.filter(u => u.isAdmin && u.username !== state.username);
+      const vips = users.filter(u => u.isVIP && !u.isAdmin && u.username !== state.username);
+      const regular = users.filter(u => !u.isVIP && !u.isAdmin && u.username !== state.username);
+      $('adminList').innerHTML = admins.length ? admins.map(u => `<div class="user-list-item"><span class="user-name">${u.username} <span class="admin-badge-text">ADMIN</span></span><button class="dm-btn" onclick="requestPrivateChat('${u.username}')">DM</button></div>`).join('') : '<div class="empty-list">None</div>';
+      $('vipList').innerHTML = vips.length ? vips.map(u => `<div class="user-list-item"><span class="user-name">${u.username} <span class="vip-badge">VIP</span></span><button class="dm-btn" onclick="requestPrivateChat('${u.username}')">DM</button></div>`).join('') : '<div class="empty-list">None</div>';
+      $('userList').innerHTML = regular.length ? regular.map(u => `<div class="user-list-item"><span class="user-name">${u.username}</span><button class="dm-btn" onclick="requestPrivateChat('${u.username}')">DM</button></div>`).join('') : '<div class="empty-list">None</div>';
+      if (isAdmin && adminPanel.classList.contains('show')) { updateAdminUserList(); updateUserSelects(); }
+    }
+
+    function requestPrivateChat(username) { if (username !== state.username) send({ type: 'privateChatRequest', targetUsername: username }); }
+
+    function showPrivateChatRequest(from) {
+      const n = document.createElement('div');
+      n.className = 'notification';
+      n.innerHTML = `<div class="notification-header">DM Request</div><div class="notification-body">${from} wants to chat</div><div class="notification-actions"><button class="notification-btn btn-accept">Accept</button><button class="notification-btn btn-decline">Decline</button></div>`;
+      n.querySelector('.btn-accept').onclick = () => { send({ type: 'privateChatResponse', from, accepted: true }); n.remove(); };
+      n.querySelector('.btn-decline').onclick = () => { send({ type: 'privateChatResponse', from, accepted: false }); n.remove(); };
+      notifications.appendChild(n);
+    }
+
+    function handlePrivateChatAccepted(chatId, withUser) {
+      state.privateChats[chatId] = withUser;
+      addDMToList(chatId, withUser);
+      switchToPrivateChat(chatId, withUser);
+    }
+
+    function addDMToList(chatId, username) {
+      if (document.querySelector(`[data-chat-id="${chatId}"]`)) return;
+      const el = document.createElement('div');
+      el.className = 'channel private';
+      el.dataset.chatId = chatId;
+      el.innerHTML = `<span class="channel-name">${username}</span><span class="unread-badge">0</span><button class="close-dm">×</button>`;
+      el.querySelector('.close-dm').onclick = e => { e.stopPropagation(); el.remove(); delete state.privateChats[chatId]; delete state.privateMessages[chatId]; if (state.currentPrivateChat === chatId) switchChannel('general'); };
+      el.onclick = () => switchToPrivateChat(chatId, username);
+      $('dmList').appendChild(el);
+    }
+
+    function switchToPrivateChat(chatId, username) {
+      state.currentChatType = 'private';
+      state.currentPrivateChat = chatId;
+      state.currentChannel = username;
+      currentChannelEl.textContent = username;
+      currentChannelEl.classList.add('private');
+      messageInput.placeholder = `Message @${username}`;
+      document.querySelectorAll('.channel').forEach(c => c.classList.remove('active'));
+      document.querySelector(`[data-chat-id="${chatId}"]`)?.classList.add('active');
+      if (!state.privateMessages[chatId]) send({ type: 'getPrivateHistory', chatId });
+      else renderMessages();
+      state.typingUsers = {};
+      updateTypingIndicator();
+      resetUnreadDM(chatId);
+    }
+
+    function switchChannel(channel) {
+      state.currentChatType = 'channel';
+      state.currentPrivateChat = null;
+      state.currentChannel = channel;
+      currentChannelEl.textContent = channel;
+      currentChannelEl.classList.remove('private');
+      messageInput.placeholder = `Message #${channel}`;
+      document.querySelectorAll('.channel').forEach(c => { c.classList.remove('active'); if (c.dataset.channel === channel) c.classList.add('active'); });
+      if (!state.messages[channel]) send({ type: 'getHistory', channel });
+      else renderMessages();
+      state.typingUsers = {};
+      updateTypingIndicator();
+      resetUnreadChannel(channel);
+    }
+
+    function handleTypingIndicator(data) {
+      const key = data.isPrivate ? data.username : data.username;
+      const relevant = data.isPrivate ? data.username === state.privateChats[state.currentPrivateChat] : data.channel === state.currentChannel;
+      if (relevant) { if (data.isTyping) state.typingUsers[key] = true; else delete state.typingUsers[key]; updateTypingIndicator(); }
+    }
+
+    function updateTypingIndicator() {
+      const typing = Object.keys(state.typingUsers);
+      if (!typing.length) { typingIndicator.innerHTML = ''; return; }
+      typingIndicator.innerHTML = `<span>${typing.length === 1 ? typing[0] + ' is typing' : typing.length + ' typing'}</span><span class="typing-dots"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></span>`;
+    }
+
+    function startTyping() {
+      if (!state.connected) return;
+      send({ type: 'typing', channel: state.currentChatType === 'private' ? state.currentPrivateChat : state.currentChannel, isTyping: true, isPrivate: state.currentChatType === 'private', targetUsername: state.privateChats[state.currentPrivateChat] });
+      clearTimeout(typingTimeout);
+      typingTimeout = setTimeout(stopTyping, 3000);
+    }
+
+    function stopTyping() {
+      if (!state.connected) return;
+      send({ type: 'typing', channel: state.currentChatType === 'private' ? state.currentPrivateChat : state.currentChannel, isTyping: false, isPrivate: state.currentChatType === 'private', targetUsername: state.privateChats[state.currentPrivateChat] });
+    }
+
+    function incrementUnreadChannel(channel) { if (state.currentChatType !== 'channel' || state.currentChannel !== channel) { state.unreadCounts[channel] = (state.unreadCounts[channel] || 0) + 1; updateUnreadBadge(channel, false); } }
+    function resetUnreadChannel(channel) { state.unreadCounts[channel] = 0; updateUnreadBadge(channel, false); }
+    function incrementUnreadDM(chatId) { if (state.currentChatType !== 'private' || state.currentPrivateChat !== chatId) { state.unreadDMCounts[chatId] = (state.unreadDMCounts[chatId] || 0) + 1; updateUnreadBadge(chatId, true); } }
+    function resetUnreadDM(chatId) { state.unreadDMCounts[chatId] = 0; updateUnreadBadge(chatId, true); }
+    function updateUnreadBadge(key, isDM) {
+      const selector = isDM ? `[data-chat-id="${key}"]` : `[data-channel="${key}"]`;
+      const el = document.querySelector(selector);
+      if (!el) return;
+      const badge = el.querySelector('.unread-badge');
+      const count = isDM ? state.unreadDMCounts[key] || 0 : state.unreadCounts[key] || 0;
+      if (badge) { badge.textContent = count; el.classList.toggle('unread', count > 0); }
+    }
+
+    sendBtn.onclick = e => { e.preventDefault(); addMessage(); };
+    messageInput.onkeypress = e => { if (e.key === 'Enter') { e.preventDefault(); addMessage(); } };
+    document.getElementById('channelList').onclick = e => { const ch = e.target.closest('.channel'); if (ch?.dataset.channel) switchChannel(ch.dataset.channel); };
+    document.onclick = e => { if (!e.target.closest('.reaction-picker') && !e.target.closest('.msg-action-btn')) document.querySelectorAll('.reaction-picker').forEach(p => p.classList.remove('show')); };
+
+    (function setupLogin() {
+      const overlay = $('loginOverlay'), input = $('passwordInput'), btn = $('loginBtn'), err = $('errorMsg');
+      function unlock(admin, vip) {
+        isAdmin = admin; isVIP = vip;
+        let username = prompt('Enter username (max 30 chars):', 'User') || 'User';
+        username = username.slice(0, 30).trim() || 'User';
+        state.username = username;
+        usernameDisplay.textContent = username;
+        userAvatar.textContent = username[0].toUpperCase();
+        overlay.style.display = 'none';
+        connectWebSocket();
+      }
+      function tryLogin() {
+        const v = input.value.trim();
+        if (v === 'classic-admin-76') unlock(true, false);
+        else if (v === 'very-important-person') unlock(false, true);
+        else if (v === 'classic') unlock(false, false);
+        else err.textContent = 'Incorrect password';
+      }
+      btn.onclick = tryLogin;
+      input.onkeypress = e => { if (e.key === 'Enter') tryLogin(); };
+    })();
+  </script>
+</body>
+</html>
+
