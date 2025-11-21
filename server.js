@@ -50,7 +50,7 @@ let serverSettings = {
   profanityFilter: true
 };
 
-const badWords = ['fuck','shit','bitch','ass','damn','nigga','bastard','crap','piss','dick','pussy','cock','fck','fuk','sht','btch','dmn','nigger','vagina'];
+const badWords = ['','','','','','','','','','','','','','','','','','',''];
 
 function getClientIp(req) {
   const xff = req.headers['x-forwarded-for'];
@@ -167,6 +167,155 @@ function requireAdmin(ws) {
   return admin;
 }
 
+// ---------- GAMBLING SYSTEM ----------
+const userCoins = new Map(); // username → coins
+const pendingGambles = new Map(); // username → {from, amount, game}
+const GAME_TYPES = ['dice','coin','rps'];
+
+function giveCoins(username, amount) {
+  const prev = userCoins.get(username) || 0;
+  userCoins.set(username, prev + amount);
+  return prev + amount;
+}
+
+function takeCoins(username, amount) {
+  const bal = userCoins.get(username) || 0;
+  if (bal < amount) return false;
+  userCoins.set(username, bal - amount);
+  return true;
+}
+
+function getCoins(username) { return userCoins.get(username) || 0; }
+
+function handleGamblingCommands(ws, msg) {
+  const user = users.get(ws);
+  if (!user) return;
+  const text = (msg.text || '').trim().toLowerCase();
+  const parts = text.split(/\s+/);
+  const cmd = parts[0];
+
+  // /daily
+  if (cmd === '/daily') {
+    const key = `daily_${user.username}`;
+    const last = (ws._dailyLastClaim || 0);
+    const now = Date.now();
+    if (now - last < 24*60*60*1000) {
+      const wait = Math.ceil((24*60*60*1000 - (now - last))/1000/60);
+      return ws.send(JSON.stringify({ type: 'error', message: `Daily reward ready in ${wait} minutes` }));
+    }
+    ws._dailyLastClaim = now;
+    const amt = 100 + Math.floor(Math.random()*50);
+    const newBal = giveCoins(user.username, amt);
+    ws.send(JSON.stringify({ type: 'broadcast', message: `🪙 Daily reward: +${amt} coins (balance: ${newBal})` }));
+    return;
+  }
+
+  // /beg
+  if (cmd === '/beg') {
+    if (Math.random() > 0.1) return ws.send(JSON.stringify({ type: 'error', message: 'No one gave you coins this time.' }));
+    const amt = 10 + Math.floor(Math.random()*20);
+    const newBal = giveCoins(user.username, amt);
+    ws.send(JSON.stringify({ type: 'broadcast', message: `🪙 Someone pitied you: +${amt} coins (balance: ${newBal})` }));
+    return;
+  }
+
+  // /coins
+  if (cmd === '/coins') {
+    const bal = getCoins(user.username);
+    return ws.send(JSON.stringify({ type: 'broadcast', message: `🪙 Your balance: ${bal} coins` }));
+  }
+
+  // /gambl <user> <amount> <game>
+  if (cmd === '/gambl') {
+    const target = parts[1];
+    const amount = parseInt(parts[2],10);
+    const game = parts[3];
+    if (!target || !amount || amount <=0 || !GAME_TYPES.includes(game)) {
+      return ws.send(JSON.stringify({ type: 'error', message: 'Usage: /gambl <user> <amount> <dice|coin|rps>' }));
+    }
+    if (getCoins(user.username) < amount) return ws.send(JSON.stringify({ type: 'error', message: 'Not enough coins' }));
+    const targetWs = userSocketMap.get(target);
+    if (!targetWs) return ws.send(JSON.stringify({ type: 'error', message: 'User offline' }));
+    if (pendingGambles.has(target)) return ws.send(JSON.stringify({ type: 'error', message: 'User has pending gamble' }));
+    pendingGambles.set(target, {from: user.username, amount, game});
+    takeCoins(user.username, amount); // escrow
+    targetWs.send(JSON.stringify({ type: 'gambleRequest', from: user.username, amount, game }));
+    ws.send(JSON.stringify({ type: 'broadcast', message: `📨 Gamble request sent to ${target}` }));
+    return;
+  }
+
+  // /accept
+  if (cmd === '/accept') {
+    if (!pendingGambles.has(user.username)) return ws.send(JSON.stringify({ type: 'error', message: 'No pending gamble' }));
+    const {from, amount, game} = pendingGambles.get(user.username);
+    pendingGambles.delete(user.username);
+    const fromWs = userSocketMap.get(from);
+    if (!fromWs || !userSocketMap.get(from)) return ws.send(JSON.stringify({ type: 'error', message: 'Requester offline' }));
+    if (getCoins(user.username) < amount) {
+      giveCoins(from, amount); // refund
+      return ws.send(JSON.stringify({ type: 'error', message: 'You do not have enough coins' }));
+    }
+    takeCoins(user.username, amount); // escrow
+    // resolve game
+    let winner = null;
+    if (game === 'coin') winner = Math.random() < 0.5 ? from : user.username;
+    if (game === 'dice') {
+      const a = 1 + Math.floor(Math.random()*6);
+      const b = 1 + Math.floor(Math.random()*6);
+      winner = a > b ? from : a < b ? user.username : null;
+    }
+    if (game === 'rps') {
+      const choices = ['r','p','s'];
+      const a = choices[Math.floor(Math.random()*3)];
+      const b = choices[Math.floor(Math.random()*3)];
+      if (a === b) winner = null;
+      else if ((a==='r'&&b==='s')||(a==='p'&&b==='r')||(a==='s'&&b==='p')) winner = from;
+      else winner = user.username;
+    }
+    if (!winner) { // draw
+      giveCoins(from, amount);
+      giveCoins(user.username, amount);
+      broadcast({ type: 'broadcast', message: `🎲 Gamble between ${from} and ${user.username} ended in a draw!` });
+    } else {
+      giveCoins(winner, amount*2);
+      broadcast({ type: 'broadcast', message: `🎲 ${winner} won ${amount*2} coins in ${game}!` });
+    }
+    return;
+  }
+
+  // /decline
+  if (cmd === '/decline') {
+    if (!pendingGambles.has(user.username)) return ws.send(JSON.stringify({ type: 'error', message: 'No pending gamble' }));
+    const {from, amount} = pendingGambles.get(user.username);
+    pendingGambles.delete(user.username);
+    giveCoins(from, amount); // refund
+    ws.send(JSON.stringify({ type: 'broadcast', message: '❌ Gamble declined' }));
+    const fromWs = userSocketMap.get(from);
+    if (fromWs) fromWs.send(JSON.stringify({ type: 'broadcast', message: `${user.username} declined your gamble` }));
+    return;
+  }
+
+  // /bet <heads|tails> <amount>
+  if (cmd === '/bet') {
+    const choice = parts[1];
+    const amount = parseInt(parts[2],10);
+    if (!['heads','tails'].includes(choice) || !amount || amount <=0) {
+      return ws.send(JSON.stringify({ type: 'error', message: 'Usage: /bet <heads|tails> <amount>' }));
+    }
+    if (getCoins(user.username) < amount) return ws.send(JSON.stringify({ type: 'error', message: 'Not enough coins' }));
+    const outcome = Math.random() < 0.5 ? 'heads' : 'tails';
+    takeCoins(user.username, amount);
+    if (choice === outcome) {
+      giveCoins(user.username, amount*2);
+      ws.send(JSON.stringify({ type: 'broadcast', message: `🪙 You won ${amount*2} coins! (balance: ${getCoins(user.username)})` }));
+    } else {
+      ws.send(JSON.stringify({ type: 'broadcast', message: `💸 You lost ${amount} coins (balance: ${getCoins(user.username)})` }));
+    }
+    return;
+  }
+}
+// ---------- END GAMBLING ----------
+
 wss.on('connection', (ws, req) => {
   const ip = getClientIp(req);
   ws.ip = ip;
@@ -200,6 +349,11 @@ wss.on('connection', (ws, req) => {
 });
 
 function handleMessage(ws, msg) {
+  // intercept gambling commands first
+  if (msg.type === 'message' && msg.text && msg.text.startsWith('/')) {
+    handleGamblingCommands(ws, msg);
+    return;
+  }
   const handlers = {
     join: handleJoin, message: handleChatMessage, getHistory: handleGetHistory,
     typing: handleTyping, privateChatRequest: handlePrivateChatRequest,
@@ -372,7 +526,7 @@ function handleAdminKick(ws, msg) {
   if (!admin) return;
   const targetWs = userSocketMap.get(msg.targetUsername);
   if (targetWs) {
-    targetWs.send(JSON.stringify({ type: 'kicked', message: msg.reason || 'Kicked', redirectUrl: msg.redirectUrl || 'https://google.com' }));
+    targetWs.send(JSON.stringify({ type: 'kicked', message: msg.reason || 'Kicked', redirectUrl: msg.redirectUrl || 'https://google.com     ' }));
     setTimeout(() => targetWs.close(), 1000);
   }
   adminActions.push({ type: 'kick', by: admin.username, target: msg.targetUsername, timestamp: new Date().toISOString() });
