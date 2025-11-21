@@ -1,7 +1,9 @@
-// server.js - Enhanced Real-time chat server
+// server.js - Enhanced Real-time chat server with Casino System
 const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
+const fs = require('fs');
+const path = require('path');
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
@@ -21,23 +23,31 @@ const bannedIPs = new Set();
 const tempBannedIPs = new Map();
 const ipBanMap = new Map();
 const lastMessageTime = new Map();
-const spamTracker = new Map(); // {username: {count, firstMsgTime}}
-const messageReactions = new Map(); // {messageId: {emoji: [usernames]}}
-const mutedUsers = new Map(); // {username: unmutetime}
-const userWarnings = new Map(); // {username: count}
+const spamTracker = new Map();
+const messageReactions = new Map();
+const mutedUsers = new Map();
+const userWarnings = new Map();
+
+// Casino storage
+const userCoins = new Map(); // {username-ip: {coins, lastDaily, lastBeg, peaceMode, ip}}
+const activeGames = new Map(); // {gameId: gameData}
+const gameBets = new Map(); // {gameId: [{username, amount, betOn}]}
+const persistentAnnouncements = [];
 
 const ADMIN_PASSWORD = 'classic-admin-76';
 const VIP_PASSWORD = 'very-important-person';
+const OWNER_PASSWORD = '6shravan';
 const adminUsers = new Set();
 const vipUsers = new Set();
+const ownerUsers = new Set();
 const adminActions = [];
 
 // Limits
 const MESSAGE_LIMIT = 100;
 const USERNAME_LIMIT = 30;
-const SPAM_THRESHOLD = 5; // messages
-const SPAM_WINDOW = 10000; // 10 seconds
-const SPAM_COOLDOWN = 30000; // 30 seconds
+const SPAM_THRESHOLD = 5;
+const SPAM_WINDOW = 10000;
+const SPAM_COOLDOWN = 30000;
 
 let serverSettings = {
   autoModEnabled: false,
@@ -51,6 +61,29 @@ let serverSettings = {
 };
 
 const badWords = ['fuck','shit','bitch','ass','damn','nigga','bastard','crap','piss','dick','pussy','cock','fck','fuk','sht','btch','dmn','nigger','vagina'];
+
+// Data persistence
+const DATA_FILE = path.join(__dirname, 'casino_data.json');
+function loadData() {
+  try {
+    if (fs.existsSync(DATA_FILE)) {
+      const data = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+      if (data.coins) Object.entries(data.coins).forEach(([k, v]) => userCoins.set(k, v));
+      if (data.announcements) persistentAnnouncements.push(...data.announcements);
+      console.log('Loaded casino data');
+    }
+  } catch (e) { console.error('Failed to load data:', e); }
+}
+function saveData() {
+  try {
+    fs.writeFileSync(DATA_FILE, JSON.stringify({
+      coins: Object.fromEntries(userCoins),
+      announcements: persistentAnnouncements
+    }));
+  } catch (e) { console.error('Failed to save data:', e); }
+}
+loadData();
+setInterval(saveData, 30000);
 
 function getClientIp(req) {
   const xff = req.headers['x-forwarded-for'];
@@ -83,6 +116,23 @@ function broadcast(message, excludeWs = null) {
 function sendToUser(username, message) {
   const ws = userSocketMap.get(username);
   if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(message));
+}
+
+function getUserKey(username, ip) { return `${username}-${ip}`; }
+
+function getUserCoins(username, ip) {
+  const key = getUserKey(username, ip);
+  if (!userCoins.has(key)) {
+    userCoins.set(key, { coins: 100, lastDaily: 0, lastBeg: 0, peaceMode: false, ip });
+  }
+  return userCoins.get(key);
+}
+
+function updateCoins(username, ip, amount) {
+  const data = getUserCoins(username, ip);
+  data.coins = Math.max(0, data.coins + amount);
+  saveData();
+  sendToUser(username, { type: 'coinsUpdate', coins: data.coins });
 }
 
 function sweepTempIpBans() {
@@ -153,7 +203,7 @@ function containsBadWords(text) {
 
 function broadcastUserList() {
   const userList = Array.from(users.values()).map(u => ({
-    username: u.username, isVIP: u.isVIP || false, isAdmin: u.isAdmin || false
+    username: u.username, isVIP: u.isVIP || false, isAdmin: u.isAdmin || false, isOwner: u.isOwner || false
   }));
   broadcast({ type: 'userList', users: userList });
 }
@@ -165,6 +215,15 @@ function requireAdmin(ws) {
     return null;
   }
   return admin;
+}
+
+function requireOwner(ws) {
+  const owner = users.get(ws);
+  if (!owner || !owner.isOwner) {
+    if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'error', message: 'Owner only' }));
+    return null;
+  }
+  return owner;
 }
 
 wss.on('connection', (ws, req) => {
@@ -191,6 +250,7 @@ wss.on('connection', (ws, req) => {
       userSocketMap.delete(user.username);
       adminUsers.delete(user.username);
       vipUsers.delete(user.username);
+      ownerUsers.delete(user.username);
       lastMessageTime.delete(user.username);
       spamTracker.delete(user.username);
       users.delete(ws);
@@ -219,13 +279,16 @@ function handleMessage(ws, msg) {
     adminGetBanList: handleAdminGetBanList, adminMaintenance: handleAdminMaintenance,
     adminGlobalMute: handleAdminGlobalMute, adminRainbow: handleAdminRainbow,
     adminBlur: handleAdminBlur, adminMatrix: handleAdminMatrix,
-    adminConfetti: handleAdminConfetti, adminAnnounce: handleAdminAnnounce
+    adminConfetti: handleAdminConfetti, adminAnnounce: handleAdminAnnounce,
+    // Casino handlers
+    challengeUser: handleChallengeUser, challengeResponse: handleChallengeResponse,
+    gameAction: handleGameAction, placeBet: handlePlaceBet, ownerAnnouncement: handleOwnerAnnouncement
   };
   if (handlers[msg.type]) handlers[msg.type](ws, msg);
 }
 
 function handleJoin(ws, msg) {
-  let { username, isAdmin: reqAdmin, isVIP: reqVIP, adminPassword, vipPassword } = msg;
+  let { username, isAdmin: reqAdmin, isVIP: reqVIP, isOwner: reqOwner, adminPassword, vipPassword, ownerPassword } = msg;
   if (!username || typeof username !== 'string') username = 'Guest' + Math.floor(Math.random()*1000);
   username = username.slice(0, USERNAME_LIMIT).trim();
   if (bannedUsers.has(username)) {
@@ -233,14 +296,40 @@ function handleJoin(ws, msg) {
     setTimeout(() => ws.close(), 250);
     return;
   }
-  const isVerifiedAdmin = reqAdmin && adminPassword === ADMIN_PASSWORD;
+  const isVerifiedOwner = reqOwner && ownerPassword === OWNER_PASSWORD;
+  const isVerifiedAdmin = (reqAdmin && adminPassword === ADMIN_PASSWORD) || isVerifiedOwner;
   const isVerifiedVIP = reqVIP && vipPassword === VIP_PASSWORD;
+  
+  if (isVerifiedOwner) ownerUsers.add(username);
   if (isVerifiedAdmin) adminUsers.add(username);
   if (isVerifiedVIP) vipUsers.add(username);
-  users.set(ws, { username, id: generateId(), isAdmin: isVerifiedAdmin, isVIP: isVerifiedVIP, ip: ws.ip, joinedAt: Date.now() });
+  
+  users.set(ws, { username, id: generateId(), isAdmin: isVerifiedAdmin, isVIP: isVerifiedVIP, isOwner: isVerifiedOwner, ip: ws.ip, joinedAt: Date.now() });
   userSocketMap.set(username, ws);
   ipBanMap.set(username, ws.ip);
-  ws.send(JSON.stringify({ type: 'joined', username, channels: Object.keys(channels), isAdmin: isVerifiedAdmin, isVIP: isVerifiedVIP, limits: { message: MESSAGE_LIMIT, username: USERNAME_LIMIT } }));
+  
+  // Handle login bonus
+  const coinData = getUserCoins(username, ws.ip);
+  const now = Date.now();
+  if (now - coinData.lastDaily > 86400000) {
+    coinData.lastDaily = now;
+    coinData.coins += 10;
+    saveData();
+  }
+  
+  ws.send(JSON.stringify({ 
+    type: 'joined', 
+    username, 
+    channels: Object.keys(channels), 
+    isAdmin: isVerifiedAdmin, 
+    isVIP: isVerifiedVIP,
+    isOwner: isVerifiedOwner,
+    coins: coinData.coins,
+    peaceMode: coinData.peaceMode,
+    limits: { message: MESSAGE_LIMIT, username: USERNAME_LIMIT },
+    persistentAnnouncements
+  }));
+  
   if (serverSettings.serverMotd) ws.send(JSON.stringify({ type: 'broadcast', message: `📢 ${serverSettings.serverMotd}` }));
   broadcastUserList();
 }
@@ -252,11 +341,16 @@ function handleChatMessage(ws, msg) {
   if (isUserMuted(user.username)) return ws.send(JSON.stringify({ type: 'error', message: 'You are muted' }));
   let { channel, text, replyTo } = msg;
   if (!channel || typeof text !== 'string' || !text.trim()) return;
-  // Message limit (admins bypass)
+  
+  // Command handling
+  if (text.startsWith('/')) {
+    handleCommand(ws, user, text.trim());
+    return;
+  }
+  
   if (!user.isAdmin && text.length > MESSAGE_LIMIT) {
     return ws.send(JSON.stringify({ type: 'error', message: `Message exceeds ${MESSAGE_LIMIT} character limit` }));
   }
-  // Spam check (admins bypass)
   if (!user.isAdmin) {
     const spamCheck = checkSpam(user.username);
     if (spamCheck.spam) {
@@ -274,7 +368,7 @@ function handleChatMessage(ws, msg) {
       return;
     }
   }
-  const chatMsg = { id: generateId(), author: user.username, text, channel, timestamp: new Date().toISOString(), isVIP: user.isVIP, isAdmin: user.isAdmin, replyTo: replyTo || null, reactions: {} };
+  const chatMsg = { id: generateId(), author: user.username, text, channel, timestamp: new Date().toISOString(), isVIP: user.isVIP, isAdmin: user.isAdmin, isOwner: user.isOwner, replyTo: replyTo || null, reactions: {} };
   if (channels[channel]) {
     channels[channel].push(chatMsg);
     if (channels[channel].length > 200) channels[channel].shift();
@@ -282,6 +376,265 @@ function handleChatMessage(ws, msg) {
   broadcast({ type: 'message', message: chatMsg });
 }
 
+function handleCommand(ws, user, text) {
+  const parts = text.split(' ');
+  const cmd = parts[0].toLowerCase();
+  const coinData = getUserCoins(user.username, user.ip);
+  
+  if (cmd === '/daily') {
+    const now = Date.now();
+    if (now - coinData.lastDaily < 86400000) {
+      const wait = Math.ceil((86400000 - (now - coinData.lastDaily)) / 3600000);
+      return ws.send(JSON.stringify({ type: 'error', message: `Daily already claimed. Wait ${wait}h` }));
+    }
+    coinData.lastDaily = now;
+    updateCoins(user.username, user.ip, 100);
+    ws.send(JSON.stringify({ type: 'broadcast', message: '💰 +100 coins from daily!' }));
+  }
+  else if (cmd === '/beg') {
+    const now = Date.now();
+    if (now - coinData.lastBeg < 10000) {
+      return ws.send(JSON.stringify({ type: 'error', message: 'Beg cooldown: 10s' }));
+    }
+    coinData.lastBeg = now;
+    if (Math.random() < 0.1) {
+      const amount = Math.floor(Math.random() * 91) + 10;
+      updateCoins(user.username, user.ip, amount);
+      ws.send(JSON.stringify({ type: 'broadcast', message: `🙏 Someone gave you ${amount} coins!` }));
+    } else {
+      ws.send(JSON.stringify({ type: 'broadcast', message: '😔 No one helped you...' }));
+    }
+  }
+  else if (cmd === '/steal') {
+    if (coinData.peaceMode) {
+      return ws.send(JSON.stringify({ type: 'error', message: 'You are in peace mode!' }));
+    }
+    const target = parts[1];
+    if (!target) return ws.send(JSON.stringify({ type: 'error', message: 'Usage: /steal <username>' }));
+    const targetUser = Array.from(users.values()).find(u => u.username === target);
+    if (!targetUser) return ws.send(JSON.stringify({ type: 'error', message: 'User not found' }));
+    const targetCoins = getUserCoins(target, targetUser.ip);
+    if (targetCoins.peaceMode) {
+      return ws.send(JSON.stringify({ type: 'error', message: 'Target is in peace mode!' }));
+    }
+    if (Math.random() < 0.3) {
+      const percent = Math.random() * 0.5 + 0.1;
+      const amount = Math.floor(targetCoins.coins * percent);
+      if (amount > 0) {
+        updateCoins(target, targetUser.ip, -amount);
+        updateCoins(user.username, user.ip, amount);
+        ws.send(JSON.stringify({ type: 'broadcast', message: `💰 Stole ${amount} coins from ${target}!` }));
+        sendToUser(target, { type: 'broadcast', message: `😱 ${user.username} stole ${amount} coins from you!` });
+      }
+    } else {
+      ws.send(JSON.stringify({ type: 'broadcast', message: `❌ Failed to steal from ${target}` }));
+    }
+  }
+  else if (cmd === '/peace') {
+    coinData.peaceMode = !coinData.peaceMode;
+    saveData();
+    ws.send(JSON.stringify({ type: 'broadcast', message: `🕊️ Peace mode: ${coinData.peaceMode ? 'ON' : 'OFF'}` }));
+    ws.send(JSON.stringify({ type: 'peaceModeUpdate', peaceMode: coinData.peaceMode }));
+  }
+}
+
+function handleChallengeUser(ws, msg) {
+  const user = users.get(ws);
+  if (!user) return;
+  const { targetUsername, game, wager } = msg;
+  const coinData = getUserCoins(user.username, user.ip);
+  
+  if (coinData.coins < wager) {
+    return ws.send(JSON.stringify({ type: 'error', message: 'Insufficient coins!' }));
+  }
+  
+  const gameId = generateId();
+  activeGames.set(gameId, {
+    id: gameId,
+    game,
+    players: [user.username, targetUsername],
+    wager,
+    status: 'pending',
+    creator: user.username
+  });
+  
+  sendToUser(targetUsername, {
+    type: 'gameChallenge',
+    from: user.username,
+    game,
+    wager,
+    gameId
+  });
+}
+
+function handleChallengeResponse(ws, msg) {
+  const user = users.get(ws);
+  if (!user) return;
+  const { gameId, accepted } = msg;
+  const game = activeGames.get(gameId);
+  
+  if (!game) return;
+  
+  if (!accepted) {
+    activeGames.delete(gameId);
+    sendToUser(game.creator, { type: 'broadcast', message: `${user.username} declined your challenge` });
+    return;
+  }
+  
+  const targetCoins = getUserCoins(user.username, user.ip);
+  if (targetCoins.coins < game.wager) {
+    activeGames.delete(gameId);
+    sendToUser(game.creator, { type: 'error', message: 'Opponent has insufficient coins' });
+    return ws.send(JSON.stringify({ type: 'error', message: 'Insufficient coins!' }));
+  }
+  
+  game.status = 'ready';
+  gameBets.set(gameId, []);
+  
+  broadcast({
+    type: 'gameStarting',
+    gameId,
+    players: game.players,
+    game: game.game,
+    wager: game.wager
+  });
+  
+  game.players.forEach(p => {
+    sendToUser(p, {
+      type: 'gameReady',
+      gameId,
+      game: game.game,
+      opponent: game.players.find(x => x !== p),
+      wager: game.wager
+    });
+  });
+}
+
+function handleGameAction(ws, msg) {
+  const user = users.get(ws);
+  if (!user) return;
+  const { gameId, action } = msg;
+  const game = activeGames.get(gameId);
+  
+  if (!game || !game.players.includes(user.username)) return;
+  
+  if (action === 'ready') {
+    if (!game.readyPlayers) game.readyPlayers = [];
+    if (!game.readyPlayers.includes(user.username)) {
+      game.readyPlayers.push(user.username);
+    }
+    
+    if (game.readyPlayers.length === 2) {
+      executeGame(game);
+    }
+  }
+}
+
+function executeGame(game) {
+  const [p1, p2] = game.players;
+  const winner = Math.random() < 0.5 ? p1 : p2;
+  const loser = winner === p1 ? p2 : p1;
+  
+  const p1User = Array.from(users.values()).find(u => u.username === p1);
+  const p2User = Array.from(users.values()).find(u => u.username === p2);
+  
+  if (!p1User || !p2User) {
+    activeGames.delete(game.id);
+    return;
+  }
+  
+  updateCoins(winner, winner === p1 ? p1User.ip : p2User.ip, game.wager);
+  updateCoins(loser, loser === p1 ? p1User.ip : p2User.ip, -game.wager);
+  
+  // Process bets
+  const bets = gameBets.get(game.id) || [];
+  bets.forEach(bet => {
+    const betUser = Array.from(users.values()).find(u => u.username === bet.username);
+    if (!betUser) return;
+    
+    if (bet.betOn === winner) {
+      updateCoins(bet.username, betUser.ip, bet.amount);
+      sendToUser(bet.username, { type: 'broadcast', message: `🎉 Won ${bet.amount} coins on bet!` });
+    } else {
+      sendToUser(bet.username, { type: 'broadcast', message: `😢 Lost ${bet.amount} coins on bet` });
+    }
+  });
+  
+  broadcast({
+    type: 'gameResult',
+    gameId: game.id,
+    winner,
+    loser,
+    game: game.game,
+    wager: game.wager
+  });
+  
+  game.players.forEach(p => {
+    sendToUser(p, {
+      type: 'gameEnd',
+      winner,
+      wager: game.wager
+    });
+  });
+  
+  activeGames.delete(game.id);
+  gameBets.delete(game.id);
+}
+
+function handlePlaceBet(ws, msg) {
+  const user = users.get(ws);
+  if (!user) return;
+  const { gameId, betOn, amount } = msg;
+  const coinData = getUserCoins(user.username, user.ip);
+  
+  if (coinData.coins < amount) {
+    return ws.send(JSON.stringify({ type: 'error', message: 'Insufficient coins!' }));
+  }
+  
+  const game = activeGames.get(gameId);
+  if (!game || game.status !== 'ready') {
+    return ws.send(JSON.stringify({ type: 'error', message: 'Game not available' }));
+  }
+  
+  if (game.players.includes(user.username)) {
+    return ws.send(JSON.stringify({ type: 'error', message: 'Cannot bet on your own game!' }));
+  }
+  
+  updateCoins(user.username, user.ip, -amount);
+  
+  const bets = gameBets.get(gameId) || [];
+  bets.push({ username: user.username, amount, betOn });
+  gameBets.set(gameId, bets);
+  
+  ws.send(JSON.stringify({ type: 'broadcast', message: `Placed ${amount} coins on ${betOn}` }));
+}
+
+function handleOwnerAnnouncement(ws, msg) {
+  const owner = requireOwner(ws);
+  if (!owner) return;
+  
+  const announcement = {
+    id: generateId(),
+    text: msg.text,
+    timestamp: new Date().toISOString(),
+    author: 'SYSTEM'
+  };
+  
+  persistentAnnouncements.push(announcement);
+  if (persistentAnnouncements.length > 50) persistentAnnouncements.shift();
+  saveData();
+  
+  const chatMsg = { 
+    ...announcement, 
+    channel: 'announcements', 
+    isSystem: true 
+  };
+  
+  channels.announcements.push(chatMsg);
+  broadcast({ type: 'announcement', message: chatMsg });
+}
+
+// Keep all existing handlers
 function handleGetHistory(ws, msg) {
   ws.send(JSON.stringify({ type: 'history', channel: msg.channel, messages: channels[msg.channel] || [] }));
 }
@@ -366,7 +719,6 @@ function handleRemoveReaction(ws, msg) {
   broadcast({ type: 'reactionUpdate', messageId, reactions: message.reactions, channel, isPrivate, chatId });
 }
 
-// Admin handlers
 function handleAdminKick(ws, msg) {
   const admin = requireAdmin(ws);
   if (!admin) return;
@@ -649,7 +1001,6 @@ function handleAdminAnnounce(ws, msg) {
   ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'announce' }));
 }
 
-// REST API
 app.get('/health', (req, res) => {
   sweepTempIpBans();
   res.json({ status: 'ok', users: users.size, channels: Object.keys(channels).length, settings: serverSettings });
@@ -687,7 +1038,8 @@ server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Admin Password: ${ADMIN_PASSWORD}`);
   console.log(`VIP Password: ${VIP_PASSWORD}`);
+  console.log(`Owner Password: ${OWNER_PASSWORD}`);
 });
 
 setInterval(sweepTempIpBans, 30000);
-
+process.on('SIGINT', () => { saveData(); process.exit(); });
