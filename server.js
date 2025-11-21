@@ -1,9 +1,9 @@
-// server.js - Enhanced Real-time chat server with Casino System
 const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
@@ -12,8 +12,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
-// Storage
-const channels = { general: [], random: [], gaming: [], memes: [], announcements: [] };
+const channels = { announcements: [], general: [], gaming: [], memes: [] };
 const users = new Map();
 const privateChats = new Map();
 const userSocketMap = new Map();
@@ -24,64 +23,47 @@ const tempBannedIPs = new Map();
 const ipBanMap = new Map();
 const lastMessageTime = new Map();
 const spamTracker = new Map();
-const messageReactions = new Map();
 const mutedUsers = new Map();
 const userWarnings = new Map();
-
-// Casino storage
-const userCoins = new Map(); // {username-ip: {coins, lastDaily, lastBeg, peaceMode, ip}}
-const activeGames = new Map(); // {gameId: gameData}
-const gameBets = new Map(); // {gameId: [{username, amount, betOn}]}
+const userCoins = new Map();
+const activeGames = new Map();
+const gameBets = new Map();
 const persistentAnnouncements = [];
-
-const ADMIN_PASSWORD = 'classic-admin-76';
-const VIP_PASSWORD = 'very-important-person';
-const OWNER_PASSWORD = '6shravan';
 const adminUsers = new Set();
 const vipUsers = new Set();
 const ownerUsers = new Set();
 const adminActions = [];
 
-// Limits
+const ADMIN_PASSWORD = 'classic-admin-76';
+const VIP_PASSWORD = 'very-important-person';
+const OWNER_PASSWORD = '6shravan';
 const MESSAGE_LIMIT = 100;
 const USERNAME_LIMIT = 30;
 const SPAM_THRESHOLD = 5;
 const SPAM_WINDOW = 10000;
 const SPAM_COOLDOWN = 30000;
 
-let serverSettings = {
-  autoModEnabled: false,
-  slowModeEnabled: false,
-  slowModeDuration: 5,
-  serverMotd: '',
-  maintenanceMode: false,
-  maxUsers: 100,
-  allowGuests: true,
-  profanityFilter: true
-};
-
+let serverSettings = { autoModEnabled: false, slowModeEnabled: false, slowModeDuration: 5, serverMotd: '', maintenanceMode: false, maxUsers: 100, allowGuests: true, profanityFilter: true };
 const badWords = ['fuck','shit','bitch','ass','damn','nigga','bastard','crap','piss','dick','pussy','cock','fck','fuk','sht','btch','dmn','nigger','vagina'];
 
-// Data persistence
 const DATA_FILE = path.join(__dirname, 'casino_data.json');
+
 function loadData() {
   try {
     if (fs.existsSync(DATA_FILE)) {
       const data = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
       if (data.coins) Object.entries(data.coins).forEach(([k, v]) => userCoins.set(k, v));
       if (data.announcements) persistentAnnouncements.push(...data.announcements);
-      console.log('Loaded casino data');
     }
   } catch (e) { console.error('Failed to load data:', e); }
 }
+
 function saveData() {
   try {
-    fs.writeFileSync(DATA_FILE, JSON.stringify({
-      coins: Object.fromEntries(userCoins),
-      announcements: persistentAnnouncements
-    }));
+    fs.writeFileSync(DATA_FILE, JSON.stringify({ coins: Object.fromEntries(userCoins), announcements: persistentAnnouncements }));
   } catch (e) { console.error('Failed to save data:', e); }
 }
+
 loadData();
 setInterval(saveData, 30000);
 
@@ -102,15 +84,12 @@ function maskIp(ip) {
   return ip;
 }
 
-function generateId() {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2);
-}
+function generateId() { return Date.now().toString(36) + Math.random().toString(36).substr(2); }
+function generateUUID() { return crypto.randomUUID(); }
 
 function broadcast(message, excludeWs = null) {
   const data = JSON.stringify(message);
-  wss.clients.forEach(client => {
-    if (client !== excludeWs && client.readyState === WebSocket.OPEN) client.send(data);
-  });
+  wss.clients.forEach(client => { if (client !== excludeWs && client.readyState === WebSocket.OPEN) client.send(data); });
 }
 
 function sendToUser(username, message) {
@@ -118,28 +97,22 @@ function sendToUser(username, message) {
   if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(message));
 }
 
-function getUserKey(username, ip) { return `${username}-${ip}`; }
-
-function getUserCoins(username, ip) {
-  const key = getUserKey(username, ip);
-  if (!userCoins.has(key)) {
-    userCoins.set(key, { coins: 100, lastDaily: 0, lastBeg: 0, peaceMode: false, ip });
-  }
-  return userCoins.get(key);
+function getUserCoins(uuid) {
+  if (!userCoins.has(uuid)) userCoins.set(uuid, { coins: 100, lastDaily: 0, lastBeg: 0, peaceMode: false });
+  return userCoins.get(uuid);
 }
 
-function updateCoins(username, ip, amount) {
-  const data = getUserCoins(username, ip);
+function updateCoins(uuid, amount, username) {
+  const data = getUserCoins(uuid);
   data.coins = Math.max(0, data.coins + amount);
   saveData();
   sendToUser(username, { type: 'coinsUpdate', coins: data.coins });
+  broadcastLeaderboard();
 }
 
 function sweepTempIpBans() {
   const now = Date.now();
-  for (const [ip, meta] of tempBannedIPs.entries()) {
-    if (now >= meta.until) tempBannedIPs.delete(ip);
-  }
+  for (const [ip, meta] of tempBannedIPs.entries()) { if (now >= meta.until) tempBannedIPs.delete(ip); }
 }
 
 function isIpBanned(ip) {
@@ -195,17 +168,25 @@ function checkSlowMode(username) {
 
 function containsBadWords(text) {
   const lower = text.toLowerCase();
-  for (const word of badWords) {
-    if (new RegExp(`\\b${word}\\b`, 'i').test(lower)) return { found: true, word };
-  }
+  for (const word of badWords) { if (new RegExp(`\\b${word}\\b`, 'i').test(lower)) return { found: true, word }; }
   return { found: false };
 }
 
 function broadcastUserList() {
-  const userList = Array.from(users.values()).map(u => ({
-    username: u.username, isVIP: u.isVIP || false, isAdmin: u.isAdmin || false, isOwner: u.isOwner || false
-  }));
+  const userList = Array.from(users.values()).map(u => ({ username: u.username, isVIP: u.isVIP || false, isAdmin: u.isAdmin || false, isOwner: u.isOwner || false }));
   broadcast({ type: 'userList', users: userList });
+}
+
+function broadcastLeaderboard() {
+  const leaderboard = Array.from(userCoins.entries())
+    .map(([uuid, data]) => {
+      const user = Array.from(users.values()).find(u => u.uuid === uuid);
+      return { username: user?.username || 'Unknown', coins: data.coins, uuid };
+    })
+    .filter(u => u.username !== 'Unknown')
+    .sort((a, b) => b.coins - a.coins)
+    .slice(0, 10);
+  broadcast({ type: 'leaderboard', leaderboard });
 }
 
 function requireAdmin(ws) {
@@ -241,9 +222,7 @@ wss.on('connection', (ws, req) => {
     return;
   }
   ws.send(JSON.stringify({ type: 'connected', message: 'Connected to server' }));
-  ws.on('message', data => {
-    try { handleMessage(ws, JSON.parse(data.toString())); } catch (e) { console.error('Parse error:', e); }
-  });
+  ws.on('message', data => { try { handleMessage(ws, JSON.parse(data.toString())); } catch (e) { console.error('Parse error:', e); } });
   ws.on('close', () => {
     const user = users.get(ws);
     if (user) {
@@ -255,42 +234,39 @@ wss.on('connection', (ws, req) => {
       spamTracker.delete(user.username);
       users.delete(ws);
       broadcastUserList();
+      broadcastLeaderboard();
     }
   });
 });
 
 function handleMessage(ws, msg) {
   const handlers = {
-    join: handleJoin, message: handleChatMessage, getHistory: handleGetHistory,
-    typing: handleTyping, privateChatRequest: handlePrivateChatRequest,
-    privateChatResponse: handlePrivateChatResponse, privateMessage: handlePrivateMessage,
-    getPrivateHistory: handleGetPrivateHistory, addReaction: handleAddReaction,
-    removeReaction: handleRemoveReaction, adminKick: handleAdminKick,
-    adminTimeout: handleAdminTimeout, adminBan: handleAdminBan, adminUnban: handleAdminUnban,
-    adminUnbanIP: handleAdminUnbanIP, adminWarning: handleAdminWarning,
-    adminFakeMessage: handleAdminFakeMessage, adminForceMute: handleAdminForceMute,
-    adminUnmute: handleAdminUnmute, adminSpinScreen: handleAdminSpinScreen,
-    adminSlowMode: handleAdminSlowMode, adminInvertColors: handleAdminInvertColors,
-    adminShakeScreen: handleAdminShakeScreen, adminEmojiSpam: handleAdminEmojiSpam,
-    adminRickRoll: handleAdminRickRoll, adminForceDisconnect: handleAdminForceDisconnect,
-    adminFlipScreen: handleAdminFlipScreen, adminBroadcast: handleAdminBroadcast,
-    adminUpdateSettings: handleAdminUpdateSettings, adminClearChat: handleAdminClearChat,
-    adminDeleteMessage: handleAdminDeleteMessage, adminTempBanIP: handleAdminTempBanIP,
-    adminGetBanList: handleAdminGetBanList, adminMaintenance: handleAdminMaintenance,
-    adminGlobalMute: handleAdminGlobalMute, adminRainbow: handleAdminRainbow,
-    adminBlur: handleAdminBlur, adminMatrix: handleAdminMatrix,
-    adminConfetti: handleAdminConfetti, adminAnnounce: handleAdminAnnounce,
-    // Casino handlers
-    challengeUser: handleChallengeUser, challengeResponse: handleChallengeResponse,
-    gameAction: handleGameAction, placeBet: handlePlaceBet, ownerAnnouncement: handleOwnerAnnouncement
+    join: handleJoin, message: handleChatMessage, getHistory: handleGetHistory, typing: handleTyping,
+    privateChatRequest: handlePrivateChatRequest, privateChatResponse: handlePrivateChatResponse,
+    privateMessage: handlePrivateMessage, getPrivateHistory: handleGetPrivateHistory,
+    addReaction: handleAddReaction, removeReaction: handleRemoveReaction,
+    adminKick: handleAdminKick, adminTimeout: handleAdminTimeout, adminBan: handleAdminBan,
+    adminUnban: handleAdminUnban, adminUnbanIP: handleAdminUnbanIP, adminWarning: handleAdminWarning,
+    adminFakeMessage: handleAdminFakeMessage, adminForceMute: handleAdminForceMute, adminUnmute: handleAdminUnmute,
+    adminSpinScreen: handleAdminSpinScreen, adminSlowMode: handleAdminSlowMode, adminInvertColors: handleAdminInvertColors,
+    adminShakeScreen: handleAdminShakeScreen, adminEmojiSpam: handleAdminEmojiSpam, adminRickRoll: handleAdminRickRoll,
+    adminForceDisconnect: handleAdminForceDisconnect, adminFlipScreen: handleAdminFlipScreen, adminBroadcast: handleAdminBroadcast,
+    adminUpdateSettings: handleAdminUpdateSettings, adminClearChat: handleAdminClearChat, adminDeleteMessage: handleAdminDeleteMessage,
+    adminTempBanIP: handleAdminTempBanIP, adminGetBanList: handleAdminGetBanList, adminMaintenance: handleAdminMaintenance,
+    adminGlobalMute: handleAdminGlobalMute, adminRainbow: handleAdminRainbow, adminBlur: handleAdminBlur,
+    adminMatrix: handleAdminMatrix, adminConfetti: handleAdminConfetti, adminAnnounce: handleAdminAnnounce,
+    challengeUser: handleChallengeUser, challengeResponse: handleChallengeResponse, gameAction: handleGameAction,
+    placeBet: handlePlaceBet, ownerAnnouncement: handleOwnerAnnouncement, getStealableUsers: handleGetStealableUsers,
+    ownerGiveCoins: handleOwnerGiveCoins, getLeaderboard: handleGetLeaderboard
   };
   if (handlers[msg.type]) handlers[msg.type](ws, msg);
 }
 
 function handleJoin(ws, msg) {
-  let { username, isAdmin: reqAdmin, isVIP: reqVIP, isOwner: reqOwner, adminPassword, vipPassword, ownerPassword } = msg;
+  let { username, uuid, isAdmin: reqAdmin, isVIP: reqVIP, isOwner: reqOwner, adminPassword, vipPassword, ownerPassword } = msg;
   if (!username || typeof username !== 'string') username = 'Guest' + Math.floor(Math.random()*1000);
   username = username.slice(0, USERNAME_LIMIT).trim();
+  if (!uuid) uuid = generateUUID();
   if (bannedUsers.has(username)) {
     ws.send(JSON.stringify({ type: 'banned', message: 'You are banned' }));
     setTimeout(() => ws.close(), 250);
@@ -299,39 +275,23 @@ function handleJoin(ws, msg) {
   const isVerifiedOwner = reqOwner && ownerPassword === OWNER_PASSWORD;
   const isVerifiedAdmin = (reqAdmin && adminPassword === ADMIN_PASSWORD) || isVerifiedOwner;
   const isVerifiedVIP = reqVIP && vipPassword === VIP_PASSWORD;
-  
   if (isVerifiedOwner) ownerUsers.add(username);
   if (isVerifiedAdmin) adminUsers.add(username);
   if (isVerifiedVIP) vipUsers.add(username);
-  
-  users.set(ws, { username, id: generateId(), isAdmin: isVerifiedAdmin, isVIP: isVerifiedVIP, isOwner: isVerifiedOwner, ip: ws.ip, joinedAt: Date.now() });
+  users.set(ws, { username, uuid, id: generateId(), isAdmin: isVerifiedAdmin, isVIP: isVerifiedVIP, isOwner: isVerifiedOwner, ip: ws.ip, joinedAt: Date.now() });
   userSocketMap.set(username, ws);
   ipBanMap.set(username, ws.ip);
-  
-  // Handle login bonus
-  const coinData = getUserCoins(username, ws.ip);
+  const coinData = getUserCoins(uuid);
   const now = Date.now();
   if (now - coinData.lastDaily > 86400000) {
     coinData.lastDaily = now;
     coinData.coins += 10;
     saveData();
   }
-  
-  ws.send(JSON.stringify({ 
-    type: 'joined', 
-    username, 
-    channels: Object.keys(channels), 
-    isAdmin: isVerifiedAdmin, 
-    isVIP: isVerifiedVIP,
-    isOwner: isVerifiedOwner,
-    coins: coinData.coins,
-    peaceMode: coinData.peaceMode,
-    limits: { message: MESSAGE_LIMIT, username: USERNAME_LIMIT },
-    persistentAnnouncements
-  }));
-  
+  ws.send(JSON.stringify({ type: 'joined', username, uuid, channels: Object.keys(channels), isAdmin: isVerifiedAdmin, isVIP: isVerifiedVIP, isOwner: isVerifiedOwner, coins: coinData.coins, peaceMode: coinData.peaceMode, limits: { message: MESSAGE_LIMIT, username: USERNAME_LIMIT }, persistentAnnouncements }));
   if (serverSettings.serverMotd) ws.send(JSON.stringify({ type: 'broadcast', message: `📢 ${serverSettings.serverMotd}` }));
   broadcastUserList();
+  broadcastLeaderboard();
 }
 
 function handleChatMessage(ws, msg) {
@@ -341,32 +301,18 @@ function handleChatMessage(ws, msg) {
   if (isUserMuted(user.username)) return ws.send(JSON.stringify({ type: 'error', message: 'You are muted' }));
   let { channel, text, replyTo } = msg;
   if (!channel || typeof text !== 'string' || !text.trim()) return;
-  
-  // Command handling
-  if (text.startsWith('/')) {
-    handleCommand(ws, user, text.trim());
-    return;
-  }
-  
-  if (!user.isAdmin && text.length > MESSAGE_LIMIT) {
-    return ws.send(JSON.stringify({ type: 'error', message: `Message exceeds ${MESSAGE_LIMIT} character limit` }));
-  }
+  if (channel === 'announcements' && !user.isOwner) return ws.send(JSON.stringify({ type: 'error', message: 'Only owners can post in announcements' }));
+  if (text.startsWith('/')) { handleCommand(ws, user, text.trim()); return; }
+  if (!user.isAdmin && text.length > MESSAGE_LIMIT) return ws.send(JSON.stringify({ type: 'error', message: `Message exceeds ${MESSAGE_LIMIT} character limit` }));
   if (!user.isAdmin) {
     const spamCheck = checkSpam(user.username);
-    if (spamCheck.spam) {
-      ws.send(JSON.stringify({ type: 'timedOut', duration: 30, message: 'Spam detected. 30 second cooldown.' }));
-      return;
-    }
+    if (spamCheck.spam) { ws.send(JSON.stringify({ type: 'timedOut', duration: 30, message: 'Spam detected. 30 second cooldown.' })); return; }
   }
   const slowCheck = checkSlowMode(user.username);
   if (!slowCheck.allowed) return ws.send(JSON.stringify({ type: 'error', message: `Slow mode: wait ${slowCheck.waitTime}s` }));
   if (serverSettings.autoModEnabled && !user.isAdmin) {
     const badCheck = containsBadWords(text);
-    if (badCheck.found) {
-      timedOutUsers.set(user.username, Date.now() + 30000);
-      ws.send(JSON.stringify({ type: 'timedOut', duration: 30, message: `Auto-mod: bad word "${badCheck.word}"` }));
-      return;
-    }
+    if (badCheck.found) { timedOutUsers.set(user.username, Date.now() + 30000); ws.send(JSON.stringify({ type: 'timedOut', duration: 30, message: `Auto-mod: bad word "${badCheck.word}"` })); return; }
   }
   const chatMsg = { id: generateId(), author: user.username, text, channel, timestamp: new Date().toISOString(), isVIP: user.isVIP, isAdmin: user.isAdmin, isOwner: user.isOwner, replyTo: replyTo || null, reactions: {} };
   if (channels[channel]) {
@@ -379,8 +325,7 @@ function handleChatMessage(ws, msg) {
 function handleCommand(ws, user, text) {
   const parts = text.split(' ');
   const cmd = parts[0].toLowerCase();
-  const coinData = getUserCoins(user.username, user.ip);
-  
+  const coinData = getUserCoins(user.uuid);
   if (cmd === '/daily') {
     const now = Date.now();
     if (now - coinData.lastDaily < 86400000) {
@@ -388,83 +333,79 @@ function handleCommand(ws, user, text) {
       return ws.send(JSON.stringify({ type: 'error', message: `Daily already claimed. Wait ${wait}h` }));
     }
     coinData.lastDaily = now;
-    updateCoins(user.username, user.ip, 100);
+    updateCoins(user.uuid, 100, user.username);
     ws.send(JSON.stringify({ type: 'broadcast', message: '💰 +100 coins from daily!' }));
-  }
-  else if (cmd === '/beg') {
+  } else if (cmd === '/beg') {
     const now = Date.now();
-    if (now - coinData.lastBeg < 10000) {
-      return ws.send(JSON.stringify({ type: 'error', message: 'Beg cooldown: 10s' }));
-    }
+    if (now - coinData.lastBeg < 10000) return ws.send(JSON.stringify({ type: 'error', message: 'Beg cooldown: 10s' }));
     coinData.lastBeg = now;
     if (Math.random() < 0.1) {
       const amount = Math.floor(Math.random() * 91) + 10;
-      updateCoins(user.username, user.ip, amount);
+      updateCoins(user.uuid, amount, user.username);
       ws.send(JSON.stringify({ type: 'broadcast', message: `🙏 Someone gave you ${amount} coins!` }));
     } else {
       ws.send(JSON.stringify({ type: 'broadcast', message: '😔 No one helped you...' }));
     }
-  }
-  else if (cmd === '/steal') {
-    if (coinData.peaceMode) {
-      return ws.send(JSON.stringify({ type: 'error', message: 'You are in peace mode!' }));
-    }
-    const target = parts[1];
-    if (!target) return ws.send(JSON.stringify({ type: 'error', message: 'Usage: /steal <username>' }));
-    const targetUser = Array.from(users.values()).find(u => u.username === target);
+  } else if (cmd === '/steal') {
+    if (coinData.peaceMode) return ws.send(JSON.stringify({ type: 'error', message: 'You are in peace mode!' }));
+    const target = parts.slice(1).join(' ');
+    if (!target) return ws.send(JSON.stringify({ type: 'showStealList' }));
+    const targetUser = Array.from(users.values()).find(u => u.username.toLowerCase() === target.toLowerCase());
     if (!targetUser) return ws.send(JSON.stringify({ type: 'error', message: 'User not found' }));
-    const targetCoins = getUserCoins(target, targetUser.ip);
-    if (targetCoins.peaceMode) {
-      return ws.send(JSON.stringify({ type: 'error', message: 'Target is in peace mode!' }));
-    }
+    const targetCoins = getUserCoins(targetUser.uuid);
+    if (targetCoins.peaceMode) return ws.send(JSON.stringify({ type: 'error', message: 'Target is in peace mode!' }));
+    if (targetCoins.coins === 0) return ws.send(JSON.stringify({ type: 'error', message: 'Target has no coins!' }));
     if (Math.random() < 0.3) {
       const percent = Math.random() * 0.5 + 0.1;
       const amount = Math.floor(targetCoins.coins * percent);
       if (amount > 0) {
-        updateCoins(target, targetUser.ip, -amount);
-        updateCoins(user.username, user.ip, amount);
-        ws.send(JSON.stringify({ type: 'broadcast', message: `💰 Stole ${amount} coins from ${target}!` }));
-        sendToUser(target, { type: 'broadcast', message: `😱 ${user.username} stole ${amount} coins from you!` });
+        updateCoins(targetUser.uuid, -amount, targetUser.username);
+        updateCoins(user.uuid, amount, user.username);
+        ws.send(JSON.stringify({ type: 'broadcast', message: `💰 Stole ${amount} coins from ${targetUser.username}!` }));
+        sendToUser(targetUser.username, { type: 'broadcast', message: `😱 ${user.username} stole ${amount} coins from you!` });
       }
     } else {
-      ws.send(JSON.stringify({ type: 'broadcast', message: `❌ Failed to steal from ${target}` }));
+      ws.send(JSON.stringify({ type: 'broadcast', message: `❌ Failed to steal from ${targetUser.username}` }));
     }
-  }
-  else if (cmd === '/peace') {
+  } else if (cmd === '/peace') {
     coinData.peaceMode = !coinData.peaceMode;
     saveData();
     ws.send(JSON.stringify({ type: 'broadcast', message: `🕊️ Peace mode: ${coinData.peaceMode ? 'ON' : 'OFF'}` }));
     ws.send(JSON.stringify({ type: 'peaceModeUpdate', peaceMode: coinData.peaceMode }));
+  } else if (cmd === '/give' && user.isOwner) {
+    const target = parts[1];
+    const amount = parseInt(parts[2]);
+    if (!target || !amount) return ws.send(JSON.stringify({ type: 'error', message: 'Usage: /give <username> <amount>' }));
+    const targetUser = Array.from(users.values()).find(u => u.username.toLowerCase() === target.toLowerCase());
+    if (!targetUser) return ws.send(JSON.stringify({ type: 'error', message: 'User not found' }));
+    updateCoins(targetUser.uuid, amount, targetUser.username);
+    ws.send(JSON.stringify({ type: 'broadcast', message: `✅ Gave ${amount} coins to ${targetUser.username}` }));
+    sendToUser(targetUser.username, { type: 'broadcast', message: `🎁 ${user.username} gave you ${amount} coins!` });
   }
+}
+
+function handleGetStealableUsers(ws, msg) {
+  const user = users.get(ws);
+  if (!user) return;
+  const stealableUsers = Array.from(users.values())
+    .filter(u => u.username !== user.username)
+    .map(u => {
+      const coins = getUserCoins(u.uuid);
+      return { username: u.username, coins: coins.coins, peaceMode: coins.peaceMode };
+    })
+    .filter(u => !u.peaceMode && u.coins > 0);
+  ws.send(JSON.stringify({ type: 'stealableUsers', users: stealableUsers }));
 }
 
 function handleChallengeUser(ws, msg) {
   const user = users.get(ws);
   if (!user) return;
   const { targetUsername, game, wager } = msg;
-  const coinData = getUserCoins(user.username, user.ip);
-  
-  if (coinData.coins < wager) {
-    return ws.send(JSON.stringify({ type: 'error', message: 'Insufficient coins!' }));
-  }
-  
+  const coinData = getUserCoins(user.uuid);
+  if (coinData.coins < wager) return ws.send(JSON.stringify({ type: 'error', message: 'Insufficient coins!' }));
   const gameId = generateId();
-  activeGames.set(gameId, {
-    id: gameId,
-    game,
-    players: [user.username, targetUsername],
-    wager,
-    status: 'pending',
-    creator: user.username
-  });
-  
-  sendToUser(targetUsername, {
-    type: 'gameChallenge',
-    from: user.username,
-    game,
-    wager,
-    gameId
-  });
+  activeGames.set(gameId, { id: gameId, game, players: [user.username, targetUsername], wager, status: 'pending', creator: user.username });
+  sendToUser(targetUsername, { type: 'gameChallenge', from: user.username, game, wager, gameId });
 }
 
 function handleChallengeResponse(ws, msg) {
@@ -472,42 +413,14 @@ function handleChallengeResponse(ws, msg) {
   if (!user) return;
   const { gameId, accepted } = msg;
   const game = activeGames.get(gameId);
-  
   if (!game) return;
-  
-  if (!accepted) {
-    activeGames.delete(gameId);
-    sendToUser(game.creator, { type: 'broadcast', message: `${user.username} declined your challenge` });
-    return;
-  }
-  
-  const targetCoins = getUserCoins(user.username, user.ip);
-  if (targetCoins.coins < game.wager) {
-    activeGames.delete(gameId);
-    sendToUser(game.creator, { type: 'error', message: 'Opponent has insufficient coins' });
-    return ws.send(JSON.stringify({ type: 'error', message: 'Insufficient coins!' }));
-  }
-  
+  if (!accepted) { activeGames.delete(gameId); sendToUser(game.creator, { type: 'broadcast', message: `${user.username} declined your challenge` }); return; }
+  const targetCoins = getUserCoins(user.uuid);
+  if (targetCoins.coins < game.wager) { activeGames.delete(gameId); sendToUser(game.creator, { type: 'error', message: 'Opponent has insufficient coins' }); return ws.send(JSON.stringify({ type: 'error', message: 'Insufficient coins!' })); }
   game.status = 'ready';
   gameBets.set(gameId, []);
-  
-  broadcast({
-    type: 'gameStarting',
-    gameId,
-    players: game.players,
-    game: game.game,
-    wager: game.wager
-  });
-  
-  game.players.forEach(p => {
-    sendToUser(p, {
-      type: 'gameReady',
-      gameId,
-      game: game.game,
-      opponent: game.players.find(x => x !== p),
-      wager: game.wager
-    });
-  });
+  broadcast({ type: 'gameStarting', gameId, players: game.players, game: game.game, wager: game.wager });
+  game.players.forEach(p => { sendToUser(p, { type: 'gameReady', gameId, game: game.game, opponent: game.players.find(x => x !== p), wager: game.wager }); });
 }
 
 function handleGameAction(ws, msg) {
@@ -515,18 +428,11 @@ function handleGameAction(ws, msg) {
   if (!user) return;
   const { gameId, action } = msg;
   const game = activeGames.get(gameId);
-  
   if (!game || !game.players.includes(user.username)) return;
-  
   if (action === 'ready') {
     if (!game.readyPlayers) game.readyPlayers = [];
-    if (!game.readyPlayers.includes(user.username)) {
-      game.readyPlayers.push(user.username);
-    }
-    
-    if (game.readyPlayers.length === 2) {
-      executeGame(game);
-    }
+    if (!game.readyPlayers.includes(user.username)) game.readyPlayers.push(user.username);
+    if (game.readyPlayers.length === 2) executeGame(game);
   }
 }
 
@@ -534,49 +440,24 @@ function executeGame(game) {
   const [p1, p2] = game.players;
   const winner = Math.random() < 0.5 ? p1 : p2;
   const loser = winner === p1 ? p2 : p1;
-  
   const p1User = Array.from(users.values()).find(u => u.username === p1);
   const p2User = Array.from(users.values()).find(u => u.username === p2);
-  
-  if (!p1User || !p2User) {
-    activeGames.delete(game.id);
-    return;
-  }
-  
-  updateCoins(winner, winner === p1 ? p1User.ip : p2User.ip, game.wager);
-  updateCoins(loser, loser === p1 ? p1User.ip : p2User.ip, -game.wager);
-  
-  // Process bets
+  if (!p1User || !p2User) { activeGames.delete(game.id); return; }
+  updateCoins(p1User.uuid, winner === p1 ? game.wager : -game.wager, p1User.username);
+  updateCoins(p2User.uuid, winner === p2 ? game.wager : -game.wager, p2User.username);
   const bets = gameBets.get(game.id) || [];
   bets.forEach(bet => {
     const betUser = Array.from(users.values()).find(u => u.username === bet.username);
     if (!betUser) return;
-    
     if (bet.betOn === winner) {
-      updateCoins(bet.username, betUser.ip, bet.amount);
+      updateCoins(betUser.uuid, bet.amount, betUser.username);
       sendToUser(bet.username, { type: 'broadcast', message: `🎉 Won ${bet.amount} coins on bet!` });
     } else {
       sendToUser(bet.username, { type: 'broadcast', message: `😢 Lost ${bet.amount} coins on bet` });
     }
   });
-  
-  broadcast({
-    type: 'gameResult',
-    gameId: game.id,
-    winner,
-    loser,
-    game: game.game,
-    wager: game.wager
-  });
-  
-  game.players.forEach(p => {
-    sendToUser(p, {
-      type: 'gameEnd',
-      winner,
-      wager: game.wager
-    });
-  });
-  
+  broadcast({ type: 'gameResult', gameId: game.id, winner, loser, game: game.game, wager: game.wager });
+  game.players.forEach(p => { sendToUser(p, { type: 'gameEnd', winner, wager: game.wager }); });
   activeGames.delete(game.id);
   gameBets.delete(game.id);
 }
@@ -585,461 +466,100 @@ function handlePlaceBet(ws, msg) {
   const user = users.get(ws);
   if (!user) return;
   const { gameId, betOn, amount } = msg;
-  const coinData = getUserCoins(user.username, user.ip);
-  
-  if (coinData.coins < amount) {
-    return ws.send(JSON.stringify({ type: 'error', message: 'Insufficient coins!' }));
-  }
-  
+  const coinData = getUserCoins(user.uuid);
+  if (coinData.coins < amount) return ws.send(JSON.stringify({ type: 'error', message: 'Insufficient coins!' }));
   const game = activeGames.get(gameId);
-  if (!game || game.status !== 'ready') {
-    return ws.send(JSON.stringify({ type: 'error', message: 'Game not available' }));
-  }
-  
-  if (game.players.includes(user.username)) {
-    return ws.send(JSON.stringify({ type: 'error', message: 'Cannot bet on your own game!' }));
-  }
-  
-  updateCoins(user.username, user.ip, -amount);
-  
+  if (!game || game.status !== 'ready') return ws.send(JSON.stringify({ type: 'error', message: 'Game not available' }));
+  if (game.players.includes(user.username)) return ws.send(JSON.stringify({ type: 'error', message: 'Cannot bet on your own game!' }));
+  updateCoins(user.uuid, -amount, user.username);
   const bets = gameBets.get(gameId) || [];
   bets.push({ username: user.username, amount, betOn });
   gameBets.set(gameId, bets);
-  
   ws.send(JSON.stringify({ type: 'broadcast', message: `Placed ${amount} coins on ${betOn}` }));
 }
 
 function handleOwnerAnnouncement(ws, msg) {
   const owner = requireOwner(ws);
   if (!owner) return;
-  
-  const announcement = {
-    id: generateId(),
-    text: msg.text,
-    timestamp: new Date().toISOString(),
-    author: 'SYSTEM'
-  };
-  
+  const announcement = { id: generateId(), text: msg.text, timestamp: new Date().toISOString(), author: 'SYSTEM' };
   persistentAnnouncements.push(announcement);
   if (persistentAnnouncements.length > 50) persistentAnnouncements.shift();
   saveData();
-  
-  const chatMsg = { 
-    ...announcement, 
-    channel: 'announcements', 
-    isSystem: true 
-  };
-  
+  const chatMsg = { ...announcement, channel: 'announcements', isSystem: true };
   channels.announcements.push(chatMsg);
   broadcast({ type: 'announcement', message: chatMsg });
 }
 
-// Keep all existing handlers
-function handleGetHistory(ws, msg) {
-  ws.send(JSON.stringify({ type: 'history', channel: msg.channel, messages: channels[msg.channel] || [] }));
+function handleOwnerGiveCoins(ws, msg) {
+  const owner = requireOwner(ws);
+  if (!owner) return;
+  const { targetUsername, amount } = msg;
+  const targetUser = Array.from(users.values()).find(u => u.username === targetUsername);
+  if (!targetUser) return ws.send(JSON.stringify({ type: 'error', message: 'User not found' }));
+  updateCoins(targetUser.uuid, amount, targetUser.username);
+  ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'giveCoins', target: targetUsername, amount }));
+  sendToUser(targetUsername, { type: 'broadcast', message: `🎁 Owner gave you ${amount} coins!` });
 }
 
-function handleTyping(ws, msg) {
-  const user = users.get(ws);
-  if (!user) return;
-  if (msg.isPrivate && msg.targetUsername) {
-    sendToUser(msg.targetUsername, { type: 'typing', username: user.username, channel: msg.channel, isTyping: msg.isTyping, isPrivate: true });
-  } else {
-    broadcast({ type: 'typing', username: user.username, channel: msg.channel, isTyping: msg.isTyping }, ws);
-  }
+function handleGetLeaderboard(ws, msg) {
+  const leaderboard = Array.from(userCoins.entries())
+    .map(([uuid, data]) => {
+      const user = Array.from(users.values()).find(u => u.uuid === uuid);
+      return { username: user?.username || 'Unknown', coins: data.coins };
+    })
+    .filter(u => u.username !== 'Unknown')
+    .sort((a, b) => b.coins - a.coins)
+    .slice(0, 10);
+  ws.send(JSON.stringify({ type: 'leaderboard', leaderboard }));
 }
 
-function handlePrivateChatRequest(ws, msg) {
-  const sender = users.get(ws);
-  if (sender) sendToUser(msg.targetUsername, { type: 'privateChatRequest', from: sender.username, requestId: generateId() });
-}
+function handleGetHistory(ws, msg) { ws.send(JSON.stringify({ type: 'history', channel: msg.channel, messages: channels[msg.channel] || [] })); }
+function handleTyping(ws, msg) { const user = users.get(ws); if (!user) return; if (msg.isPrivate && msg.targetUsername) { sendToUser(msg.targetUsername, { type: 'typing', username: user.username, channel: msg.channel, isTyping: msg.isTyping, isPrivate: true }); } else { broadcast({ type: 'typing', username: user.username, channel: msg.channel, isTyping: msg.isTyping }, ws); } }
+function handlePrivateChatRequest(ws, msg) { const sender = users.get(ws); if (sender) sendToUser(msg.targetUsername, { type: 'privateChatRequest', from: sender.username, requestId: generateId() }); }
+function handlePrivateChatResponse(ws, msg) { const responder = users.get(ws); if (!responder) return; const requesterWs = userSocketMap.get(msg.from); if (!requesterWs) return ws.send(JSON.stringify({ type: 'error', message: 'User offline' })); if (msg.accepted) { const usernames = [msg.from, responder.username].sort(); const chatId = `private_${usernames[0]}_${usernames[1]}`; if (!privateChats.has(chatId)) privateChats.set(chatId, []); requesterWs.send(JSON.stringify({ type: 'privateChatAccepted', chatId, with: responder.username })); ws.send(JSON.stringify({ type: 'privateChatAccepted', chatId, with: msg.from })); } else { requesterWs.send(JSON.stringify({ type: 'privateChatRejected', by: responder.username })); } }
+function handlePrivateMessage(ws, msg) { const sender = users.get(ws); if (!sender) return; if (isUserTimedOut(sender.username) || isUserMuted(sender.username)) return ws.send(JSON.stringify({ type: 'error', message: 'Cannot send messages' })); let { chatId, text, targetUsername, replyTo } = msg; if (!chatId || !targetUsername || typeof text !== 'string' || !text.trim()) return; if (!sender.isAdmin && text.length > MESSAGE_LIMIT) return ws.send(JSON.stringify({ type: 'error', message: `Message exceeds ${MESSAGE_LIMIT} chars` })); const privateMsg = { id: generateId(), author: sender.username, text, chatId, timestamp: new Date().toISOString(), isVIP: sender.isVIP, isAdmin: sender.isAdmin, replyTo: replyTo || null, reactions: {} }; if (!privateChats.has(chatId)) privateChats.set(chatId, []); const chatMsgs = privateChats.get(chatId); chatMsgs.push(privateMsg); if (chatMsgs.length > 200) chatMsgs.shift(); ws.send(JSON.stringify({ type: 'privateMessage', message: privateMsg })); sendToUser(targetUsername, { type: 'privateMessage', message: privateMsg }); }
+function handleGetPrivateHistory(ws, msg) { ws.send(JSON.stringify({ type: 'privateHistory', chatId: msg.chatId, messages: privateChats.get(msg.chatId) || [] })); }
+function handleAddReaction(ws, msg) { const user = users.get(ws); if (!user) return; const { messageId, emoji, channel, isPrivate, chatId } = msg; let msgList = isPrivate ? privateChats.get(chatId) : channels[channel]; if (!msgList) return; const message = msgList.find(m => m.id === messageId); if (!message) return; if (!message.reactions) message.reactions = {}; if (!message.reactions[emoji]) message.reactions[emoji] = []; if (!message.reactions[emoji].includes(user.username)) { message.reactions[emoji].push(user.username); broadcast({ type: 'reactionUpdate', messageId, reactions: message.reactions, channel, isPrivate, chatId }); } }
+function handleRemoveReaction(ws, msg) { const user = users.get(ws); if (!user) return; const { messageId, emoji, channel, isPrivate, chatId } = msg; let msgList = isPrivate ? privateChats.get(chatId) : channels[channel]; if (!msgList) return; const message = msgList.find(m => m.id === messageId); if (!message || !message.reactions || !message.reactions[emoji]) return; message.reactions[emoji] = message.reactions[emoji].filter(u => u !== user.username); if (message.reactions[emoji].length === 0) delete message.reactions[emoji]; broadcast({ type: 'reactionUpdate', messageId, reactions: message.reactions, channel, isPrivate, chatId }); }
+function handleAdminKick(ws, msg) { const admin = requireAdmin(ws); if (!admin) return; const targetWs = userSocketMap.get(msg.targetUsername); if (targetWs) { targetWs.send(JSON.stringify({ type: 'kicked', message: msg.reason || 'Kicked', redirectUrl: msg.redirectUrl || 'https://google.com' })); setTimeout(() => targetWs.close(), 1000); } adminActions.push({ type: 'kick', by: admin.username, target: msg.targetUsername, timestamp: new Date().toISOString() }); ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'kick', target: msg.targetUsername })); }
+function handleAdminTimeout(ws, msg) { const admin = requireAdmin(ws); if (!admin) return; const seconds = Math.max(1, parseInt(msg.duration, 10) || 60); timedOutUsers.set(msg.targetUsername, Date.now() + seconds * 1000); sendToUser(msg.targetUsername, { type: 'timedOut', duration: seconds, message: msg.reason || `Timed out for ${seconds}s` }); adminActions.push({ type: 'timeout', by: admin.username, target: msg.targetUsername, duration: seconds, timestamp: new Date().toISOString() }); ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'timeout', target: msg.targetUsername })); }
+function handleAdminBan(ws, msg) { const admin = requireAdmin(ws); if (!admin) return; const { targetUsername, banType } = msg; const targetIp = ipBanMap.get(targetUsername); if (banType === 'username' || banType === 'both') bannedUsers.add(targetUsername); if ((banType === 'ip' || banType === 'both') && targetIp) bannedIPs.add(targetIp); const targetWs = userSocketMap.get(targetUsername); if (targetWs) { targetWs.send(JSON.stringify({ type: 'banned', message: msg.reason || 'Banned' })); setTimeout(() => targetWs.close(), 1000); } adminActions.push({ type: 'ban', by: admin.username, target: targetUsername, banType, timestamp: new Date().toISOString() }); ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'ban', target: targetUsername })); }
+function handleAdminUnban(ws, msg) { const admin = requireAdmin(ws); if (!admin) return; bannedUsers.delete(msg.username); adminActions.push({ type: 'unban', by: admin.username, target: msg.username, timestamp: new Date().toISOString() }); ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'unban', target: msg.username })); }
+function handleAdminUnbanIP(ws, msg) { const admin = requireAdmin(ws); if (!admin) return; bannedIPs.delete(msg.ip); tempBannedIPs.delete(msg.ip); adminActions.push({ type: 'unbanIP', by: admin.username, ip: maskIp(msg.ip), timestamp: new Date().toISOString() }); ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'unbanIP', ip: msg.ip })); }
+function handleAdminTempBanIP(ws, msg) { const admin = requireAdmin(ws); if (!admin) return; const targetIp = ipBanMap.get(msg.targetUsername); if (targetIp) { const duration = (msg.duration || 60) * 60 * 1000; tempBannedIPs.set(targetIp, { until: Date.now() + duration, reason: msg.reason }); const targetWs = userSocketMap.get(msg.targetUsername); if (targetWs) { targetWs.send(JSON.stringify({ type: 'banned', message: `Temp IP ban: ${msg.duration || 60} minutes` })); setTimeout(() => targetWs.close(), 1000); } } adminActions.push({ type: 'tempBanIP', by: admin.username, target: msg.targetUsername, timestamp: new Date().toISOString() }); ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'tempBanIP', target: msg.targetUsername })); }
+function handleAdminGetBanList(ws, msg) { const admin = requireAdmin(ws); if (!admin) return; sweepTempIpBans(); ws.send(JSON.stringify({ type: 'banList', bannedUsers: Array.from(bannedUsers), bannedIPs: Array.from(bannedIPs), tempBannedIPs: Array.from(tempBannedIPs.entries()).map(([ip, meta]) => ({ ip, until: meta.until, reason: meta.reason })) })); }
+function handleAdminWarning(ws, msg) { const admin = requireAdmin(ws); if (!admin) return; const count = (userWarnings.get(msg.targetUsername) || 0) + 1; userWarnings.set(msg.targetUsername, count); sendToUser(msg.targetUsername, { type: 'warning', message: msg.reason || 'Warning from admin', count }); adminActions.push({ type: 'warning', by: admin.username, target: msg.targetUsername, timestamp: new Date().toISOString() }); ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'warning', target: msg.targetUsername, warningCount: count })); }
+function handleAdminFakeMessage(ws, msg) { const admin = requireAdmin(ws); if (!admin) return; sendToUser(msg.targetUsername, { type: 'fakeMessage', fakeText: msg.fakeText }); adminActions.push({ type: 'fakeMessage', by: admin.username, target: msg.targetUsername, timestamp: new Date().toISOString() }); ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'fakeMessage' })); }
+function handleAdminForceMute(ws, msg) { const admin = requireAdmin(ws); if (!admin) return; const duration = (msg.duration || 30) * 1000; mutedUsers.set(msg.targetUsername, Date.now() + duration); sendToUser(msg.targetUsername, { type: 'forceMute', duration: msg.duration || 30 }); adminActions.push({ type: 'forceMute', by: admin.username, target: msg.targetUsername, timestamp: new Date().toISOString() }); ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'forceMute' })); }
+function handleAdminUnmute(ws, msg) { const admin = requireAdmin(ws); if (!admin) return; mutedUsers.delete(msg.targetUsername); timedOutUsers.delete(msg.targetUsername); sendToUser(msg.targetUsername, { type: 'unmuted', message: 'You have been unmuted' }); ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'unmute', target: msg.targetUsername })); }
+function handleAdminSpinScreen(ws, msg) { const admin = requireAdmin(ws); if (!admin) return; sendToUser(msg.targetUsername, { type: 'spinScreen' }); ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'spinScreen' })); }
+function handleAdminSlowMode(ws, msg) { const admin = requireAdmin(ws); if (!admin) return; serverSettings.slowModeEnabled = msg.enabled; if (!msg.enabled) lastMessageTime.clear(); broadcast({ type: 'broadcast', message: msg.enabled ? `🐌 Slow mode enabled (${serverSettings.slowModeDuration}s)` : '⚡ Slow mode disabled' }); ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'slowMode' })); }
+function handleAdminInvertColors(ws, msg) { const admin = requireAdmin(ws); if (!admin) return; sendToUser(msg.targetUsername, { type: 'invertColors' }); ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'invertColors' })); }
+function handleAdminShakeScreen(ws, msg) { const admin = requireAdmin(ws); if (!admin) return; sendToUser(msg.targetUsername, { type: 'shakeScreen' }); ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'shakeScreen' })); }
+function handleAdminEmojiSpam(ws, msg) { const admin = requireAdmin(ws); if (!admin) return; sendToUser(msg.targetUsername, { type: 'emojiSpam' }); ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'emojiSpam' })); }
+function handleAdminRickRoll(ws, msg) { const admin = requireAdmin(ws); if (!admin) return; sendToUser(msg.targetUsername, { type: 'rickRoll' }); ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'rickRoll' })); }
+function handleAdminForceDisconnect(ws, msg) { const admin = requireAdmin(ws); if (!admin) return; sendToUser(msg.targetUsername, { type: 'forceDisconnect' }); ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'forceDisconnect' })); }
+function handleAdminFlipScreen(ws, msg) { const admin = requireAdmin(ws); if (!admin) return; sendToUser(msg.targetUsername, { type: 'flipScreen' }); ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'flipScreen' })); }
+function handleAdminBroadcast(ws, msg) { const admin = requireAdmin(ws); if (!admin) return; broadcast({ type: 'broadcast', message: msg.message }); adminActions.push({ type: 'broadcast', by: admin.username, message: msg.message, timestamp: new Date().toISOString() }); ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'broadcast' })); }
+function handleAdminUpdateSettings(ws, msg) { const admin = requireAdmin(ws); if (!admin) return; serverSettings = { ...serverSettings, ...msg.settings }; if (msg.settings.slowModeEnabled === false) lastMessageTime.clear(); ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'updateSettings', settings: serverSettings })); }
+function handleAdminClearChat(ws, msg) { const admin = requireAdmin(ws); if (!admin) return; if (channels[msg.channel]) { channels[msg.channel] = []; broadcast({ type: 'chatCleared', channel: msg.channel }); } adminActions.push({ type: 'clearChat', by: admin.username, channel: msg.channel, timestamp: new Date().toISOString() }); ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'clearChat', channel: msg.channel })); }
+function handleAdminDeleteMessage(ws, msg) { const admin = requireAdmin(ws); if (!admin) return; const { messageId, channel } = msg; if (channels[channel]) { channels[channel] = channels[channel].filter(m => m.id !== messageId); broadcast({ type: 'messageDeleted', messageId, channel }); } ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'deleteMessage' })); }
+function handleAdminMaintenance(ws, msg) { const admin = requireAdmin(ws); if (!admin) return; serverSettings.maintenanceMode = msg.enabled; if (msg.enabled) broadcast({ type: 'broadcast', message: '🔧 Server entering maintenance mode...' }); ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'maintenance', enabled: msg.enabled })); }
+function handleAdminGlobalMute(ws, msg) { const admin = requireAdmin(ws); if (!admin) return; const duration = (msg.duration || 60) * 1000; users.forEach((user, userWs) => { if (!user.isAdmin) { mutedUsers.set(user.username, Date.now() + duration); userWs.send(JSON.stringify({ type: 'forceMute', duration: msg.duration || 60 })); } }); broadcast({ type: 'broadcast', message: `🔇 Global mute for ${msg.duration || 60} seconds` }); ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'globalMute' })); }
+function handleAdminRainbow(ws, msg) { const admin = requireAdmin(ws); if (!admin) return; sendToUser(msg.targetUsername, { type: 'rainbow' }); ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'rainbow' })); }
+function handleAdminBlur(ws, msg) { const admin = requireAdmin(ws); if (!admin) return; sendToUser(msg.targetUsername, { type: 'blur' }); ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'blur' })); }
+function handleAdminMatrix(ws, msg) { const admin = requireAdmin(ws); if (!admin) return; sendToUser(msg.targetUsername, { type: 'matrix' }); ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'matrix' })); }
+function handleAdminConfetti(ws, msg) { const admin = requireAdmin(ws); if (!admin) return; if (msg.targetUsername) { sendToUser(msg.targetUsername, { type: 'confetti' }); } else { broadcast({ type: 'confetti' }); } ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'confetti' })); }
+function handleAdminAnnounce(ws, msg) { const admin = requireAdmin(ws); if (!admin) return; const announcement = { id: generateId(), author: 'SYSTEM', text: msg.text, channel: 'announcements', timestamp: new Date().toISOString(), isSystem: true }; channels.announcements.push(announcement); broadcast({ type: 'announcement', message: announcement }); ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'announce' })); }
 
-function handlePrivateChatResponse(ws, msg) {
-  const responder = users.get(ws);
-  if (!responder) return;
-  const requesterWs = userSocketMap.get(msg.from);
-  if (!requesterWs) return ws.send(JSON.stringify({ type: 'error', message: 'User offline' }));
-  if (msg.accepted) {
-    const usernames = [msg.from, responder.username].sort();
-    const chatId = `private_${usernames[0]}_${usernames[1]}`;
-    if (!privateChats.has(chatId)) privateChats.set(chatId, []);
-    requesterWs.send(JSON.stringify({ type: 'privateChatAccepted', chatId, with: responder.username }));
-    ws.send(JSON.stringify({ type: 'privateChatAccepted', chatId, with: msg.from }));
-  } else {
-    requesterWs.send(JSON.stringify({ type: 'privateChatRejected', by: responder.username }));
-  }
-}
-
-function handlePrivateMessage(ws, msg) {
-  const sender = users.get(ws);
-  if (!sender) return;
-  if (isUserTimedOut(sender.username) || isUserMuted(sender.username)) return ws.send(JSON.stringify({ type: 'error', message: 'Cannot send messages' }));
-  let { chatId, text, targetUsername, replyTo } = msg;
-  if (!chatId || !targetUsername || typeof text !== 'string' || !text.trim()) return;
-  if (!sender.isAdmin && text.length > MESSAGE_LIMIT) return ws.send(JSON.stringify({ type: 'error', message: `Message exceeds ${MESSAGE_LIMIT} chars` }));
-  const privateMsg = { id: generateId(), author: sender.username, text, chatId, timestamp: new Date().toISOString(), isVIP: sender.isVIP, isAdmin: sender.isAdmin, replyTo: replyTo || null, reactions: {} };
-  if (!privateChats.has(chatId)) privateChats.set(chatId, []);
-  const chatMsgs = privateChats.get(chatId);
-  chatMsgs.push(privateMsg);
-  if (chatMsgs.length > 200) chatMsgs.shift();
-  ws.send(JSON.stringify({ type: 'privateMessage', message: privateMsg }));
-  sendToUser(targetUsername, { type: 'privateMessage', message: privateMsg });
-}
-
-function handleGetPrivateHistory(ws, msg) {
-  ws.send(JSON.stringify({ type: 'privateHistory', chatId: msg.chatId, messages: privateChats.get(msg.chatId) || [] }));
-}
-
-function handleAddReaction(ws, msg) {
-  const user = users.get(ws);
-  if (!user) return;
-  const { messageId, emoji, channel, isPrivate, chatId } = msg;
-  let msgList = isPrivate ? privateChats.get(chatId) : channels[channel];
-  if (!msgList) return;
-  const message = msgList.find(m => m.id === messageId);
-  if (!message) return;
-  if (!message.reactions) message.reactions = {};
-  if (!message.reactions[emoji]) message.reactions[emoji] = [];
-  if (!message.reactions[emoji].includes(user.username)) {
-    message.reactions[emoji].push(user.username);
-    broadcast({ type: 'reactionUpdate', messageId, reactions: message.reactions, channel, isPrivate, chatId });
-  }
-}
-
-function handleRemoveReaction(ws, msg) {
-  const user = users.get(ws);
-  if (!user) return;
-  const { messageId, emoji, channel, isPrivate, chatId } = msg;
-  let msgList = isPrivate ? privateChats.get(chatId) : channels[channel];
-  if (!msgList) return;
-  const message = msgList.find(m => m.id === messageId);
-  if (!message || !message.reactions || !message.reactions[emoji]) return;
-  message.reactions[emoji] = message.reactions[emoji].filter(u => u !== user.username);
-  if (message.reactions[emoji].length === 0) delete message.reactions[emoji];
-  broadcast({ type: 'reactionUpdate', messageId, reactions: message.reactions, channel, isPrivate, chatId });
-}
-
-function handleAdminKick(ws, msg) {
-  const admin = requireAdmin(ws);
-  if (!admin) return;
-  const targetWs = userSocketMap.get(msg.targetUsername);
-  if (targetWs) {
-    targetWs.send(JSON.stringify({ type: 'kicked', message: msg.reason || 'Kicked', redirectUrl: msg.redirectUrl || 'https://google.com' }));
-    setTimeout(() => targetWs.close(), 1000);
-  }
-  adminActions.push({ type: 'kick', by: admin.username, target: msg.targetUsername, timestamp: new Date().toISOString() });
-  ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'kick', target: msg.targetUsername }));
-}
-
-function handleAdminTimeout(ws, msg) {
-  const admin = requireAdmin(ws);
-  if (!admin) return;
-  const seconds = Math.max(1, parseInt(msg.duration, 10) || 60);
-  timedOutUsers.set(msg.targetUsername, Date.now() + seconds * 1000);
-  sendToUser(msg.targetUsername, { type: 'timedOut', duration: seconds, message: msg.reason || `Timed out for ${seconds}s` });
-  adminActions.push({ type: 'timeout', by: admin.username, target: msg.targetUsername, duration: seconds, timestamp: new Date().toISOString() });
-  ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'timeout', target: msg.targetUsername }));
-}
-
-function handleAdminBan(ws, msg) {
-  const admin = requireAdmin(ws);
-  if (!admin) return;
-  const { targetUsername, banType } = msg;
-  const targetIp = ipBanMap.get(targetUsername);
-  if (banType === 'username' || banType === 'both') bannedUsers.add(targetUsername);
-  if ((banType === 'ip' || banType === 'both') && targetIp) bannedIPs.add(targetIp);
-  const targetWs = userSocketMap.get(targetUsername);
-  if (targetWs) {
-    targetWs.send(JSON.stringify({ type: 'banned', message: msg.reason || 'Banned' }));
-    setTimeout(() => targetWs.close(), 1000);
-  }
-  adminActions.push({ type: 'ban', by: admin.username, target: targetUsername, banType, timestamp: new Date().toISOString() });
-  ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'ban', target: targetUsername }));
-}
-
-function handleAdminUnban(ws, msg) {
-  const admin = requireAdmin(ws);
-  if (!admin) return;
-  bannedUsers.delete(msg.username);
-  adminActions.push({ type: 'unban', by: admin.username, target: msg.username, timestamp: new Date().toISOString() });
-  ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'unban', target: msg.username }));
-}
-
-function handleAdminUnbanIP(ws, msg) {
-  const admin = requireAdmin(ws);
-  if (!admin) return;
-  bannedIPs.delete(msg.ip);
-  tempBannedIPs.delete(msg.ip);
-  adminActions.push({ type: 'unbanIP', by: admin.username, ip: maskIp(msg.ip), timestamp: new Date().toISOString() });
-  ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'unbanIP', ip: msg.ip }));
-}
-
-function handleAdminTempBanIP(ws, msg) {
-  const admin = requireAdmin(ws);
-  if (!admin) return;
-  const targetIp = ipBanMap.get(msg.targetUsername);
-  if (targetIp) {
-    const duration = (msg.duration || 60) * 60 * 1000;
-    tempBannedIPs.set(targetIp, { until: Date.now() + duration, reason: msg.reason });
-    const targetWs = userSocketMap.get(msg.targetUsername);
-    if (targetWs) {
-      targetWs.send(JSON.stringify({ type: 'banned', message: `Temp IP ban: ${msg.duration || 60} minutes` }));
-      setTimeout(() => targetWs.close(), 1000);
-    }
-  }
-  adminActions.push({ type: 'tempBanIP', by: admin.username, target: msg.targetUsername, timestamp: new Date().toISOString() });
-  ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'tempBanIP', target: msg.targetUsername }));
-}
-
-function handleAdminGetBanList(ws, msg) {
-  const admin = requireAdmin(ws);
-  if (!admin) return;
-  sweepTempIpBans();
-  ws.send(JSON.stringify({
-    type: 'banList',
-    bannedUsers: Array.from(bannedUsers),
-    bannedIPs: Array.from(bannedIPs),
-    tempBannedIPs: Array.from(tempBannedIPs.entries()).map(([ip, meta]) => ({ ip, until: meta.until, reason: meta.reason }))
-  }));
-}
-
-function handleAdminWarning(ws, msg) {
-  const admin = requireAdmin(ws);
-  if (!admin) return;
-  const count = (userWarnings.get(msg.targetUsername) || 0) + 1;
-  userWarnings.set(msg.targetUsername, count);
-  sendToUser(msg.targetUsername, { type: 'warning', message: msg.reason || 'Warning from admin', count });
-  adminActions.push({ type: 'warning', by: admin.username, target: msg.targetUsername, timestamp: new Date().toISOString() });
-  ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'warning', target: msg.targetUsername, warningCount: count }));
-}
-
-function handleAdminFakeMessage(ws, msg) {
-  const admin = requireAdmin(ws);
-  if (!admin) return;
-  sendToUser(msg.targetUsername, { type: 'fakeMessage', fakeText: msg.fakeText });
-  adminActions.push({ type: 'fakeMessage', by: admin.username, target: msg.targetUsername, timestamp: new Date().toISOString() });
-  ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'fakeMessage' }));
-}
-
-function handleAdminForceMute(ws, msg) {
-  const admin = requireAdmin(ws);
-  if (!admin) return;
-  const duration = (msg.duration || 30) * 1000;
-  mutedUsers.set(msg.targetUsername, Date.now() + duration);
-  sendToUser(msg.targetUsername, { type: 'forceMute', duration: msg.duration || 30 });
-  adminActions.push({ type: 'forceMute', by: admin.username, target: msg.targetUsername, timestamp: new Date().toISOString() });
-  ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'forceMute' }));
-}
-
-function handleAdminUnmute(ws, msg) {
-  const admin = requireAdmin(ws);
-  if (!admin) return;
-  mutedUsers.delete(msg.targetUsername);
-  timedOutUsers.delete(msg.targetUsername);
-  sendToUser(msg.targetUsername, { type: 'unmuted', message: 'You have been unmuted' });
-  ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'unmute', target: msg.targetUsername }));
-}
-
-function handleAdminSpinScreen(ws, msg) {
-  const admin = requireAdmin(ws);
-  if (!admin) return;
-  sendToUser(msg.targetUsername, { type: 'spinScreen' });
-  ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'spinScreen' }));
-}
-
-function handleAdminSlowMode(ws, msg) {
-  const admin = requireAdmin(ws);
-  if (!admin) return;
-  serverSettings.slowModeEnabled = msg.enabled;
-  if (!msg.enabled) lastMessageTime.clear();
-  broadcast({ type: 'broadcast', message: msg.enabled ? `🐌 Slow mode enabled (${serverSettings.slowModeDuration}s)` : '⚡ Slow mode disabled' });
-  ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'slowMode' }));
-}
-
-function handleAdminInvertColors(ws, msg) {
-  const admin = requireAdmin(ws);
-  if (!admin) return;
-  sendToUser(msg.targetUsername, { type: 'invertColors' });
-  ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'invertColors' }));
-}
-
-function handleAdminShakeScreen(ws, msg) {
-  const admin = requireAdmin(ws);
-  if (!admin) return;
-  sendToUser(msg.targetUsername, { type: 'shakeScreen' });
-  ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'shakeScreen' }));
-}
-
-function handleAdminEmojiSpam(ws, msg) {
-  const admin = requireAdmin(ws);
-  if (!admin) return;
-  sendToUser(msg.targetUsername, { type: 'emojiSpam' });
-  ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'emojiSpam' }));
-}
-
-function handleAdminRickRoll(ws, msg) {
-  const admin = requireAdmin(ws);
-  if (!admin) return;
-  sendToUser(msg.targetUsername, { type: 'rickRoll' });
-  ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'rickRoll' }));
-}
-
-function handleAdminForceDisconnect(ws, msg) {
-  const admin = requireAdmin(ws);
-  if (!admin) return;
-  sendToUser(msg.targetUsername, { type: 'forceDisconnect' });
-  ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'forceDisconnect' }));
-}
-
-function handleAdminFlipScreen(ws, msg) {
-  const admin = requireAdmin(ws);
-  if (!admin) return;
-  sendToUser(msg.targetUsername, { type: 'flipScreen' });
-  ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'flipScreen' }));
-}
-
-function handleAdminBroadcast(ws, msg) {
-  const admin = requireAdmin(ws);
-  if (!admin) return;
-  broadcast({ type: 'broadcast', message: msg.message });
-  adminActions.push({ type: 'broadcast', by: admin.username, message: msg.message, timestamp: new Date().toISOString() });
-  ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'broadcast' }));
-}
-
-function handleAdminUpdateSettings(ws, msg) {
-  const admin = requireAdmin(ws);
-  if (!admin) return;
-  serverSettings = { ...serverSettings, ...msg.settings };
-  if (msg.settings.slowModeEnabled === false) lastMessageTime.clear();
-  ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'updateSettings', settings: serverSettings }));
-}
-
-function handleAdminClearChat(ws, msg) {
-  const admin = requireAdmin(ws);
-  if (!admin) return;
-  if (channels[msg.channel]) {
-    channels[msg.channel] = [];
-    broadcast({ type: 'chatCleared', channel: msg.channel });
-  }
-  adminActions.push({ type: 'clearChat', by: admin.username, channel: msg.channel, timestamp: new Date().toISOString() });
-  ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'clearChat', channel: msg.channel }));
-}
-
-function handleAdminDeleteMessage(ws, msg) {
-  const admin = requireAdmin(ws);
-  if (!admin) return;
-  const { messageId, channel } = msg;
-  if (channels[channel]) {
-    channels[channel] = channels[channel].filter(m => m.id !== messageId);
-    broadcast({ type: 'messageDeleted', messageId, channel });
-  }
-  ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'deleteMessage' }));
-}
-
-function handleAdminMaintenance(ws, msg) {
-  const admin = requireAdmin(ws);
-  if (!admin) return;
-  serverSettings.maintenanceMode = msg.enabled;
-  if (msg.enabled) {
-    broadcast({ type: 'broadcast', message: '🔧 Server entering maintenance mode...' });
-  }
-  ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'maintenance', enabled: msg.enabled }));
-}
-
-function handleAdminGlobalMute(ws, msg) {
-  const admin = requireAdmin(ws);
-  if (!admin) return;
-  const duration = (msg.duration || 60) * 1000;
-  users.forEach((user, userWs) => {
-    if (!user.isAdmin) {
-      mutedUsers.set(user.username, Date.now() + duration);
-      userWs.send(JSON.stringify({ type: 'forceMute', duration: msg.duration || 60 }));
-    }
-  });
-  broadcast({ type: 'broadcast', message: `🔇 Global mute for ${msg.duration || 60} seconds` });
-  ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'globalMute' }));
-}
-
-function handleAdminRainbow(ws, msg) {
-  const admin = requireAdmin(ws);
-  if (!admin) return;
-  sendToUser(msg.targetUsername, { type: 'rainbow' });
-  ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'rainbow' }));
-}
-
-function handleAdminBlur(ws, msg) {
-  const admin = requireAdmin(ws);
-  if (!admin) return;
-  sendToUser(msg.targetUsername, { type: 'blur' });
-  ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'blur' }));
-}
-
-function handleAdminMatrix(ws, msg) {
-  const admin = requireAdmin(ws);
-  if (!admin) return;
-  sendToUser(msg.targetUsername, { type: 'matrix' });
-  ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'matrix' }));
-}
-
-function handleAdminConfetti(ws, msg) {
-  const admin = requireAdmin(ws);
-  if (!admin) return;
-  if (msg.targetUsername) {
-    sendToUser(msg.targetUsername, { type: 'confetti' });
-  } else {
-    broadcast({ type: 'confetti' });
-  }
-  ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'confetti' }));
-}
-
-function handleAdminAnnounce(ws, msg) {
-  const admin = requireAdmin(ws);
-  if (!admin) return;
-  const announcement = { id: generateId(), author: 'SYSTEM', text: msg.text, channel: 'announcements', timestamp: new Date().toISOString(), isSystem: true };
-  channels.announcements.push(announcement);
-  broadcast({ type: 'announcement', message: announcement });
-  ws.send(JSON.stringify({ type: 'adminActionSuccess', action: 'announce' }));
-}
-
-app.get('/health', (req, res) => {
-  sweepTempIpBans();
-  res.json({ status: 'ok', users: users.size, channels: Object.keys(channels).length, settings: serverSettings });
-});
-
+app.get('/health', (req, res) => { sweepTempIpBans(); res.json({ status: 'ok', users: users.size, channels: Object.keys(channels).length, settings: serverSettings }); });
 app.get('/api/channels', (req, res) => res.json({ channels: Object.keys(channels) }));
-
-function adminAuth(req, res, next) {
-  if (req.headers['x-admin-password'] === ADMIN_PASSWORD) return next();
-  return res.status(401).json({ error: 'Unauthorized' });
-}
-
-app.get('/admin/bans', adminAuth, (req, res) => {
-  sweepTempIpBans();
-  res.json({ usernames: Array.from(bannedUsers), ipBans: Array.from(bannedIPs).map(maskIp), tempIpBans: Array.from(tempBannedIPs.entries()).map(([ip, meta]) => ({ ip: maskIp(ip), until: meta.until, reason: meta.reason })), audit: adminActions.slice(-100) });
-});
-
-app.post('/admin/unban', adminAuth, (req, res) => {
-  const { username } = req.body || {};
-  if (!username) return res.status(400).json({ error: 'username required' });
-  bannedUsers.delete(username);
-  res.json({ ok: true, username });
-});
-
-app.post('/admin/unban-ip', adminAuth, (req, res) => {
-  const { ip } = req.body || {};
-  if (!ip) return res.status(400).json({ error: 'ip required' });
-  bannedIPs.delete(ip);
-  tempBannedIPs.delete(ip);
-  res.json({ ok: true, ip: maskIp(ip) });
-});
+function adminAuth(req, res, next) { if (req.headers['x-admin-password'] === ADMIN_PASSWORD) return next(); return res.status(401).json({ error: 'Unauthorized' }); }
+app.get('/admin/bans', adminAuth, (req, res) => { sweepTempIpBans(); res.json({ usernames: Array.from(bannedUsers), ipBans: Array.from(bannedIPs).map(maskIp), tempIpBans: Array.from(tempBannedIPs.entries()).map(([ip, meta]) => ({ ip: maskIp(ip), until: meta.until, reason: meta.reason })), audit: adminActions.slice(-100) }); });
+app.post('/admin/unban', adminAuth, (req, res) => { const { username } = req.body || {}; if (!username) return res.status(400).json({ error: 'username required' }); bannedUsers.delete(username); res.json({ ok: true, username }); });
+app.post('/admin/unban-ip', adminAuth, (req, res) => { const { ip } = req.body || {}; if (!ip) return res.status(400).json({ error: 'ip required' }); bannedIPs.delete(ip); tempBannedIPs.delete(ip); res.json({ ok: true, ip: maskIp(ip) }); });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Admin Password: ${ADMIN_PASSWORD}`);
-  console.log(`VIP Password: ${VIP_PASSWORD}`);
-  console.log(`Owner Password: ${OWNER_PASSWORD}`);
-});
-
+server.listen(PORT, () => { console.log(`Server running on port ${PORT}`); console.log(`Admin: ${ADMIN_PASSWORD}`); console.log(`VIP: ${VIP_PASSWORD}`); console.log(`Owner: ${OWNER_PASSWORD}`); });
 setInterval(sweepTempIpBans, 30000);
 process.on('SIGINT', () => { saveData(); process.exit(); });
