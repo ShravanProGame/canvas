@@ -21,19 +21,14 @@ io.on('connection', (socket) => {
   // Handle Login
   socket.on('join', (data) => {
     let role = 'User';
-    let authSuccess = true;
 
-    // Simple password check (In production, use hashed passwords/DB)
+    // Simple password check
     if (data.password === 'owner999') {
         role = 'Owner';
     } else if (data.password === 'admin123') {
         role = 'Admin';
     } else if (data.password !== '') {
-        // If password provided but wrong, default to User or could reject
-        // For this demo, we'll allow them as User but warn, or just ignore
-        // Let's strict mode it slightly: if pass exists but wrong -> error
-        // But prompt says "prompted to put in a password or continue as a user"
-        // so we assume wrong password = join as user for simplicity here
+        // Default to User if password is incorrectly entered
         role = 'User'; 
     }
 
@@ -59,3 +54,37 @@ io.on('connection', (socket) => {
     // Update user list
     io.emit('userList', Object.values(users));
   });
+
+  // Handle Chat Messages
+  socket.on('chatMessage', (msg) => {
+    const user = users[socket.id];
+    if (user) {
+        io.emit('message', {
+            user: user.name,
+            text: msg,
+            role: user.role,
+            timestamp: new Date().toLocaleTimeString()
+        });
+    }
+  });
+
+  // Handle Disconnect
+  socket.on('disconnect', () => {
+    const user = users[socket.id];
+    if (user) {
+        io.emit('message', {
+            user: 'SYSTEM',
+            text: `${user.name} lost connection.`,
+            role: 'System',
+            timestamp: new Date().toLocaleTimeString()
+        });
+        delete users[socket.id];
+        io.emit('userList', Object.values(users));
+    }
+  });
+});
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log(`Command Link Established on http://localhost:${PORT}`);
+});
