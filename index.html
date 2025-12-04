@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Galactic Chat Node</title>
+    <!-- Added FontAwesome for Hub Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto+Mono:wght@400;500&display=swap');
 
@@ -221,12 +223,86 @@
         .input-area { padding: 20px; background: rgba(0, 0, 0, 0.5); display: flex; gap: 10px; border-top: 1px solid rgba(255, 255, 255, 0.1); }
         .input-area input { flex: 1; }
 
-        /* Hub View */
-        #hub-view { justify-content: center; align-items: center; flex-direction: column; background: rgba(20, 0, 0, 0.5); height: 100%; }
-        .construction-text { font-family: 'Orbitron'; font-size: 2rem; color: #ffaa00; border: 2px dashed #ffaa00; padding: 2rem; animation: pulse 2s infinite; }
-        .spaceship-icon { font-size: 4rem; filter: drop-shadow(0 0 10px cyan); animation: floatShip 3s ease-in-out infinite; margin-top: 20px; }
-        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
-        @keyframes floatShip { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        /* Hub View - Updated */
+        #hub-view { 
+            flex-direction: column; 
+            background: rgba(10, 20, 30, 0.8); 
+            height: 100%; 
+            padding: 0;
+        }
+
+        .hub-header {
+            padding: 10px 15px;
+            background: rgba(0, 255, 255, 0.05);
+            border-bottom: 1px solid rgba(0, 255, 255, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .hub-title {
+            font-family: 'Orbitron';
+            color: #ffaa00;
+            font-size: 1.1rem;
+            letter-spacing: 2px;
+        }
+
+        .hub-controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        .hub-app-btn {
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid #00ffff;
+            color: #00ffff;
+            padding: 8px 12px;
+            cursor: pointer;
+            font-family: 'Roboto Mono';
+            font-size: 0.75rem;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            text-transform: uppercase;
+        }
+
+        .hub-app-btn:hover {
+            background: #00ffff;
+            color: #000;
+            box-shadow: 0 0 10px #00ffff;
+        }
+
+        .hub-display {
+            flex: 1;
+            position: relative;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            overflow: hidden;
+        }
+
+        #hub-iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: none; /* Hidden until loaded */
+        }
+
+        #hub-overlay-msg {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #444;
+            font-family: 'Orbitron';
+            font-size: 1.5rem;
+            pointer-events: none;
+            text-align: center;
+            letter-spacing: 2px;
+            border: 1px solid #333;
+            padding: 20px;
+        }
 
         /* Admin View */
         #admin-view { padding: 20px; flex-direction: column; gap: 20px; overflow-y: auto; height: 100%; }
@@ -286,10 +362,30 @@
                         </div>
                     </div>
 
-                    <!-- Hub View -->
+                    <!-- Hub View (UPDATED) -->
                     <div id="hub-view" class="view-section">
-                        <div class="construction-text">SECTOR UNDER CONSTRUCTION</div>
-                        <div class="spaceship-icon">🚀</div>
+                        <div class="hub-header">
+                            <span class="hub-title">DEEP SPACE HUB</span>
+                            <div class="hub-controls">
+                                <!-- Easy to expand: Just copy a button line and change the URL! -->
+                                <button class="hub-app-btn" onclick="openHubApp('https://en.wikipedia.org/wiki/Space_exploration')">
+                                    <i class="fas fa-book"></i> ARCHIVES
+                                </button>
+                                <button class="hub-app-btn" onclick="openHubApp('https://www.wikipedia.org')">
+                                    <i class="fas fa-globe"></i> GLOBAL NET
+                                </button>
+                                <button class="hub-app-btn" style="border-color: #ffaa00; color: #ffaa00;" onclick="closeHubApp()">
+                                    <i class="fas fa-times-circle"></i> TERMINATE
+                                </button>
+                            </div>
+                        </div>
+                        <div class="hub-display">
+                            <iframe id="hub-iframe" src="about:blank"></iframe>
+                            <div id="hub-overlay-msg">
+                                AWAITING MODULE SELECTION<br>
+                                <span style="font-size: 0.8rem; color: #666; font-family: 'Roboto Mono'; margin-top: 10px; display:block;">SECURE UPLINK READY</span>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Admin View -->
@@ -344,6 +440,26 @@
     <script>
         const socket = io();
         let myData = null;
+
+        // --- Hub Logic (New) ---
+        function openHubApp(url) {
+            const frame = document.getElementById('hub-iframe');
+            const overlay = document.getElementById('hub-overlay-msg');
+            
+            // Show loading state or direct load
+            frame.src = url;
+            frame.style.display = 'block';
+            overlay.style.display = 'none';
+        }
+
+        function closeHubApp() {
+            const frame = document.getElementById('hub-iframe');
+            const overlay = document.getElementById('hub-overlay-msg');
+            
+            frame.src = 'about:blank';
+            frame.style.display = 'none';
+            overlay.style.display = 'block';
+        }
 
         // --- Auth Logic ---
         function attemptLogin() {
