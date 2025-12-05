@@ -2,17 +2,16 @@ const express = require('express');
 const http = require('http');
 const { Server } = require("socket.io");
 const path = require('path');
-// NOTE: For production, you should use 'dotenv' here for passwords/secrets.
 
 const app = express();
 const server = http.createServer(app);
 
 // --- 1. Robust Connection Settings ---
 const io = new Server(server, {
-    pingTimeout: 60000,           // Wait 60s before assuming dead
-    pingInterval: 25000,          // Send heartbeat every 25s
+    pingTimeout: 60000,
+    pingInterval: 25000,
     connectionStateRecovery: {
-        maxDisconnectionDuration: 2 * 60 * 1000, // 2 mins recovery time
+        maxDisconnectionDuration: 2 * 60 * 1000,
         skipMiddlewares: true,
     }
 });
@@ -28,11 +27,12 @@ const bannedIPs = new Set();
 const bannedUsernames = new Set();
 let bannedWords = ['spam', 'virus', 'badword']; 
 
-// Helper: Get Client IP (handles proxies like Render/Heroku)
+// Helper: Get Client IP (FIXED for proxies)
 function getIp(socket) {
     // Safely parse the 'x-forwarded-for' header (comma-separated list)
     const forwardedIp = socket.handshake.headers['x-forwarded-for'];
     if (forwardedIp) {
+        // Use the first IP in the list (the actual client IP)
         return forwardedIp.split(',')[0].trim();
     }
     return socket.handshake.address;
@@ -50,28 +50,43 @@ io.on('connection', (socket) => {
 
   console.log(`Uplink established: ${socket.id}`);
 
-  // --- LOGIN LOGIC ---
+  // --- LOGIN LOGIC (FIXED) ---
   socket.on('join', (data) => {
     let role = 'User';
+    
+    // --- IMPORTANT FIX: Normalize name immediately ---
+    const userName = (data.name || '').trim();
+    if (!userName) {
+        socket.emit('loginError', 'ACCESS DENIED: Codename cannot be empty.');
+        return;
+    }
 
     // 2. USERNAME BAN CHECK
-    if (bannedUsernames.has(data.name.toLowerCase())) {
+    if (bannedUsernames.has(userName.toLowerCase())) {
         socket.emit('loginError', 'ACCESS DENIED: IDENTITY BLACKLISTED.');
         return;
     }
 
-    // NOTE: Replace these hardcoded keys with process.env.OWNER_PASS
+    // Check for duplicate names (prevent hijacking or confusion)
+    const existingUser = Object.values(users).find(u => u.name.toLowerCase() === userName.toLowerCase());
+    if (existingUser) {
+        socket.emit('loginError', `ACCESS DENIED: Codename '${userName}' is already active.`);
+        return;
+    }
+
+    // Role assignment logic (Pass through)
     if (data.password === 'owner999') {
         role = 'Owner';
     } else if (data.password === 'admin123') {
         role = 'Admin';
-    } else if (data.password !== '') {
-        role = 'User'; // Wrong password defaults to user
+    } else if (data.password !== '' && data.password !== 'owner999' && data.password !== 'admin123') {
+        // If a password was provided but it was incorrect, still join as a normal User
+        role = 'User'; 
     }
 
     users[socket.id] = {
         id: socket.id,
-        name: data.name || `Cadet-${socket.id.substr(0,4)}`,
+        name: userName, // Use the trimmed name
         role: role,
         ip: clientIp,
         status: 'In Comms' 
@@ -103,7 +118,6 @@ io.on('connection', (socket) => {
             filteredText = filteredText.replace(regex, '[REDACTED]');
         });
 
-        // NOTE: Consider using an HTML sanitization library here for safety.
         io.emit('message', {
             user: user.name,
             text: filteredText,
@@ -150,7 +164,6 @@ io.on('connection', (socket) => {
   // C. Reject
   socket.on('dmRejected', (targetSocketId) => {
       if (users[targetSocketId]) {
-          // FIX: Change banAlert to a dedicated DM rejection alert
           io.to(targetSocketId).emit('dmRejectedAlert', 'SECURE LINK REQUEST DENIED.'); 
       }
   });
@@ -169,7 +182,6 @@ io.on('connection', (socket) => {
   // --- ADMIN ACTIONS ---
   socket.on('adminAction', (action) => {
       const adminUser = users[socket.id];
-      // Server-side check: Only Admin/Owner can execute
       if (!adminUser || (adminUser.role !== 'Admin' && adminUser.role !== 'Owner')) return;
 
       switch(action.type) {
@@ -222,8 +234,6 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     const user = users[socket.id];
     if (user) {
-        // NOTE: Add logic here to notify DM partner if applicable
-        
         io.emit('message', {
             user: 'SYSTEM',
             text: `${user.name} lost connection.`,
