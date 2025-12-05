@@ -351,6 +351,37 @@
 @keyframes fadeOut {
     to { opacity: 0; transform: translateX(100%); }
 }
+        /* --- DM System Styles --- */
+.dm-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 15px;
+}
+
+.dm-user-card {
+    background: rgba(214, 0, 255, 0.05);
+    border: 1px solid #d600ff;
+    padding: 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.dm-user-card:hover {
+    background: #d600ff;
+    color: black;
+    box-shadow: 0 0 15px #d600ff;
+}
+
+/* Purple Bubbles for DM */
+.msg-bubble.dm-private {
+    background-color: #5a1863; /* Dark purple */
+    border: 1px solid #d600ff;
+    color: #f0cfff;
+}
 
     </style>
 </head>
@@ -388,6 +419,7 @@
                 <div class="nav-tab" onclick="switchTab('hub')">Deep Space Hub</div>
                 <div class="nav-tab" id="admin-tab" onclick="switchTab('admin')">COMMAND DECK</div>
                 <div style="margin-left: auto; padding: 15px; color: #00ffff; font-size: 0.8rem;" id="user-status"></div>
+                <div class="nav-tab" id="dm-tab" onclick="switchTab('dm')">SECURE LINK</div>
             </div>
 
             <!-- Content Area + Sidebar -->
@@ -434,6 +466,41 @@
                                 <span style="font-size: 0.8rem; color: #666; font-family: 'Roboto Mono'; margin-top: 10px; display:block;">SECURE UPLINK READY</span>
                             </div>
                         </div>
+                        <!-- Secure Link (DM) View -->
+<div id="dm-view" class="view-section">
+    <!-- State 1: User List (Lobby) -->
+    <div id="dm-lobby">
+        <div class="admin-header" style="color: #d600ff; border-color: #d600ff;">AVAILABLE TARGETS</div>
+        <div id="dm-user-list" class="dm-grid">
+            <!-- Populated by JS -->
+        </div>
+    </div>
+
+    <!-- State 2: Active Chat -->
+    <div id="dm-active-chat" style="display:none; flex-direction:column; height:100%;">
+        <div class="hub-header" style="background: rgba(214, 0, 255, 0.1); border-color: #d600ff;">
+            <span id="dm-partner-name" class="hub-title" style="color: #d600ff;">TARGET LOCKED</span>
+            <button class="hub-app-btn" onclick="exitDM()" style="border-color: #d600ff; color: #d600ff;">
+                <i class="fas fa-sign-out-alt"></i> DISCONNECT
+            </button>
+        </div>
+        <div id="dm-messages" style="flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:10px;"></div>
+        <div class="input-area" style="border-top-color: #d600ff;">
+            <input type="text" id="dm-input" placeholder="Encrypting transmission..." style="border-color: #555;">
+            <button onclick="sendDM()" style="border-color: #d600ff; color: #d600ff;">SEND</button>
+        </div>
+    </div>
+</div>
+
+<!-- DM Request Modal -->
+<div id="dm-request-modal" class="modal" style="display:none; position:fixed; top:30%; left:50%; transform:translate(-50%, -50%); z-index:5000; border-color:#d600ff; box-shadow: 0 0 30px #d600ff;">
+    <h2 style="color:#d600ff;">INCOMING LINK</h2>
+    <p id="dm-req-text" style="color:white;">User wants to connect.</p>
+    <div style="display:flex; gap:10px; justify-content:center;">
+        <button onclick="acceptDM()" style="border-color:#00ff00; color:#00ff00;">ACCEPT</button>
+        <button onclick="rejectDM()" style="border-color:#ff0000; color:#ff0000;">DENY</button>
+    </div>
+</div>
                     </div>
 
                     <!-- Admin View -->
