@@ -150,7 +150,46 @@ io.on('connection', (socket) => {
       }
       io.emit('userList', Object.values(users));
   });
+// --- PRIVATE MESSAGING SYSTEM ---
+  
+  // 1. Handle Request
+  socket.on('dmRequest', (targetSocketId) => {
+      const sender = users[socket.id];
+      const target = users[targetSocketId];
 
+      if (target) {
+          // Send request to target
+          io.to(targetSocketId).emit('incomingDMRequest', { 
+              fromId: socket.id, 
+              name: sender.name 
+          });
+      }
+  });
+
+  // 2. Handle Acceptance
+  socket.on('dmAccepted', (targetSocketId) => {
+      const me = users[socket.id];
+      const them = users[targetSocketId];
+
+      // Tell both to start chat
+      io.to(targetSocketId).emit('dmStart', { withId: socket.id, name: me.name }); // Tell requester
+      socket.emit('dmStart', { withId: targetSocketId, name: them.name }); // Tell acceptor
+  });
+
+  // 3. Handle Rejection
+  socket.on('dmRejected', (targetSocketId) => {
+      io.to(targetSocketId).emit('banAlert', 'SECURE LINK REQUEST DENIED.'); // Reusing ban alert for dramatic effect, or use standard msg
+  });
+
+  // 4. Handle Private Message
+  socket.on('privateMessage', ({ to, text }) => {
+      const sender = users[socket.id];
+      // Send to target
+      io.to(to).emit('privateMsgReceive', { fromId: socket.id, text: text, name: sender.name });
+      // Send back to sender (so they see it too)
+      socket.emit('privateMsgReceive', { fromId: socket.id, text: text, name: sender.name });
+  });
+  
   socket.on('disconnect', () => {
     const user = users[socket.id];
     if (user) {
