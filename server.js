@@ -2,230 +2,241 @@ const express = require('express');
 const http = require('http');
 const { Server } = require("socket.io");
 const path = require('path');
+// NOTE: For production, you should use 'dotenv' here for passwords/secrets.
 
 const app = express();
 const server = http.createServer(app);
 
 // --- 1. Robust Connection Settings ---
-// Increased timeouts to prevent random disconnects when tabbing out
 const io = new Server(server, {
-    pingTimeout: 60000,           // Wait 60s before assuming dead
-    pingInterval: 25000,          // Send heartbeat every 25s
-    connectionStateRecovery: {
-        maxDisconnectionDuration: 2 * 60 * 1000, // 2 mins recovery time
-        skipMiddlewares: true,
-    }
+    pingTimeout: 60000,           // Wait 60s before assuming dead
+    pingInterval: 25000,          // Send heartbeat every 25s
+    connectionStateRecovery: {
+        maxDisconnectionDuration: 2 * 60 * 1000, // 2 mins recovery time
+        skipMiddlewares: true,
+    }
 });
 
 // Serve the index.html file
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
+  res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// --- SERVER STATE ---
+// --- SERVER STATE (In-Memory) ---
 const users = {};
 const bannedIPs = new Set();
 const bannedUsernames = new Set();
-let bannedWords = ['spam', 'virus', 'badword']; 
+let bannedWords = ['spam', 'virus', 'badword']; 
 
 // Helper: Get Client IP (handles proxies like Render/Heroku)
 function getIp(socket) {
-    return socket.handshake.headers['x-forwarded-for'] || socket.handshake.address;
+    // Safely parse the 'x-forwarded-for' header (comma-separated list)
+    const forwardedIp = socket.handshake.headers['x-forwarded-for'];
+    if (forwardedIp) {
+        return forwardedIp.split(',')[0].trim();
+    }
+    return socket.handshake.address;
 }
 
 io.on('connection', (socket) => {
-  const clientIp = getIp(socket);
+  const clientIp = getIp(socket);
 
-  // 1. IP BAN CHECK
-  if (bannedIPs.has(clientIp)) {
-      socket.emit('banAlert', 'CONNECTION TERMINATED: TERMINAL BLACKLISTED.');
-      socket.disconnect(true);
-      return;
-  }
+  // 1. IP BAN CHECK
+  if (bannedIPs.has(clientIp)) {
+      socket.emit('banAlert', 'CONNECTION TERMINATED: TERMINAL BLACKLISTED.');
+      socket.disconnect(true);
+      return;
+  }
 
-  console.log(`Uplink established: ${socket.id}`);
+  console.log(`Uplink established: ${socket.id}`);
 
-  // --- LOGIN LOGIC ---
-  socket.on('join', (data) => {
-    let role = 'User';
+  // --- LOGIN LOGIC ---
+  socket.on('join', (data) => {
+    let role = 'User';
 
-    // 2. USERNAME BAN CHECK
-    if (bannedUsernames.has(data.name.toLowerCase())) {
-        socket.emit('loginError', 'ACCESS DENIED: IDENTITY BLACKLISTED.');
-        return;
-    }
+    // 2. USERNAME BAN CHECK
+    if (bannedUsernames.has(data.name.toLowerCase())) {
+        socket.emit('loginError', 'ACCESS DENIED: IDENTITY BLACKLISTED.');
+        return;
+    }
 
-    if (data.password === 'owner999') {
-        role = 'Owner';
-    } else if (data.password === 'admin123') {
-        role = 'Admin';
-    } else if (data.password !== '') {
-        role = 'User'; // Wrong password defaults to user
-    }
+    // NOTE: Replace these hardcoded keys with process.env.OWNER_PASS
+    if (data.password === 'owner999') {
+        role = 'Owner';
+    } else if (data.password === 'admin123') {
+        role = 'Admin';
+    } else if (data.password !== '') {
+        role = 'User'; // Wrong password defaults to user
+    }
 
-    users[socket.id] = {
-        id: socket.id,
-        name: data.name || `Cadet-${socket.id.substr(0,4)}`,
-        role: role,
-        ip: clientIp,
-        status: 'In Comms' 
-    };
+    users[socket.id] = {
+        id: socket.id,
+        name: data.name || `Cadet-${socket.id.substr(0,4)}`,
+        role: role,
+        ip: clientIp,
+        status: 'In Comms' 
+    };
 
-    socket.emit('loginSuccess', {
-        user: users[socket.id]
-    });
+    socket.emit('loginSuccess', {
+        user: users[socket.id]
+    });
 
-    io.emit('message', {
-        user: 'SYSTEM',
-        text: `${users[socket.id].name} has entered the frequency.`,
-        role: 'System',
-        timestamp: new Date().toLocaleTimeString()
-    });
+    io.emit('message', {
+        user: 'SYSTEM',
+        text: `${users[socket.id].name} has entered the frequency.`,
+        role: 'System',
+        timestamp: new Date().toLocaleTimeString()
+    });
 
-    io.emit('userList', Object.values(users));
-  });
+    io.emit('userList', Object.values(users));
+  });
 
-  // --- CHAT LOGIC ---
-  socket.on('chatMessage', (msg) => {
-    const user = users[socket.id];
-    if (user) {
-        let filteredText = msg;
-        // Word Filter
-        bannedWords.forEach(word => {
-            const safeWord = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const regex = new RegExp(`\\b${safeWord}\\b`, 'gi');
-            filteredText = filteredText.replace(regex, '[REDACTED]');
-        });
+  // --- CHAT LOGIC ---
+  socket.on('chatMessage', (msg) => {
+    const user = users[socket.id];
+    if (user) {
+        let filteredText = msg;
+        // Word Filter
+        bannedWords.forEach(word => {
+            const safeWord = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(`\\b${safeWord}\\b`, 'gi');
+            filteredText = filteredText.replace(regex, '[REDACTED]');
+        });
 
-        io.emit('message', {
-            user: user.name,
-            text: filteredText,
-            role: user.role,
-            timestamp: new Date().toLocaleTimeString()
-        });
-    }
-  });
+        // NOTE: Consider using an HTML sanitization library here for safety.
+        io.emit('message', {
+            user: user.name,
+            text: filteredText,
+            role: user.role,
+            timestamp: new Date().toLocaleTimeString()
+        });
+    }
+  });
 
-  // --- STATUS UPDATES ---
-  socket.on('updateStatus', (newStatus) => {
-      if (users[socket.id]) {
-          users[socket.id].status = newStatus;
-          io.emit('userList', Object.values(users));
-      }
-  });
+  // --- STATUS UPDATES ---
+  socket.on('updateStatus', (newStatus) => {
+      if (users[socket.id]) {
+          users[socket.id].status = newStatus;
+          io.emit('userList', Object.values(users));
+      }
+  });
 
-  // --- PRIVATE MESSAGING (DM) SYSTEM ---
-  
-  // A. Request
-  socket.on('dmRequest', (targetSocketId) => {
-      const sender = users[socket.id];
-      // Only send if target exists
-      if (users[targetSocketId]) {
-          io.to(targetSocketId).emit('incomingDMRequest', { 
-              fromId: socket.id, 
-              name: sender.name 
-          });
-      }
-  });
+  // --- PRIVATE MESSAGING (DM) SYSTEM ---
+  
+  // A. Request
+  socket.on('dmRequest', (targetSocketId) => {
+      const sender = users[socket.id];
+      // Only send if target exists
+      if (users[targetSocketId]) {
+          io.to(targetSocketId).emit('incomingDMRequest', { 
+              fromId: socket.id, 
+              name: sender.name 
+          });
+      }
+  });
 
-  // B. Accept
-  socket.on('dmAccepted', (targetSocketId) => {
-      const me = users[socket.id];
-      const them = users[targetSocketId];
-      if (me && them) {
-          // Tell requester (them) it started
-          io.to(targetSocketId).emit('dmStart', { withId: socket.id, name: me.name }); 
-          // Tell acceptor (me) it started
-          socket.emit('dmStart', { withId: targetSocketId, name: them.name }); 
-      }
-  });
+  // B. Accept
+  socket.on('dmAccepted', (targetSocketId) => {
+      const me = users[socket.id];
+      const them = users[targetSocketId];
+      if (me && them) {
+          // Tell requester (them) it started
+          io.to(targetSocketId).emit('dmStart', { withId: socket.id, name: me.name }); 
+          // Tell acceptor (me) it started
+          socket.emit('dmStart', { withId: targetSocketId, name: them.name }); 
+      }
+  });
 
-  // C. Reject
-  socket.on('dmRejected', (targetSocketId) => {
-      if (users[targetSocketId]) {
-          io.to(targetSocketId).emit('banAlert', 'SECURE LINK REQUEST DENIED.'); 
-      }
-  });
+  // C. Reject
+  socket.on('dmRejected', (targetSocketId) => {
+      if (users[targetSocketId]) {
+          // FIX: Change banAlert to a dedicated DM rejection alert
+          io.to(targetSocketId).emit('dmRejectedAlert', 'SECURE LINK REQUEST DENIED.'); 
+      }
+  });
 
-  // D. Message
-  socket.on('privateMessage', ({ to, text }) => {
-      const sender = users[socket.id];
-      if (users[to] && sender) {
-        // Send to target
-        io.to(to).emit('privateMsgReceive', { fromId: socket.id, text: text, name: sender.name });
-        // Send back to sender (so they see it in their bubble)
-        socket.emit('privateMsgReceive', { fromId: socket.id, text: text, name: sender.name });
-      }
-  });
+  // D. Message
+  socket.on('privateMessage', ({ to, text }) => {
+      const sender = users[socket.id];
+      if (users[to] && sender) {
+        // Send to target
+        io.to(to).emit('privateMsgReceive', { fromId: socket.id, text: text, name: sender.name });
+        // Send back to sender (so they see it in their bubble)
+        socket.emit('privateMsgReceive', { fromId: socket.id, text: text, name: sender.name });
+      }
+  });
 
-  // --- ADMIN ACTIONS ---
-  socket.on('adminAction', (action) => {
-      const adminUser = users[socket.id];
-      if (!adminUser || (adminUser.role !== 'Admin' && adminUser.role !== 'Owner')) return;
+  // --- ADMIN ACTIONS ---
+  socket.on('adminAction', (action) => {
+      const adminUser = users[socket.id];
+      // Server-side check: Only Admin/Owner can execute
+      if (!adminUser || (adminUser.role !== 'Admin' && adminUser.role !== 'Owner')) return;
 
-      switch(action.type) {
-          case 'ban_user':
-              const targetId = Object.keys(users).find(id => users[id].name === action.targetName);
-              if (targetId) {
-                  const targetUser = users[targetId];
-                  bannedUsernames.add(targetUser.name.toLowerCase());
-                  bannedIPs.add(targetUser.ip);
-                  
-                  io.emit('message', {
-                      user: 'SYSTEM',
-                      text: `JUDGMENT: ${targetUser.name} has been exiled by ${adminUser.name}.`,
-                      role: 'System',
-                      timestamp: new Date().toLocaleTimeString()
-                  });
-                  
-                  const targetSocket = io.sockets.sockets.get(targetId);
-                  if (targetSocket) {
-                      targetSocket.emit('banAlert', 'YOU HAVE BEEN BANNED BY ADMINISTRATOR.');
-                      targetSocket.disconnect(true);
-                  }
-              }
-              break;
+      switch(action.type) {
+          case 'ban_user':
+              const targetId = Object.keys(users).find(id => users[id].name === action.targetName);
+              if (targetId) {
+                  const targetUser = users[targetId];
+                  bannedUsernames.add(targetUser.name.toLowerCase());
+                  bannedIPs.add(targetUser.ip);
+                  
+                  io.emit('message', {
+                      user: 'SYSTEM',
+                      text: `JUDGMENT: ${targetUser.name} has been exiled by ${adminUser.name}.`,
+                      role: 'System',
+                      timestamp: new Date().toLocaleTimeString()
+                  });
+                  
+                  const targetSocket = io.sockets.sockets.get(targetId);
+                  if (targetSocket) {
+                      targetSocket.emit('banAlert', 'YOU HAVE BEEN BANNED BY ADMINISTRATOR.');
+                      targetSocket.disconnect(true);
+                  }
+              }
+              break;
 
-          case 'ban_word':
-              if (action.word && !bannedWords.includes(action.word.toLowerCase())) {
-                  bannedWords.push(action.word.toLowerCase());
-                  io.emit('message', {
-                      user: 'SYSTEM',
-                      text: `PROTOCOL UPDATE: The word "${action.word}" is now prohibited.`,
-                      role: 'System',
-                      timestamp: new Date().toLocaleTimeString()
-                  });
-              }
-              break;
+          case 'ban_word':
+              if (action.word && !bannedWords.includes(action.word.toLowerCase())) {
+                  bannedWords.push(action.word.toLowerCase());
+                  io.emit('message', {
+                      user: 'SYSTEM',
+                      text: `PROTOCOL UPDATE: The word "${action.word}" is now prohibited.`,
+                      role: 'System',
+                      timestamp: new Date().toLocaleTimeString()
+                  });
+              }
+              break;
 
-          case 'announce':
-              io.emit('announcement', {
-                  text: action.text,
-                  sender: adminUser.name
-              });
-              break;
-      }
-      // Refresh list to remove banned user
-      io.emit('userList', Object.values(users));
-  });
+          case 'announce':
+              io.emit('announcement', {
+                  text: action.text,
+                  sender: adminUser.name
+              });
+              break;
+      }
+      // Refresh list to remove banned user
+      io.emit('userList', Object.values(users));
+  });
 
-  // --- DISCONNECT ---
-  socket.on('disconnect', () => {
-    const user = users[socket.id];
-    if (user) {
-        io.emit('message', {
-            user: 'SYSTEM',
-            text: `${user.name} lost connection.`,
-            role: 'System',
-            timestamp: new Date().toLocaleTimeString()
-        });
-        delete users[socket.id];
-        io.emit('userList', Object.values(users));
-    }
-  });
+  // --- DISCONNECT ---
+  socket.on('disconnect', () => {
+    const user = users[socket.id];
+    if (user) {
+        // NOTE: Add logic here to notify DM partner if applicable
+        
+        io.emit('message', {
+            user: 'SYSTEM',
+            text: `${user.name} lost connection.`,
+            role: 'System',
+            timestamp: new Date().toLocaleTimeString()
+        });
+        delete users[socket.id];
+        io.emit('userList', Object.values(users));
+    }
+  });
 });
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`Command Link Established on http://localhost:${PORT}`);
+  console.log(`Command Link Established on http://localhost:${PORT}`);
 });
