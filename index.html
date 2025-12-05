@@ -553,6 +553,121 @@
     <!-- Socket.io Client Library -->
     <script src="/socket.io/socket.io.js"></script>
     <script>
+// --- DM SYSTEM VARIABLES ---
+        let currentDMPartnerId = null;
+        let incomingRequestFrom = null;
+
+        // --- 1. Populate DM Lobby ---
+        function updateDMLobby(users) {
+            const list = document.getElementById('dm-user-list');
+            if(!list) return;
+            
+            list.innerHTML = '';
+            
+            users.forEach(u => {
+                // Don't show yourself
+                if (myData && u.name === myData.name) return;
+
+                const card = document.createElement('div');
+                card.className = 'dm-user-card';
+                card.innerHTML = `
+                    <span>${u.name}</span>
+                    <i class="fas fa-lock"></i>
+                `;
+                card.onclick = () => requestDM(u.id); // Assuming user object from server has .id (socket.id)
+                list.appendChild(card);
+            });
+        }
+        
+        // Note: You need to ensure your server sends 'id' in the userList. 
+        // In server.js update: io.emit('userList', Object.values(users)); -> this sends the whole object, so .id is there.
+
+        // --- 2. Request Logic ---
+        function requestDM(targetId) {
+            showNotification("Requesting Secure Link...", "warning");
+            socket.emit('dmRequest', targetId);
+        }
+
+        socket.on('incomingDMRequest', (data) => {
+            incomingRequestFrom = data.fromId;
+            document.getElementById('dm-req-text').innerText = `${data.name} is requesting a secure line.`;
+            document.getElementById('dm-request-modal').style.display = 'block';
+        });
+
+        function acceptDM() {
+            socket.emit('dmAccepted', incomingRequestFrom);
+            document.getElementById('dm-request-modal').style.display = 'none';
+        }
+
+        function rejectDM() {
+            socket.emit('dmRejected', incomingRequestFrom);
+            document.getElementById('dm-request-modal').style.display = 'none';
+        }
+
+        // --- 3. Start Chat Logic ---
+        socket.on('dmStart', (data) => {
+            currentDMPartnerId = data.withId;
+            
+            // UI Switch
+            switchTab('dm'); // Force go to tab
+            document.getElementById('dm-lobby').style.display = 'none';
+            document.getElementById('dm-active-chat').style.display = 'flex';
+            document.getElementById('dm-partner-name').innerText = `LINKED: ${data.name}`;
+            document.getElementById('dm-messages').innerHTML = ''; // Clear prev chat
+            
+            showNotification("SECURE CHANNEL ESTABLISHED", "warning");
+        });
+
+        function exitDM() {
+            currentDMPartnerId = null;
+            document.getElementById('dm-active-chat').style.display = 'none';
+            document.getElementById('dm-lobby').style.display = 'grid';
+        }
+
+        // --- 4. Messaging Logic ---
+        function sendDM() {
+            const input = document.getElementById('dm-input');
+            const text = input.value.trim();
+            if(text && currentDMPartnerId) {
+                socket.emit('privateMessage', { to: currentDMPartnerId, text: text });
+                input.value = '';
+            }
+        }
+        
+        // Add Enter key support for DM input
+        document.getElementById('dm-input').addEventListener('keypress', (e) => {
+            if(e.key === 'Enter') sendDM();
+        });
+
+        socket.on('privateMsgReceive', (msg) => {
+            const container = document.getElementById('dm-messages');
+            const row = document.createElement('div');
+            
+            // Check if I sent it
+            const isMe = msg.fromId === socket.id;
+            
+            row.className = `message-row ${isMe ? 'mine' : 'theirs'}`;
+
+            const meta = document.createElement('div');
+            meta.className = 'msg-meta';
+            meta.innerHTML = `<span style="color: #d600ff;">${msg.name}</span>`;
+
+            const bubble = document.createElement('div');
+            bubble.className = 'msg-bubble dm-private'; // New purple class
+            bubble.innerText = msg.text;
+
+            row.appendChild(meta);
+            row.appendChild(bubble);
+            container.appendChild(row);
+            container.scrollTop = container.scrollHeight;
+        });
+
+        // --- Update Hook ---
+        // Find existing socket.on('userList') and add updateDMLobby(users) inside it
+        const originalUserListHandler = socket.listeners('userList')[0]; 
+        // Ideally, just go to your existing socket.on('userList') and add:
+        // updateDMLobby(users);
+        
         const socket = io();
         let myData = null;
 
@@ -723,6 +838,7 @@ function showNotification(text, type = 'info') {
                 `;
                 listContainer.appendChild(div);
             });
+            updateDMLobby(users);
         });
 
         // --- Admin Logic ---
@@ -775,6 +891,10 @@ function showNotification(text, type = 'info') {
             if(tabName === 'admin') {
                 document.getElementById('admin-tab').classList.add('active');
                 status = 'Command Deck';
+            }
+            if(tabName === 'dm') {
+                document.getElementById('dm-tab').classList.add('active');
+                document.getElementById('dm-view').classList.add('active');
             }
 
             // Update Views
