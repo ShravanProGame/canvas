@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Galactic Node // Uplink</title>
+    <title>The Chet</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto+Mono:wght@400;500&display=swap');
@@ -11,17 +11,43 @@
         /* --- VARIABLES --- */
         :root {
             --neon-blue: #00ffff;
-            --neon-purple: #d600ff; /* VIP */
-            --neon-orange: #ffaa00; /* Admin */
-            --neon-red: #ff3333;    /* Owner */
+            --neon-purple: #d600ff;
+            --neon-orange: #ffaa00;
+            --neon-red: #ff3333;
             --bg-dark: #050505;
             --panel-bg: rgba(10, 15, 20, 0.95);
             --border: 1px solid rgba(0, 255, 255, 0.3);
         }
 
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: var(--bg-dark); color: #e0e0e0; font-family: 'Roboto Mono', monospace; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: var(--bg-dark); color: #e0e0e0; font-family: 'Roboto Mono', monospace; transition: filter 0.5s, transform 0.5s; }
 
-        /* --- BACKGROUND --- */
+        /* --- VISUAL EFFECTS (GOD MODE) --- */
+        body.fx-invert { filter: invert(1) hue-rotate(180deg); }
+        body.fx-flip { transform: rotate(180deg); }
+        body.fx-shake { animation: shake 0.1s infinite; }
+
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(3px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(3px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(1px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+        /* Handle Stacked Effects (Flip + Shake) */
+        body.fx-flip.fx-shake { animation: shakeFlip 0.1s infinite; }
+        @keyframes shakeFlip {
+            0% { transform: translate(1px, 1px) rotate(180deg); }
+            50% { transform: translate(-1px, -2px) rotate(179deg); }
+            100% { transform: translate(1px, -2px) rotate(181deg); }
+        }
+
+        /* --- UI STRUCTURE --- */
         #grid-bg {
             position: absolute; width: 100%; height: 100%; z-index: 0; pointer-events: none;
             background: linear-gradient(rgba(0, 255, 255, 0.03) 1px, transparent 1px),
@@ -29,10 +55,8 @@
             background-size: 40px 40px;
         }
 
-        /* --- UI STRUCTURE --- */
-        #app { display: none; width: 100vw; height: 100vh; display: flex; flex-direction: column; position: relative; z-index: 10; }
+        #app { display: none; width: 100vw; height: 100vh; flex-direction: column; position: relative; z-index: 10; }
         
-        /* HEADER */
         .header { height: 60px; border-bottom: var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; background: rgba(0,255,255,0.05); }
         .header-section { display: flex; gap: 5px; height: 100%; align-items: center; }
         
@@ -43,42 +67,36 @@
         }
         .nav-btn:hover { color: #fff; background: rgba(255,255,255,0.1); }
         .nav-btn.active { background: rgba(0, 255, 255, 0.15); color: var(--neon-blue); border-bottom: 2px solid var(--neon-blue); }
-        .nav-btn.channel-btn { border-color: rgba(0,255,255,0.2); }
         
-        /* MAIN BODY */
         .main-body { flex: 1; display: flex; overflow: hidden; }
-        
-        /* SIDEBAR (User List) */
         .sidebar { width: 260px; border-right: var(--border); background: rgba(0,0,0,0.5); display: flex; flex-direction: column; }
         .sidebar-header { padding: 15px; color: var(--neon-blue); font-family: 'Orbitron'; border-bottom: var(--border); letter-spacing: 1px; }
         #user-list { flex: 1; overflow-y: auto; padding: 10px; }
-        .user-card { padding: 8px; margin-bottom: 5px; background: rgba(255,255,255,0.05); border-radius: 4px; display: flex; align-items: center; gap: 10px; cursor: pointer; }
-        .user-card:hover { background: rgba(255,255,255,0.1); }
+        
+        .user-card { padding: 10px; margin-bottom: 5px; background: rgba(255,255,255,0.05); border-radius: 4px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: 0.2s; }
+        .user-card:hover { background: rgba(255,255,255,0.15); border-left: 2px solid var(--neon-blue); }
 
-        /* BOTTOM BAR (My Profile / Owner Trigger) */
         .bottom-bar { height: 50px; border-top: var(--border); background: #000; display: flex; align-items: center; padding: 0 15px; cursor: pointer; transition: 0.3s; }
         .bottom-bar:hover { background: #111; }
         .my-status-dot { width: 10px; height: 10px; border-radius: 50%; background: #00ff00; box-shadow: 0 0 5px #00ff00; margin-right: 10px; }
 
-        /* VIEW AREA */
         .view-container { flex: 1; display: flex; flex-direction: column; position: relative; background: rgba(0,0,0,0.2); }
         .view-panel { display: none; flex: 1; flex-direction: column; overflow: hidden; }
         .view-panel.active { display: flex; }
 
-        /* CHAT STYLES */
+        /* --- CHAT --- */
         #chat-history { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 8px; }
-        .msg-row { display: flex; flex-direction: column; max-width: 85%; }
-        .msg-row.mine { align-self: flex-end; align-items: flex-end; }
+        .msg-row { display: flex; flex-direction: column; max-width: 85%; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:translateY(0); } }
         
-        .msg-bubble { padding: 10px 15px; border-radius: 6px; background: #1a1a1a; border-left: 3px solid #666; word-break: break-word; position: relative; }
+        .msg-row.mine { align-self: flex-end; align-items: flex-end; }
+        .msg-bubble { padding: 10px 15px; border-radius: 6px; background: #1a1a1a; border-left: 3px solid #666; word-break: break-word; }
         .msg-info { font-size: 0.7rem; color: #666; margin-bottom: 4px; display: flex; gap: 8px; align-items: center; }
         
-        /* BADGES */
         .badge { font-size: 0.6rem; padding: 2px 5px; border-radius: 3px; font-weight: bold; font-family: 'Orbitron'; text-transform: uppercase; border: 1px solid; }
-        .badge-owner { color: var(--neon-red); border-color: var(--neon-red); text-shadow: 0 0 5px var(--neon-red); }
-        .badge-admin { color: var(--neon-orange); border-color: var(--neon-orange); text-shadow: 0 0 5px var(--neon-orange); }
-        .badge-vip { color: var(--neon-purple); border-color: var(--neon-purple); text-shadow: 0 0 5px var(--neon-purple); }
-        .badge-user { display: none; }
+        .badge-owner { color: var(--neon-red); border-color: var(--neon-red); }
+        .badge-admin { color: var(--neon-orange); border-color: var(--neon-orange); }
+        .badge-vip { color: var(--neon-purple); border-color: var(--neon-purple); }
 
         .typing-indicator { height: 20px; padding-left: 20px; font-size: 0.7rem; color: var(--neon-blue); font-style: italic; opacity: 0; transition: opacity 0.3s; }
 
@@ -87,26 +105,29 @@
         input:focus { border-color: var(--neon-blue); }
         button.send-btn { background: var(--neon-blue); color: #000; border: none; font-weight: bold; cursor: pointer; padding: 0 20px; font-family: 'Orbitron'; }
 
-        /* DM LAYOUT (Sidebar within View) */
+        /* --- MODALS --- */
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 2000; display: none; justify-content: center; align-items: center; }
+        .modal-box { background: var(--panel-bg); border: 2px solid var(--neon-blue); padding: 30px; width: 400px; display: flex; flex-direction: column; gap: 15px; text-align: center; box-shadow: 0 0 30px rgba(0,255,255,0.1); }
+
+        /* USER INTERACTION MODAL */
+        .act-btn { padding: 10px; background: transparent; border: 1px solid #444; color: white; cursor: pointer; font-family: 'Orbitron'; transition: 0.2s; width: 100%; margin-bottom: 5px; }
+        .act-btn:hover { background: rgba(255,255,255,0.1); border-color: white; }
+        
+        /* Effect Buttons */
+        .fx-btn { border-color: var(--neon-red); color: var(--neon-red); }
+        .fx-btn:hover { background: var(--neon-red); color: black; }
+
+        /* --- DM LAYOUT --- */
         .dm-layout { display: flex; height: 100%; }
         .dm-sidebar { width: 200px; border-right: var(--border); background: rgba(0,0,0,0.3); overflow-y: auto; }
         .dm-chat-area { flex: 1; display: flex; flex-direction: column; background: #000; }
         .active-dm-btn { padding: 15px; border-bottom: 1px solid #333; cursor: pointer; color: var(--neon-purple); }
         .active-dm-btn:hover { background: rgba(214, 0, 255, 0.1); }
         .active-dm-btn.selected { background: rgba(214, 0, 255, 0.2); border-left: 3px solid var(--neon-purple); }
-
-        /* MODALS */
-        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 2000; display: none; justify-content: center; align-items: center; }
-        .modal-box { background: var(--panel-bg); border: 2px solid var(--neon-blue); padding: 30px; width: 400px; display: flex; flex-direction: column; gap: 15px; text-align: center; box-shadow: 0 0 30px rgba(0,255,255,0.1); }
-
-        /* OWNER PANEL */
-        #owner-panel { border-color: var(--neon-red); text-align: left; }
-        .ip-list-item { display: flex; justify-content: space-between; padding: 5px; border-bottom: 1px solid #333; font-size: 0.8rem; }
         
-        /* ADMIN PANEL NEW LAYOUT */
-        .admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        .admin-card { border: 1px solid var(--neon-orange); padding: 15px; background: rgba(255, 170, 0, 0.05); }
-
+        /* OWNER PANEL */
+        .stats-row { display: flex; gap: 10px; justify-content: center; }
+        .stat-box { border: 1px solid var(--neon-red); padding: 10px; flex: 1; color: var(--neon-red); }
     </style>
 </head>
 <body>
@@ -122,121 +143,116 @@
         </div>
     </div>
 
-    <div id="user-details-modal" class="modal">
-        <div class="modal-box" style="border-color:var(--neon-red);">
-            <h2 style="color:var(--neon-red); font-family:'Orbitron';">TARGET ANALYSIS</h2>
-            <div id="detail-content" style="text-align:left; font-size:0.9rem; line-height:1.6;"></div>
-            <button class="send-btn" style="background:var(--neon-red); color:white;" onclick="closeModal('user-details-modal')">CLOSE</button>
+    <div id="user-action-modal" class="modal">
+        <div class="modal-box" id="user-action-box">
+            <h2 id="target-user-name" style="color:var(--neon-blue); font-family:'Orbitron'; margin:0 0 10px 0;">TARGET</h2>
+            <div id="admin-controls" style="display:none; flex-direction:column; gap:5px;">
+                <button class="act-btn" style="border-color:orange; color:orange;" onclick="adminCmd('timeout')">TIMEOUT (60s)</button>
+                <button class="act-btn" style="border-color:cyan; color:cyan;" onclick="adminCmd('mute')">TOGGLE MUTE</button>
+                <button class="act-btn" style="border-color:red; color:red;" onclick="adminCmd('kick')">KICK</button>
+                <button class="act-btn" style="background:red; color:black; border:none;" onclick="adminCmd('ban_user')">PERMANENT BAN</button>
+            </div>
+            
+            <div id="owner-controls" style="display:none; border-top:1px solid #333; margin-top:10px; padding-top:10px; flex-direction:column; gap:5px;">
+                <h4 style="color:var(--neon-red); margin:0;">GOD MODE</h4>
+                <div style="display:flex; gap:5px;">
+                    <button class="act-btn fx-btn" onclick="ownerCmd('effect', 'invert')">INVERT</button>
+                    <button class="act-btn fx-btn" onclick="ownerCmd('effect', 'flip')">FLIP</button>
+                    <button class="act-btn fx-btn" onclick="ownerCmd('effect', 'shake')">QUAKE</button>
+                </div>
+                
+                <input type="text" id="redirect-url" placeholder="Redirect URL..." style="margin-top:5px;">
+                <button class="act-btn" style="background:var(--neon-red); color:black;" onclick="ownerCmd('redirect')">FORCE REDIRECT</button>
+            </div>
+
+            <button class="act-btn" style="width:100%; margin-top:15px;" onclick="closeModal('user-action-modal')">CLOSE</button>
         </div>
     </div>
 
     <div id="owner-panel-modal" class="modal">
-        <div class="modal-box" id="owner-panel">
-            <h2 style="color:var(--neon-red); font-family:'Orbitron'; margin-top:0;">OVERSEER CONTROL</h2>
-            <div style="font-size:0.8rem; color:#888;">BANNED IP REGISTRY</div>
-            <div id="banned-ip-list" style="height:150px; overflow-y:auto; border:1px solid #333; margin-bottom:10px;"></div>
-            <button class="send-btn" style="background:var(--neon-red); color:white; width:100%;" onclick="closeModal('owner-panel-modal')">CLOSE DECK</button>
+        <div class="modal-box" style="width:500px; border-color:var(--neon-red);">
+            <h2 style="color:var(--neon-red); font-family:'Orbitron'; margin:0;">OVERSEER</h2>
+            <div class="stats-row">
+                <div class="stat-box">UPTIME: <span id="stat-uptime">0</span>s</div>
+                <div class="stat-box">MSGS: <span id="stat-msgs">0</span></div>
+                <div class="stat-box">USERS: <span id="stat-users">0</span></div>
+            </div>
+            <div style="text-align:left; color:#888; margin-top:10px;">BANNED IPS</div>
+            <div id="banned-ip-list" style="height:100px; overflow-y:auto; border:1px solid #333; margin-bottom:10px; padding:5px; text-align:left;"></div>
+            <button class="act-btn" onclick="closeModal('owner-panel-modal')">CLOSE</button>
         </div>
     </div>
 
-    <div id="app" style="display:none;">
-        
+    <div id="app">
         <div class="header">
             <div class="header-section">
-                <button class="nav-btn channel-btn active" onclick="switchChannel('bridge')">MAIN BRIDGE</button>
-                <button class="nav-btn channel-btn" onclick="switchChannel('holodeck')">HOLO-DECK</button>
-                <button class="nav-btn channel-btn" onclick="switchChannel('simulation')">SIMULATIONS</button>
+                <button class="nav-btn channel-btn active" onclick="switchChannel('general')">GENERAL</button>
+                <button class="nav-btn channel-btn" onclick="switchChannel('gaming')">GAMING</button>
+                <button class="nav-btn channel-btn" onclick="switchChannel('memes')">MEMES</button>
             </div>
             <div class="header-section">
-                <button class="nav-btn" onclick="switchView('hub')"><i class="fas fa-satellite"></i> HUB</button>
-                <button class="nav-btn" onclick="switchView('dm')"><i class="fas fa-lock"></i> SECURE LINK</button>
-                <button class="nav-btn" id="admin-btn" style="display:none; color:var(--neon-orange);" onclick="switchView('admin')"><i class="fas fa-shield-alt"></i> ADMIN</button>
+                <button class="nav-btn" onclick="switchView('hub')">HUB</button>
+                <button class="nav-btn" onclick="switchView('dm')">SECURE</button>
             </div>
         </div>
 
         <div class="main-body">
             <div class="sidebar">
-                <div class="sidebar-header">ACTIVE AGENTS</div>
+                <div class="sidebar-header">AGENTS</div>
                 <div id="user-list"></div>
-                <div class="bottom-bar" id="my-profile-bar" onclick="openProfile()">
+                <div class="bottom-bar" onclick="openOwnerPanel()">
                     <div class="my-status-dot"></div>
-                    <div style="display:flex; flex-direction:column;">
-                        <span id="my-name" style="font-weight:bold; font-size:0.9rem;">LOADING...</span>
+                    <div>
+                        <span id="my-name" style="font-weight:bold; display:block;">LOADING...</span>
                         <span id="my-role" style="font-size:0.7rem; color:#888;">CONNECTING</span>
                     </div>
                 </div>
             </div>
 
             <div class="view-container">
-                
                 <div id="view-chat" class="view-panel active">
                     <div id="chat-history"></div>
-                    <div id="typing-indicator" class="typing-indicator">User is transmitting...</div>
+                    <div id="typing-indicator" class="typing-indicator"></div>
                     <div class="input-area">
-                        <input type="text" id="chat-input" placeholder="Broadcast message...">
-                        <button class="send-btn" onclick="sendChat()">TRANSMIT</button>
+                        <input type="text" id="chat-input" placeholder="Enter message...">
+                        <button class="send-btn" onclick="sendChat()">SEND</button>
                     </div>
                 </div>
 
                 <div id="view-hub" class="view-panel" style="padding:20px;">
-                    <h2 style="font-family:'Orbitron'; color:var(--neon-blue);">DEEP SPACE HUB</h2>
                     <div style="display:flex; gap:10px; margin-bottom:10px;">
-                        <button class="nav-btn" style="border:1px solid var(--neon-blue);" onclick="document.getElementById('hub-frame').src='https://amp.nov.su'">PROXY</button>
-                        <button class="nav-btn" style="border:1px solid var(--neon-blue);" onclick="document.getElementById('hub-frame').src='https://spaceracer.onrender.com'">GAME</button>
-                        <button class="nav-btn" style="border:1px solid red; color:red;" onclick="document.getElementById('hub-frame').src='about:blank'">TERMINATE</button>
+                        <button class="nav-btn" style="border:1px solid cyan;" onclick="document.getElementById('hub-frame').src='https://amp.nov.su'">PROXY</button>
+                        <button class="nav-btn" style="border:1px solid cyan;" onclick="document.getElementById('hub-frame').src='https://spaceracer.onrender.com'">GAME</button>
                     </div>
-                    <iframe id="hub-frame" src="about:blank" style="flex:1; border:none; background:#000;" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
-                </div>
-
-                <div id="view-admin" class="view-panel" style="padding:30px;">
-                    <h2 style="font-family:'Orbitron'; color:var(--neon-orange);">COMMAND DECK</h2>
-                    <div class="admin-grid">
-                        <div class="admin-card">
-                            <h3 style="color:var(--neon-orange); margin-top:0;">EXILE USER</h3>
-                            <input type="text" id="ban-target" placeholder="User Designation">
-                            <button class="send-btn" style="background:var(--neon-orange); margin-top:10px; width:100%; color:black;" onclick="adminAction('ban_user')">EXECUTE BAN</button>
-                        </div>
-                        <div class="admin-card">
-                            <h3 style="color:var(--neon-orange); margin-top:0;">SYSTEM BROADCAST</h3>
-                            <input type="text" id="announce-text" placeholder="Message content">
-                            <button class="send-btn" style="background:var(--neon-orange); margin-top:10px; width:100%; color:black;" onclick="adminAction('announce')">BROADCAST</button>
-                        </div>
-                    </div>
+                    <iframe id="hub-frame" src="about:blank" style="flex:1; border:none; background:black;" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
                 </div>
 
                 <div id="view-dm" class="view-panel">
                     <div class="dm-layout">
                         <div class="dm-sidebar">
-                            <div style="padding:15px; border-bottom:var(--border); font-family:'Orbitron'; color:var(--neon-purple);">ENCRYPTED LINKS</div>
-                            <div style="padding:10px;">
-                                <select id="dm-select-target" style="width:100%; background:#111; color:white; padding:5px; margin-bottom:5px;">
-                                    <option value="">Select Target...</option>
-                                </select>
-                                <button class="send-btn" style="background:var(--neon-purple); width:100%; color:white;" onclick="startNewDM()">OPEN LINK</button>
-                            </div>
+                            <div style="padding:15px; border-bottom:var(--border); color:var(--neon-purple);">LINKS</div>
                             <div id="active-dm-list"></div>
                         </div>
                         <div class="dm-chat-area">
                             <div id="dm-header" style="padding:15px; border-bottom:1px solid #333; color:var(--neon-purple); display:none;">
-                                LINKED: <span id="dm-partner-name" style="font-weight:bold;">NONE</span>
+                                LINKED: <span id="dm-partner-name">NONE</span>
                             </div>
                             <div id="dm-history" style="flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:8px;"></div>
                             <div id="dm-input-container" class="input-area" style="display:none; border-top:1px solid var(--neon-purple);">
-                                <input type="text" id="dm-input" style="border-color:var(--neon-purple);" placeholder="Encrypted transmission...">
-                                <button class="send-btn" style="background:var(--neon-purple); color:white;" onclick="sendDM()">SEND</button>
+                                <input type="text" id="dm-input" style="border-color:var(--neon-purple);" placeholder="Message...">
+                                <button class="send-btn" style="background:var(--neon-purple);" onclick="sendDM()">SEND</button>
                             </div>
                         </div>
                     </div>
                 </div>
-
             </div>
         </div>
     </div>
 
     <div id="dm-popup" class="modal">
         <div class="modal-box" style="border-color:var(--neon-purple); width:300px;">
-            <h2 style="color:var(--neon-purple); font-family:'Orbitron';">INCOMING SIGNAL</h2>
-            <p id="dm-popup-text">User wants to connect.</p>
+            <h2 style="color:var(--neon-purple);">SIGNAL</h2>
+            <p id="dm-popup-text">Incoming link.</p>
             <div style="display:flex; gap:10px;">
                 <button class="send-btn" style="background:#00ff00; flex:1;" onclick="acceptDM()">ACCEPT</button>
                 <button class="send-btn" style="background:red; color:white; flex:1;" onclick="rejectDM()">DENY</button>
@@ -248,61 +264,56 @@
     <script>
         const socket = io();
         let myUser = null;
-        let currentChannel = 'bridge';
+        let currentChannel = 'general';
         let typingTimeout;
-        
-        // DM State
-        let activeDMs = {}; // { userId: { name: 'Bob', messages: [] } }
+        let selectedUserId = null; 
+        let activeDMs = {}; 
         let currentDMId = null;
         let pendingDM = null;
 
-        // --- LOGIN ---
+        // AUTH
         function login() {
             const name = document.getElementById('username').value;
             const pass = document.getElementById('password').value;
             if (name) socket.emit('join', { name, password: pass });
         }
-        socket.on('loginError', msg => document.getElementById('login-error').innerText = msg);
-        
+        document.getElementById('password').addEventListener('keyup', e => { if(e.key === 'Enter') login(); });
+        document.getElementById('username').addEventListener('keyup', e => { if(e.key === 'Enter') login(); });
+
         socket.on('loginSuccess', data => {
             myUser = data.user;
             document.getElementById('login-modal').style.display = 'none';
             document.getElementById('app').style.display = 'flex';
-            
-            // Setup Profile Bar
             document.getElementById('my-name').innerText = myUser.name;
             document.getElementById('my-role').innerText = myUser.role.toUpperCase();
-            
-            if (myUser.role === 'Admin' || myUser.role === 'Owner') {
-                document.getElementById('admin-btn').style.display = 'block';
-            }
+        });
+        socket.on('loginError', msg => document.getElementById('login-error').innerText = msg);
+        socket.on('banAlert', msg => document.body.innerHTML = `<h1 style="color:red; text-align:center; margin-top:20%; font-family:monospace;">${msg}</h1>`);
+        socket.on('sysErr', msg => alert(msg));
+        socket.on('sysMsg', msg => console.log(msg));
+
+        // GOD MODE EFFECTS
+        socket.on('forceRedirect', url => window.location.href = url);
+        socket.on('applyEffect', effect => {
+            if(effect === 'invert') document.body.classList.toggle('fx-invert');
+            if(effect === 'flip') document.body.classList.toggle('fx-flip');
+            if(effect === 'shake') document.body.classList.toggle('fx-shake');
         });
 
-        socket.on('banAlert', msg => {
-            document.body.innerHTML = `<h1 style="color:red; text-align:center; margin-top:20%; font-family:monospace;">${msg}</h1>`;
-        });
-
-        // --- CHANNELS & HISTORY ---
+        // CHAT
         function switchChannel(channel) {
             currentChannel = channel;
             document.querySelectorAll('.channel-btn').forEach(btn => btn.classList.remove('active'));
             event.target.classList.add('active');
-            
-            // Clear current chat view
             document.getElementById('chat-history').innerHTML = '';
-            
-            // Switch view to chat if not already
-            switchView('chat'); 
-            
+            switchView('chat');
             socket.emit('switchChannel', channel);
         }
-
         socket.on('loadHistory', history => {
             document.getElementById('chat-history').innerHTML = '';
             history.forEach(renderMessage);
         });
 
-        // --- CHAT LOGIC ---
         function sendChat() {
             const input = document.getElementById('chat-input');
             const text = input.value;
@@ -312,238 +323,185 @@
                 socket.emit('stopTyping', currentChannel);
             }
         }
-        
-        // Typing Indicators
-        document.getElementById('chat-input').addEventListener('input', () => {
-            socket.emit('typing', currentChannel);
-            clearTimeout(typingTimeout);
-            typingTimeout = setTimeout(() => socket.emit('stopTyping', currentChannel), 1000);
-        });
-
-        socket.on('userTyping', data => {
-            if (data.channel === currentChannel) {
-                const ind = document.getElementById('typing-indicator');
-                ind.innerText = `${data.user} is transmitting...`;
-                ind.style.opacity = 1;
+        document.getElementById('chat-input').addEventListener('keyup', e => {
+            if (e.key === 'Enter') sendChat();
+            else {
+                socket.emit('typing', currentChannel);
+                clearTimeout(typingTimeout);
+                typingTimeout = setTimeout(() => socket.emit('stopTyping', currentChannel), 1000);
             }
         });
-        socket.on('userStopTyping', data => {
-            if (data.channel === currentChannel) document.getElementById('typing-indicator').style.opacity = 0;
+        socket.on('userTyping', data => {
+            if (data.channel === currentChannel) {
+                document.getElementById('typing-indicator').innerText = `${data.user} is typing...`;
+                document.getElementById('typing-indicator').style.opacity = 1;
+            }
         });
-
+        socket.on('userStopTyping', () => document.getElementById('typing-indicator').style.opacity = 0);
         socket.on('message', renderMessage);
 
         function renderMessage(msg) {
-            // Filter by channel if it's a channel message
             if (msg.channel && msg.channel !== currentChannel) return;
-
             const div = document.createElement('div');
             const isMe = myUser && msg.user === myUser.name;
             div.className = `msg-row ${isMe ? 'mine' : 'theirs'}`;
-            
-            // Role Colors & Badges
             let color = '#00ffff';
-            let badgeClass = 'badge-user';
-            
-            if (msg.role === 'Owner') { color = '#ff3333'; badgeClass = 'badge-owner'; }
-            if (msg.role === 'Admin') { color = '#ffaa00'; badgeClass = 'badge-admin'; }
-            if (msg.role === 'VIP')   { color = '#d600ff'; badgeClass = 'badge-vip'; }
+            if (msg.role === 'Owner') color = '#ff3333';
+            if (msg.role === 'Admin') color = '#ffaa00';
+            if (msg.role === 'VIP') color = '#d600ff';
             if (msg.role === 'System') color = '#00ff00';
 
-            const badgeHtml = msg.role !== 'User' && msg.role !== 'System' ? `<span class="badge ${badgeClass}">${msg.role}</span>` : '';
-            
             div.innerHTML = `
                 <div class="msg-info" style="justify-content: ${isMe ? 'flex-end' : 'flex-start'}">
-                    ${badgeHtml} <span style="color:${color}; font-weight:bold;">${msg.user}</span> <span>${msg.timestamp}</span>
+                    <span style="color:${color}; font-weight:bold;">${msg.user}</span> <span>${msg.timestamp}</span>
                 </div>
                 <div class="msg-bubble" style="border-left-color:${color}">${msg.text}</div>
             `;
-            
-            const container = document.getElementById('chat-history');
-            container.appendChild(div);
-            container.scrollTop = container.scrollHeight;
+            const c = document.getElementById('chat-history');
+            c.appendChild(div);
+            c.scrollTop = c.scrollHeight;
         }
 
-        // --- USER LIST ---
+        // USER LIST & ACTION MENU
         socket.on('userList', users => {
             const list = document.getElementById('user-list');
-            const dmSelect = document.getElementById('dm-select-target');
-            
             list.innerHTML = '';
-            dmSelect.innerHTML = '<option value="">Select Target...</option>';
-
             users.forEach(u => {
-                // Sidebar List (Hide Self)
                 if (u.name !== myUser.name) {
                     const el = document.createElement('div');
                     el.className = 'user-card';
-                    el.innerHTML = `<div class="my-status-dot" style="background:${u.role==='Owner'?'red':u.role==='Admin'?'orange':'#00ff00'}"></div> ${u.name} <span class="badge badge-${u.role.toLowerCase()}">${u.role}</span>`;
-                    
-                    // Owner Feature: Click to view details
-                    if (myUser.role === 'Owner') {
-                        el.onclick = () => socket.emit('ownerAction', { type: 'getDetails', targetId: u.id });
-                    }
+                    el.innerHTML = `<div class="my-status-dot" style="background:${u.role==='Owner'?'red':u.role==='Admin'?'orange':'#00ff00'}"></div> ${u.name}`;
+                    // CLICK TO OPEN MENU
+                    el.onclick = () => openActionModal(u);
                     list.appendChild(el);
-
-                    // DM Select List
-                    const opt = document.createElement('option');
-                    opt.value = u.id;
-                    opt.innerText = u.name;
-                    dmSelect.appendChild(opt);
+                    
+                    // Add to DM list if not exists (simplified logic for sidebar)
+                    if (!document.getElementById(`dm-trigger-${u.id}`)) {
+                        const dmBtn = document.createElement('option');
+                        // Logic handled in DM sidebar dynamically
+                    }
                 }
             });
         });
 
-        // --- OWNER FEATURES ---
-        function openProfile() {
+        function openActionModal(user) {
+            // Only admins/owners can open this
+            if (myUser.role !== 'Admin' && myUser.role !== 'Owner') {
+                // Regular users just start DM
+                socket.emit('dmRequest', user.id);
+                return;
+            }
+
+            selectedUserId = user.id;
+            document.getElementById('target-user-name').innerText = user.name;
+            document.getElementById('user-action-modal').style.display = 'flex';
+            
+            // Show controls based on MY role
+            document.getElementById('admin-controls').style.display = 'flex';
             if (myUser.role === 'Owner') {
+                document.getElementById('owner-controls').style.display = 'flex';
+            }
+        }
+
+        function adminCmd(type) {
+            socket.emit('adminAction', { type, targetId: selectedUserId });
+            closeModal('user-action-modal');
+        }
+
+        function ownerCmd(type, effect) {
+            const url = document.getElementById('redirect-url').value;
+            socket.emit('ownerAction', { type, targetId: selectedUserId, url, effect });
+        }
+
+        function openOwnerPanel() {
+            if (myUser.role === 'Owner') {
+                socket.emit('ownerAction', { type: 'getStats' });
                 document.getElementById('owner-panel-modal').style.display = 'flex';
             }
         }
-
-        socket.on('userDetails', user => {
-            document.getElementById('detail-content').innerHTML = `
-                <strong>IDENTITY:</strong> ${user.name}<br>
-                <strong>ROLE:</strong> ${user.role}<br>
-                <strong>IP ADDRESS:</strong> ${user.ip}<br>
-                <strong>STATUS:</strong> ${user.status}<br>
-                <strong>ID:</strong> ${user.id}
-            `;
-            document.getElementById('user-details-modal').style.display = 'flex';
+        socket.on('ownerData', data => {
+            document.getElementById('banned-ip-list').innerHTML = data.bannedIPs.map(ip => `<div>${ip} <button onclick="unban('${ip}')" style="color:red;">X</button></div>`).join('');
+            document.getElementById('stat-uptime').innerText = data.stats.uptime;
+            document.getElementById('stat-msgs').innerText = data.stats.totalMsg;
+            document.getElementById('stat-users').innerText = data.stats.userCount;
         });
-
-        socket.on('updateBanList', ips => {
-            const list = document.getElementById('banned-ip-list');
-            list.innerHTML = '';
-            ips.forEach(ip => {
-                const row = document.createElement('div');
-                row.className = 'ip-list-item';
-                row.innerHTML = `<span>${ip}</span> <button onclick="unbanIP('${ip}')" style="background:transparent; border:none; color:#00ff00; cursor:pointer;">UNBAN</button>`;
-                list.appendChild(row);
-            });
-        });
-
-        function unbanIP(ip) {
-            socket.emit('ownerAction', { type: 'unbanIP', ip });
-        }
+        function unban(ip) { socket.emit('ownerAction', { type: 'unbanIP', ip }); }
 
         function closeModal(id) { document.getElementById(id).style.display = 'none'; }
-
-        // --- ADMIN ---
-        function adminAction(type) {
-            const targetName = document.getElementById('ban-target').value;
-            const announceText = document.getElementById('announce-text').value;
-            if (type === 'ban_user' && targetName) socket.emit('adminAction', { type, targetName });
-            if (type === 'announce' && announceText) socket.emit('adminAction', { type, text: announceText });
-        }
-        
-        socket.on('announcement', data => alert(`BROADCAST FROM ${data.sender}: ${data.text}`));
-
-        // --- DM LOGIC (Multiple) ---
-        function startNewDM() {
-            const targetId = document.getElementById('dm-select-target').value;
-            if (targetId) socket.emit('dmRequest', targetId);
+        function switchView(v) { 
+            document.querySelectorAll('.view-panel').forEach(e => e.classList.remove('active'));
+            document.getElementById(`view-${v}`).classList.add('active'); 
         }
 
+        // DM Logic
         socket.on('incomingDMRequest', data => {
             pendingDM = data.fromId;
-            document.getElementById('dm-popup-text').innerText = `${data.name} requesting secure link.`;
+            document.getElementById('dm-popup-text').innerText = `${data.name} requesting link.`;
             document.getElementById('dm-popup').style.display = 'flex';
         });
-
         function acceptDM() { socket.emit('dmAccepted', pendingDM); document.getElementById('dm-popup').style.display = 'none'; }
         function rejectDM() { document.getElementById('dm-popup').style.display = 'none'; }
-
+        
         socket.on('dmStart', data => {
-            const partnerId = data.withId;
-            if (!activeDMs[partnerId]) {
-                activeDMs[partnerId] = { name: data.name, messages: [] };
-                renderActiveDMList();
+            const pid = data.withId;
+            if (!activeDMs[pid]) {
+                activeDMs[pid] = { name: data.name, msgs: [] };
+                renderActiveDMs();
             }
-            switchToDM(partnerId);
+            openDM(pid);
         });
 
-        function renderActiveDMList() {
-            const container = document.getElementById('active-dm-list');
-            container.innerHTML = '';
+        function renderActiveDMs() {
+            const l = document.getElementById('active-dm-list');
+            l.innerHTML = '';
             Object.keys(activeDMs).forEach(id => {
-                const btn = document.createElement('div');
-                btn.className = 'active-dm-btn';
-                if (id === currentDMId) btn.classList.add('selected');
-                btn.innerText = activeDMs[id].name;
-                btn.onclick = () => switchToDM(id);
-                container.appendChild(btn);
+                const b = document.createElement('div');
+                b.className = `active-dm-btn ${id === currentDMId ? 'selected' : ''}`;
+                b.innerText = activeDMs[id].name;
+                b.onclick = () => openDM(id);
+                l.appendChild(b);
             });
         }
-
-        function switchToDM(id) {
+        function openDM(id) {
             currentDMId = id;
-            renderActiveDMList();
-            const dm = activeDMs[id];
-            
+            renderActiveDMs();
+            switchView('dm');
             document.getElementById('dm-header').style.display = 'block';
-            document.getElementById('dm-partner-name').innerText = dm.name;
+            document.getElementById('dm-partner-name').innerText = activeDMs[id].name;
             document.getElementById('dm-input-container').style.display = 'flex';
-            
-            // Render History
-            const hist = document.getElementById('dm-history');
-            hist.innerHTML = '';
-            dm.messages.forEach(renderPrivateMessage);
+            const h = document.getElementById('dm-history');
+            h.innerHTML = '';
+            activeDMs[id].msgs.forEach(m => renderDmMsg(m));
         }
-
         socket.on('privateMsgReceive', msg => {
-            // Determine partner ID (if I sent it, partner is 'to', if I received, partner is 'fromId') 
-            // NOTE: Logic simplified here, assuming 'fromId' is partner if not me.
-            // But we need to find which DM conversation this belongs to.
-            
-            let partnerId = (msg.fromId === socket.id) ? currentDMId : msg.fromId; // Fallback for sender
-            
-            // If receiving from someone new
+            let pid = (msg.fromId === socket.id) ? currentDMId : msg.fromId; // simplified
             if (msg.fromId !== socket.id && !activeDMs[msg.fromId]) {
-                activeDMs[msg.fromId] = { name: msg.name, messages: [] };
-                renderActiveDMList();
+                 activeDMs[msg.fromId] = { name: msg.name, msgs: [] };
+                 renderActiveDMs();
             }
-            
-            // Store message
-            const targetDM = (msg.fromId === socket.id) ? activeDMs[currentDMId] : activeDMs[msg.fromId];
-            if (targetDM) {
-                targetDM.messages.push(msg);
-                // If currently viewing this DM, render it
-                if ((msg.fromId === socket.id && currentDMId) || (msg.fromId === currentDMId)) {
-                    renderPrivateMessage(msg);
-                }
+            // If sender is me, push to current DM. If sender is them, push to their DM
+            const target = (msg.fromId === socket.id) ? activeDMs[currentDMId] : activeDMs[msg.fromId];
+            if(target) {
+                target.msgs.push(msg);
+                if (currentDMId && (msg.fromId === currentDMId || msg.fromId === socket.id)) renderDmMsg(msg);
             }
         });
-
-        function renderPrivateMessage(msg) {
-            const div = document.createElement('div');
-            const isMe = msg.fromId === socket.id;
-            div.className = `msg-row ${isMe ? 'mine' : 'theirs'}`;
-            div.innerHTML = `
-                <div class="msg-info" style="color:var(--neon-purple);">${isMe ? 'ME' : msg.name}</div>
-                <div class="msg-bubble" style="border-left-color:var(--neon-purple); background:#1a0520;">${msg.text}</div>
-            `;
-            document.getElementById('dm-history').appendChild(div);
+        function renderDmMsg(msg) {
+             const div = document.createElement('div');
+             const isMe = msg.fromId === socket.id;
+             div.className = `msg-row ${isMe ? 'mine' : 'theirs'}`;
+             div.innerHTML = `<div class="msg-bubble" style="border-left-color:var(--neon-purple); background:#1a0520;">${msg.text}</div>`;
+             document.getElementById('dm-history').appendChild(div);
         }
-
         function sendDM() {
-            const txt = document.getElementById('dm-input').value;
-            if (txt && currentDMId) {
-                socket.emit('privateMessage', { to: currentDMId, text: txt });
+            const val = document.getElementById('dm-input').value;
+            if(val && currentDMId) {
+                socket.emit('privateMessage', { to: currentDMId, text: val });
                 document.getElementById('dm-input').value = '';
             }
         }
+        document.getElementById('dm-input').addEventListener('keyup', e => { if(e.key === 'Enter') sendDM(); });
 
-        // --- UTILS ---
-        function switchView(viewName) {
-            document.querySelectorAll('.view-panel').forEach(el => el.classList.remove('active'));
-            document.getElementById(`view-${viewName}`).classList.add('active');
-            
-            // Channel buttons only active in chat view
-            if (viewName !== 'bridge' && viewName !== 'holodeck' && viewName !== 'simulation') {
-                // Keeping visual state logic simple
-            }
-        }
     </script>
 </body>
 </html>
