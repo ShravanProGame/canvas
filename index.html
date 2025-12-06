@@ -3,142 +3,91 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>The Chet</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <title>ClassLink Launchpad</title> <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto+Mono:wght@400;500&display=swap');
 
         /* --- VARIABLES --- */
         :root {
-            --neon-blue: #00ffff;
-            --neon-purple: #d600ff;
-            --neon-orange: #ffaa00;
-            --neon-red: #ff3333;
-            --bg-dark: #050505;
-            --panel-bg: rgba(10, 15, 20, 0.95);
-            --border: 1px solid rgba(0, 255, 255, 0.3);
+            --neon-blue: #00ffff; --neon-purple: #d600ff; --neon-orange: #ffaa00; --neon-red: #ff3333;
+            --bg-dark: #050505; --panel-bg: rgba(10, 15, 20, 0.95); --border: 1px solid rgba(0, 255, 255, 0.3);
         }
 
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: var(--bg-dark); color: #e0e0e0; font-family: 'Roboto Mono', monospace; transition: filter 0.5s, transform 0.5s; }
 
-        /* --- VISUAL EFFECTS (GOD MODE) --- */
+        /* --- GOD MODE FX --- */
         body.fx-invert { filter: invert(1) hue-rotate(180deg); }
         body.fx-flip { transform: rotate(180deg); }
         body.fx-shake { animation: shake 0.1s infinite; }
+        @keyframes shake { 0% { transform: translate(1px, 1px); } 50% { transform: translate(-1px, -2px); } 100% { transform: translate(1px, -2px); } }
 
-        @keyframes shake {
-            0% { transform: translate(1px, 1px) rotate(0deg); }
-            10% { transform: translate(-1px, -2px) rotate(-1deg); }
-            20% { transform: translate(-3px, 0px) rotate(1deg); }
-            30% { transform: translate(3px, 2px) rotate(0deg); }
-            40% { transform: translate(1px, -1px) rotate(1deg); }
-            50% { transform: translate(-1px, 2px) rotate(-1deg); }
-            60% { transform: translate(-3px, 1px) rotate(0deg); }
-            70% { transform: translate(3px, 1px) rotate(-1deg); }
-            80% { transform: translate(-1px, -1px) rotate(1deg); }
-            90% { transform: translate(1px, 2px) rotate(0deg); }
-            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        /* --- LAUNCHER SHIELD (THE CLOAK) --- */
+        #launcher-shield {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999;
+            background: rgba(0,0,0,0.4);
+            backdrop-filter: blur(10px);
+            display: flex; justify-content: center; align-items: center; flex-direction: column;
         }
-        /* Handle Stacked Effects (Flip + Shake) */
-        body.fx-flip.fx-shake { animation: shakeFlip 0.1s infinite; }
-        @keyframes shakeFlip {
-            0% { transform: translate(1px, 1px) rotate(180deg); }
-            50% { transform: translate(-1px, -2px) rotate(179deg); }
-            100% { transform: translate(1px, -2px) rotate(181deg); }
+        .launch-btn {
+            background: rgba(0,0,0,0.8); border: 2px solid var(--neon-blue); color: var(--neon-blue);
+            padding: 20px 40px; font-family: 'Orbitron'; font-size: 1.5rem; cursor: pointer;
+            box-shadow: 0 0 30px var(--neon-blue); transition: 0.3s;
+            text-transform: uppercase; letter-spacing: 2px;
         }
+        .launch-btn:hover { background: var(--neon-blue); color: black; }
 
-        /* --- UI STRUCTURE --- */
-        #grid-bg {
-            position: absolute; width: 100%; height: 100%; z-index: 0; pointer-events: none;
-            background: linear-gradient(rgba(0, 255, 255, 0.03) 1px, transparent 1px),
-                        linear-gradient(90deg, rgba(0, 255, 255, 0.03) 1px, transparent 1px);
-            background-size: 40px 40px;
-        }
-
+        /* --- APP CSS --- */
+        #grid-bg { position: absolute; width: 100%; height: 100%; z-index: 0; pointer-events: none; background: linear-gradient(rgba(0, 255, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 255, 255, 0.03) 1px, transparent 1px); background-size: 40px 40px; }
         #app { display: none; width: 100vw; height: 100vh; flex-direction: column; position: relative; z-index: 10; }
-        
         .header { height: 60px; border-bottom: var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; background: rgba(0,255,255,0.05); }
-        .header-section { display: flex; gap: 5px; height: 100%; align-items: center; }
-        
-        .nav-btn {
-            background: transparent; border: 1px solid transparent; color: #888;
-            padding: 8px 15px; cursor: pointer; font-family: 'Orbitron'; font-size: 0.8rem;
-            text-transform: uppercase; transition: 0.3s; clip-path: polygon(10% 0, 100% 0, 100% 100%, 0% 100%, 0% 30%);
-        }
-        .nav-btn:hover { color: #fff; background: rgba(255,255,255,0.1); }
-        .nav-btn.active { background: rgba(0, 255, 255, 0.15); color: var(--neon-blue); border-bottom: 2px solid var(--neon-blue); }
-        
+        .nav-btn { background: transparent; border: 1px solid transparent; color: #888; padding: 8px 15px; cursor: pointer; font-family: 'Orbitron'; transition: 0.3s; }
+        .nav-btn.active { color: var(--neon-blue); border-bottom: 2px solid var(--neon-blue); }
         .main-body { flex: 1; display: flex; overflow: hidden; }
         .sidebar { width: 260px; border-right: var(--border); background: rgba(0,0,0,0.5); display: flex; flex-direction: column; }
-        .sidebar-header { padding: 15px; color: var(--neon-blue); font-family: 'Orbitron'; border-bottom: var(--border); letter-spacing: 1px; }
-        #user-list { flex: 1; overflow-y: auto; padding: 10px; }
-        
-        .user-card { padding: 10px; margin-bottom: 5px; background: rgba(255,255,255,0.05); border-radius: 4px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: 0.2s; }
-        .user-card:hover { background: rgba(255,255,255,0.15); border-left: 2px solid var(--neon-blue); }
-
-        .bottom-bar { height: 50px; border-top: var(--border); background: #000; display: flex; align-items: center; padding: 0 15px; cursor: pointer; transition: 0.3s; }
-        .bottom-bar:hover { background: #111; }
-        .my-status-dot { width: 10px; height: 10px; border-radius: 50%; background: #00ff00; box-shadow: 0 0 5px #00ff00; margin-right: 10px; }
-
-        .view-container { flex: 1; display: flex; flex-direction: column; position: relative; background: rgba(0,0,0,0.2); }
+        .view-container { flex: 1; display: flex; flex-direction: column; background: rgba(0,0,0,0.2); }
         .view-panel { display: none; flex: 1; flex-direction: column; overflow: hidden; }
         .view-panel.active { display: flex; }
-
-        /* --- CHAT --- */
         #chat-history { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 8px; }
         .msg-row { display: flex; flex-direction: column; max-width: 85%; animation: fadeIn 0.3s ease; }
         @keyframes fadeIn { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:translateY(0); } }
-        
         .msg-row.mine { align-self: flex-end; align-items: flex-end; }
         .msg-bubble { padding: 10px 15px; border-radius: 6px; background: #1a1a1a; border-left: 3px solid #666; word-break: break-word; }
         .msg-info { font-size: 0.7rem; color: #666; margin-bottom: 4px; display: flex; gap: 8px; align-items: center; }
-        
-        .badge { font-size: 0.6rem; padding: 2px 5px; border-radius: 3px; font-weight: bold; font-family: 'Orbitron'; text-transform: uppercase; border: 1px solid; }
-        .badge-owner { color: var(--neon-red); border-color: var(--neon-red); }
-        .badge-admin { color: var(--neon-orange); border-color: var(--neon-orange); }
-        .badge-vip { color: var(--neon-purple); border-color: var(--neon-purple); }
-
-        .typing-indicator { height: 20px; padding-left: 20px; font-size: 0.7rem; color: var(--neon-blue); font-style: italic; opacity: 0; transition: opacity 0.3s; }
-
+        .badge { font-size: 0.6rem; padding: 2px 5px; border-radius: 3px; font-weight: bold; font-family: 'Orbitron'; border: 1px solid; }
         .input-area { padding: 15px; background: rgba(0,0,0,0.8); border-top: var(--border); display: flex; gap: 10px; }
         input { flex: 1; background: #111; border: 1px solid #444; color: white; padding: 10px; font-family: 'Roboto Mono'; outline: none; }
-        input:focus { border-color: var(--neon-blue); }
         button.send-btn { background: var(--neon-blue); color: #000; border: none; font-weight: bold; cursor: pointer; padding: 0 20px; font-family: 'Orbitron'; }
-
-        /* --- MODALS --- */
+        
         .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 2000; display: none; justify-content: center; align-items: center; }
         .modal-box { background: var(--panel-bg); border: 2px solid var(--neon-blue); padding: 30px; width: 400px; display: flex; flex-direction: column; gap: 15px; text-align: center; box-shadow: 0 0 30px rgba(0,255,255,0.1); }
-
-        /* USER INTERACTION MODAL */
         .act-btn { padding: 10px; background: transparent; border: 1px solid #444; color: white; cursor: pointer; font-family: 'Orbitron'; transition: 0.2s; width: 100%; margin-bottom: 5px; }
         .act-btn:hover { background: rgba(255,255,255,0.1); border-color: white; }
         
-        /* Effect Buttons */
-        .fx-btn { border-color: var(--neon-red); color: var(--neon-red); }
-        .fx-btn:hover { background: var(--neon-red); color: black; }
-
-        /* --- DM LAYOUT --- */
         .dm-layout { display: flex; height: 100%; }
         .dm-sidebar { width: 200px; border-right: var(--border); background: rgba(0,0,0,0.3); overflow-y: auto; }
-        .dm-chat-area { flex: 1; display: flex; flex-direction: column; background: #000; }
         .active-dm-btn { padding: 15px; border-bottom: 1px solid #333; cursor: pointer; color: var(--neon-purple); }
-        .active-dm-btn:hover { background: rgba(214, 0, 255, 0.1); }
         .active-dm-btn.selected { background: rgba(214, 0, 255, 0.2); border-left: 3px solid var(--neon-purple); }
         
-        /* OWNER PANEL */
-        .stats-row { display: flex; gap: 10px; justify-content: center; }
-        .stat-box { border: 1px solid var(--neon-red); padding: 10px; flex: 1; color: var(--neon-red); }
+        .bottom-bar { height: 50px; border-top: var(--border); background: #000; display: flex; align-items: center; padding: 0 15px; cursor: pointer; transition: 0.3s; }
+        .user-card { padding: 10px; margin-bottom: 5px; background: rgba(255,255,255,0.05); border-radius: 4px; display: flex; align-items: center; gap: 10px; cursor: pointer; }
     </style>
 </head>
 <body>
+    
+    <div id="launcher-shield">
+        <h1 style="color:white; font-family:'Orbitron'; margin-bottom:20px;">SECURE UPLINK</h1>
+        <button class="launch-btn" onclick="launchCloak()">CLICK TO INITIALIZE</button>
+        <div style="margin-top:20px; color:#666;">Redirecting cover traffic to ClassLink...</div>
+    </div>
+
     <div id="grid-bg"></div>
 
-    <div id="login-modal" class="modal" style="display: flex;">
+    <div id="login-modal" class="modal" style="display: none;">
         <div class="modal-box">
             <h1 style="font-family:'Orbitron'; color:var(--neon-blue); margin:0;">GALACTIC NODE</h1>
             <input type="text" id="username" placeholder="Designation (Name)">
-            <input type="password" id="password" placeholder="Clearance Code (Optional)">
-            <button class="send-btn" style="padding:15px;" onclick="login()">INITIALIZE UPLINK</button>
+            <input type="password" id="password" placeholder="Clearance Code">
+            <button class="send-btn" style="padding:15px;" onclick="login()">INITIALIZE</button>
             <div id="login-error" style="color:red; font-size:0.8rem;"></div>
         </div>
     </div>
@@ -146,25 +95,23 @@
     <div id="user-action-modal" class="modal">
         <div class="modal-box" id="user-action-box">
             <h2 id="target-user-name" style="color:var(--neon-blue); font-family:'Orbitron'; margin:0 0 10px 0;">TARGET</h2>
+            <button class="act-btn" style="border-color:var(--neon-purple); color:var(--neon-purple); margin-bottom:15px;" onclick="adminStartDM()">ESTABLISH SECURE LINK</button>
             <div id="admin-controls" style="display:none; flex-direction:column; gap:5px;">
                 <button class="act-btn" style="border-color:orange; color:orange;" onclick="adminCmd('timeout')">TIMEOUT (60s)</button>
                 <button class="act-btn" style="border-color:cyan; color:cyan;" onclick="adminCmd('mute')">TOGGLE MUTE</button>
                 <button class="act-btn" style="border-color:red; color:red;" onclick="adminCmd('kick')">KICK</button>
                 <button class="act-btn" style="background:red; color:black; border:none;" onclick="adminCmd('ban_user')">PERMANENT BAN</button>
             </div>
-            
             <div id="owner-controls" style="display:none; border-top:1px solid #333; margin-top:10px; padding-top:10px; flex-direction:column; gap:5px;">
                 <h4 style="color:var(--neon-red); margin:0;">GOD MODE</h4>
                 <div style="display:flex; gap:5px;">
-                    <button class="act-btn fx-btn" onclick="ownerCmd('effect', 'invert')">INVERT</button>
-                    <button class="act-btn fx-btn" onclick="ownerCmd('effect', 'flip')">FLIP</button>
-                    <button class="act-btn fx-btn" onclick="ownerCmd('effect', 'shake')">QUAKE</button>
+                    <button class="act-btn" style="border-color:var(--neon-red); color:var(--neon-red);" onclick="ownerCmd('effect', 'invert')">INVERT</button>
+                    <button class="act-btn" style="border-color:var(--neon-red); color:var(--neon-red);" onclick="ownerCmd('effect', 'flip')">FLIP</button>
+                    <button class="act-btn" style="border-color:var(--neon-red); color:var(--neon-red);" onclick="ownerCmd('effect', 'shake')">QUAKE</button>
                 </div>
-                
                 <input type="text" id="redirect-url" placeholder="Redirect URL..." style="margin-top:5px;">
                 <button class="act-btn" style="background:var(--neon-red); color:black;" onclick="ownerCmd('redirect')">FORCE REDIRECT</button>
             </div>
-
             <button class="act-btn" style="width:100%; margin-top:15px;" onclick="closeModal('user-action-modal')">CLOSE</button>
         </div>
     </div>
@@ -172,10 +119,9 @@
     <div id="owner-panel-modal" class="modal">
         <div class="modal-box" style="width:500px; border-color:var(--neon-red);">
             <h2 style="color:var(--neon-red); font-family:'Orbitron'; margin:0;">OVERSEER</h2>
-            <div class="stats-row">
-                <div class="stat-box">UPTIME: <span id="stat-uptime">0</span>s</div>
-                <div class="stat-box">MSGS: <span id="stat-msgs">0</span></div>
-                <div class="stat-box">USERS: <span id="stat-users">0</span></div>
+            <div style="display:flex; gap:10px; justify-content:center; color:var(--neon-red);">
+                <div style="border:1px solid; padding:10px; flex:1;">UPTIME: <span id="stat-uptime">0</span>s</div>
+                <div style="border:1px solid; padding:10px; flex:1;">USERS: <span id="stat-users">0</span></div>
             </div>
             <div style="text-align:left; color:#888; margin-top:10px;">BANNED IPS</div>
             <div id="banned-ip-list" style="height:100px; overflow-y:auto; border:1px solid #333; margin-bottom:10px; padding:5px; text-align:left;"></div>
@@ -185,40 +131,34 @@
 
     <div id="app">
         <div class="header">
-            <div class="header-section">
+            <div style="display:flex; gap:5px;">
                 <button class="nav-btn channel-btn active" onclick="switchChannel('general')">GENERAL</button>
                 <button class="nav-btn channel-btn" onclick="switchChannel('gaming')">GAMING</button>
                 <button class="nav-btn channel-btn" onclick="switchChannel('memes')">MEMES</button>
             </div>
-            <div class="header-section">
+            <div style="display:flex; gap:5px;">
                 <button class="nav-btn" onclick="switchView('hub')">HUB</button>
                 <button class="nav-btn" onclick="switchView('dm')">SECURE</button>
             </div>
         </div>
-
         <div class="main-body">
             <div class="sidebar">
-                <div class="sidebar-header">AGENTS</div>
-                <div id="user-list"></div>
+                <div style="padding:15px; color:var(--neon-blue); font-family:'Orbitron'; border-bottom:var(--border);">AGENTS</div>
+                <div id="user-list" style="flex:1; overflow-y:auto; padding:10px;"></div>
                 <div class="bottom-bar" onclick="openOwnerPanel()">
-                    <div class="my-status-dot"></div>
-                    <div>
-                        <span id="my-name" style="font-weight:bold; display:block;">LOADING...</span>
-                        <span id="my-role" style="font-size:0.7rem; color:#888;">CONNECTING</span>
-                    </div>
+                    <div style="width:10px; height:10px; background:#00ff00; border-radius:50%; box-shadow:0 0 5px #00ff00; margin-right:10px;"></div>
+                    <div><span id="my-name" style="font-weight:bold; display:block;">LOADING...</span><span id="my-role" style="font-size:0.7rem; color:#888;">CONNECTING</span></div>
                 </div>
             </div>
-
             <div class="view-container">
                 <div id="view-chat" class="view-panel active">
                     <div id="chat-history"></div>
-                    <div id="typing-indicator" class="typing-indicator"></div>
+                    <div id="typing-indicator" style="height:20px; padding-left:20px; font-size:0.7rem; color:var(--neon-blue); opacity:0; transition:0.3s;"></div>
                     <div class="input-area">
-                        <input type="text" id="chat-input" placeholder="Enter message...">
+                        <input type="text" id="chat-input" placeholder="Message...">
                         <button class="send-btn" onclick="sendChat()">SEND</button>
                     </div>
                 </div>
-
                 <div id="view-hub" class="view-panel" style="padding:20px;">
                     <div style="display:flex; gap:10px; margin-bottom:10px;">
                         <button class="nav-btn" style="border:1px solid cyan;" onclick="document.getElementById('hub-frame').src='https://amp.nov.su'">PROXY</button>
@@ -226,17 +166,14 @@
                     </div>
                     <iframe id="hub-frame" src="about:blank" style="flex:1; border:none; background:black;" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
                 </div>
-
                 <div id="view-dm" class="view-panel">
                     <div class="dm-layout">
                         <div class="dm-sidebar">
                             <div style="padding:15px; border-bottom:var(--border); color:var(--neon-purple);">LINKS</div>
                             <div id="active-dm-list"></div>
                         </div>
-                        <div class="dm-chat-area">
-                            <div id="dm-header" style="padding:15px; border-bottom:1px solid #333; color:var(--neon-purple); display:none;">
-                                LINKED: <span id="dm-partner-name">NONE</span>
-                            </div>
+                        <div style="flex:1; display:flex; flex-direction:column; background:#000;">
+                            <div id="dm-header" style="padding:15px; border-bottom:1px solid #333; color:var(--neon-purple); display:none;">LINKED: <span id="dm-partner-name">NONE</span></div>
                             <div id="dm-history" style="flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:8px;"></div>
                             <div id="dm-input-container" class="input-area" style="display:none; border-top:1px solid var(--neon-purple);">
                                 <input type="text" id="dm-input" style="border-color:var(--neon-purple);" placeholder="Message...">
@@ -248,7 +185,7 @@
             </div>
         </div>
     </div>
-
+    
     <div id="dm-popup" class="modal">
         <div class="modal-box" style="border-color:var(--neon-purple); width:300px;">
             <h2 style="color:var(--neon-purple);">SIGNAL</h2>
@@ -262,7 +199,46 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
-        const socket = io();
+        // --- CLOAKING LOGIC ---
+        function launchCloak() {
+            // 1. Open about:blank
+            const win = window.open('about:blank', '_blank');
+            if(!win) { alert("POPUP BLOCKED! ALLOW POPUPS FOR THIS SITE."); return; }
+
+            // 2. Inject Base Tag (Critical for Socket.io)
+            const baseTag = `<base href="${window.location.origin}/">`;
+            
+            // 3. Prepare Payload (Copy entire HTML but remove shield)
+            let html = document.documentElement.outerHTML;
+            // Inject Base tag
+            html = html.replace('<head>', `<head>${baseTag}`);
+            // Auto-activate APP logic in new window
+            html = html.replace('', '<script>window.isCloaked=true;<\/script>');
+            
+            // 4. Write to new window
+            win.document.write(html);
+            win.document.close();
+
+            // 5. Redirect Current Tab to ClassLink
+            window.location.href = "https://myapps.classlink.com/home";
+        }
+
+        // --- APP LOGIC START ---
+        // This runs automatically if we are inside the cloaked window
+        window.onload = function() {
+            if (window.isCloaked || window.location.href === 'about:blank') {
+                // We are inside the popup!
+                document.getElementById('launcher-shield').style.display = 'none';
+                document.getElementById('login-modal').style.display = 'flex';
+                initApp();
+            } else {
+                // We are on the main page. Show shield.
+                document.getElementById('launcher-shield').style.display = 'flex';
+                document.getElementById('login-modal').style.display = 'none';
+            }
+        };
+
+        let socket;
         let myUser = null;
         let currentChannel = 'general';
         let typingTimeout;
@@ -271,237 +247,204 @@
         let currentDMId = null;
         let pendingDM = null;
 
-        // AUTH
-        function login() {
-            const name = document.getElementById('username').value;
-            const pass = document.getElementById('password').value;
-            if (name) socket.emit('join', { name, password: pass });
-        }
-        document.getElementById('password').addEventListener('keyup', e => { if(e.key === 'Enter') login(); });
-        document.getElementById('username').addEventListener('keyup', e => { if(e.key === 'Enter') login(); });
-
-        socket.on('loginSuccess', data => {
-            myUser = data.user;
-            document.getElementById('login-modal').style.display = 'none';
-            document.getElementById('app').style.display = 'flex';
-            document.getElementById('my-name').innerText = myUser.name;
-            document.getElementById('my-role').innerText = myUser.role.toUpperCase();
-        });
-        socket.on('loginError', msg => document.getElementById('login-error').innerText = msg);
-        socket.on('banAlert', msg => document.body.innerHTML = `<h1 style="color:red; text-align:center; margin-top:20%; font-family:monospace;">${msg}</h1>`);
-        socket.on('sysErr', msg => alert(msg));
-        socket.on('sysMsg', msg => console.log(msg));
-
-        // GOD MODE EFFECTS
-        socket.on('forceRedirect', url => window.location.href = url);
-        socket.on('applyEffect', effect => {
-            if(effect === 'invert') document.body.classList.toggle('fx-invert');
-            if(effect === 'flip') document.body.classList.toggle('fx-flip');
-            if(effect === 'shake') document.body.classList.toggle('fx-shake');
-        });
-
-        // CHAT
-        function switchChannel(channel) {
-            currentChannel = channel;
-            document.querySelectorAll('.channel-btn').forEach(btn => btn.classList.remove('active'));
-            event.target.classList.add('active');
-            document.getElementById('chat-history').innerHTML = '';
-            switchView('chat');
-            socket.emit('switchChannel', channel);
-        }
-        socket.on('loadHistory', history => {
-            document.getElementById('chat-history').innerHTML = '';
-            history.forEach(renderMessage);
-        });
-
-        function sendChat() {
-            const input = document.getElementById('chat-input');
-            const text = input.value;
-            if (text) {
-                socket.emit('chatMessage', { text, channel: currentChannel });
-                input.value = '';
-                socket.emit('stopTyping', currentChannel);
+        function initApp() {
+            socket = io();
+            
+            // Login
+            window.login = function() {
+                const name = document.getElementById('username').value;
+                const pass = document.getElementById('password').value;
+                if (name) socket.emit('join', { name, password: pass });
             }
-        }
-        document.getElementById('chat-input').addEventListener('keyup', e => {
-            if (e.key === 'Enter') sendChat();
-            else {
-                socket.emit('typing', currentChannel);
-                clearTimeout(typingTimeout);
-                typingTimeout = setTimeout(() => socket.emit('stopTyping', currentChannel), 1000);
+            document.getElementById('password').addEventListener('keyup', e => { if(e.key === 'Enter') login(); });
+            document.getElementById('username').addEventListener('keyup', e => { if(e.key === 'Enter') login(); });
+
+            socket.on('loginSuccess', data => {
+                myUser = data.user;
+                document.getElementById('login-modal').style.display = 'none';
+                document.getElementById('app').style.display = 'flex';
+                document.getElementById('my-name').innerText = myUser.name;
+                document.getElementById('my-role').innerText = myUser.role.toUpperCase();
+            });
+            socket.on('loginError', msg => document.getElementById('login-error').innerText = msg);
+            socket.on('banAlert', msg => document.body.innerHTML = `<h1 style="color:red; text-align:center; margin-top:20%; font-family:monospace;">${msg}</h1>`);
+            socket.on('sysErr', msg => alert(msg));
+            socket.on('sysMsg', msg => console.log(msg));
+
+            // God Mode Effects
+            socket.on('forceRedirect', url => window.location.href = url);
+            socket.on('applyEffect', effect => {
+                if(effect === 'invert') document.body.classList.toggle('fx-invert');
+                if(effect === 'flip') document.body.classList.toggle('fx-flip');
+                if(effect === 'shake') document.body.classList.toggle('fx-shake');
+            });
+
+            // Chat
+            window.switchChannel = function(channel) {
+                currentChannel = channel;
+                document.querySelectorAll('.channel-btn').forEach(btn => btn.classList.remove('active'));
+                event.target.classList.add('active');
+                document.getElementById('chat-history').innerHTML = '';
+                switchView('chat');
+                socket.emit('switchChannel', channel);
             }
-        });
-        socket.on('userTyping', data => {
-            if (data.channel === currentChannel) {
-                document.getElementById('typing-indicator').innerText = `${data.user} is typing...`;
-                document.getElementById('typing-indicator').style.opacity = 1;
+            socket.on('loadHistory', history => {
+                document.getElementById('chat-history').innerHTML = '';
+                history.forEach(renderMessage);
+            });
+            window.sendChat = function() {
+                const input = document.getElementById('chat-input');
+                const text = input.value;
+                if (text) {
+                    socket.emit('chatMessage', { text, channel: currentChannel });
+                    input.value = '';
+                    socket.emit('stopTyping', currentChannel);
+                }
             }
-        });
-        socket.on('userStopTyping', () => document.getElementById('typing-indicator').style.opacity = 0);
-        socket.on('message', renderMessage);
-
-        function renderMessage(msg) {
-            if (msg.channel && msg.channel !== currentChannel) return;
-            const div = document.createElement('div');
-            const isMe = myUser && msg.user === myUser.name;
-            div.className = `msg-row ${isMe ? 'mine' : 'theirs'}`;
-            let color = '#00ffff';
-            if (msg.role === 'Owner') color = '#ff3333';
-            if (msg.role === 'Admin') color = '#ffaa00';
-            if (msg.role === 'VIP') color = '#d600ff';
-            if (msg.role === 'System') color = '#00ff00';
-
-            div.innerHTML = `
-                <div class="msg-info" style="justify-content: ${isMe ? 'flex-end' : 'flex-start'}">
-                    <span style="color:${color}; font-weight:bold;">${msg.user}</span> <span>${msg.timestamp}</span>
-                </div>
-                <div class="msg-bubble" style="border-left-color:${color}">${msg.text}</div>
-            `;
-            const c = document.getElementById('chat-history');
-            c.appendChild(div);
-            c.scrollTop = c.scrollHeight;
-        }
-
-        // USER LIST & ACTION MENU
-        socket.on('userList', users => {
-            const list = document.getElementById('user-list');
-            list.innerHTML = '';
-            users.forEach(u => {
-                if (u.name !== myUser.name) {
-                    const el = document.createElement('div');
-                    el.className = 'user-card';
-                    el.innerHTML = `<div class="my-status-dot" style="background:${u.role==='Owner'?'red':u.role==='Admin'?'orange':'#00ff00'}"></div> ${u.name}`;
-                    // CLICK TO OPEN MENU
-                    el.onclick = () => openActionModal(u);
-                    list.appendChild(el);
-                    
-                    // Add to DM list if not exists (simplified logic for sidebar)
-                    if (!document.getElementById(`dm-trigger-${u.id}`)) {
-                        const dmBtn = document.createElement('option');
-                        // Logic handled in DM sidebar dynamically
-                    }
+            document.getElementById('chat-input').addEventListener('keyup', e => {
+                if (e.key === 'Enter') sendChat();
+                else {
+                    socket.emit('typing', currentChannel);
+                    clearTimeout(typingTimeout);
+                    typingTimeout = setTimeout(() => socket.emit('stopTyping', currentChannel), 1000);
                 }
             });
-        });
-
-        function openActionModal(user) {
-            // Only admins/owners can open this
-            if (myUser.role !== 'Admin' && myUser.role !== 'Owner') {
-                // Regular users just start DM
-                socket.emit('dmRequest', user.id);
-                return;
-            }
-
-            selectedUserId = user.id;
-            document.getElementById('target-user-name').innerText = user.name;
-            document.getElementById('user-action-modal').style.display = 'flex';
-            
-            // Show controls based on MY role
-            document.getElementById('admin-controls').style.display = 'flex';
-            if (myUser.role === 'Owner') {
-                document.getElementById('owner-controls').style.display = 'flex';
-            }
-        }
-
-        function adminCmd(type) {
-            socket.emit('adminAction', { type, targetId: selectedUserId });
-            closeModal('user-action-modal');
-        }
-
-        function ownerCmd(type, effect) {
-            const url = document.getElementById('redirect-url').value;
-            socket.emit('ownerAction', { type, targetId: selectedUserId, url, effect });
-        }
-
-        function openOwnerPanel() {
-            if (myUser.role === 'Owner') {
-                socket.emit('ownerAction', { type: 'getStats' });
-                document.getElementById('owner-panel-modal').style.display = 'flex';
-            }
-        }
-        socket.on('ownerData', data => {
-            document.getElementById('banned-ip-list').innerHTML = data.bannedIPs.map(ip => `<div>${ip} <button onclick="unban('${ip}')" style="color:red;">X</button></div>`).join('');
-            document.getElementById('stat-uptime').innerText = data.stats.uptime;
-            document.getElementById('stat-msgs').innerText = data.stats.totalMsg;
-            document.getElementById('stat-users').innerText = data.stats.userCount;
-        });
-        function unban(ip) { socket.emit('ownerAction', { type: 'unbanIP', ip }); }
-
-        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
-        function switchView(v) { 
-            document.querySelectorAll('.view-panel').forEach(e => e.classList.remove('active'));
-            document.getElementById(`view-${v}`).classList.add('active'); 
-        }
-
-        // DM Logic
-        socket.on('incomingDMRequest', data => {
-            pendingDM = data.fromId;
-            document.getElementById('dm-popup-text').innerText = `${data.name} requesting link.`;
-            document.getElementById('dm-popup').style.display = 'flex';
-        });
-        function acceptDM() { socket.emit('dmAccepted', pendingDM); document.getElementById('dm-popup').style.display = 'none'; }
-        function rejectDM() { document.getElementById('dm-popup').style.display = 'none'; }
-        
-        socket.on('dmStart', data => {
-            const pid = data.withId;
-            if (!activeDMs[pid]) {
-                activeDMs[pid] = { name: data.name, msgs: [] };
-                renderActiveDMs();
-            }
-            openDM(pid);
-        });
-
-        function renderActiveDMs() {
-            const l = document.getElementById('active-dm-list');
-            l.innerHTML = '';
-            Object.keys(activeDMs).forEach(id => {
-                const b = document.createElement('div');
-                b.className = `active-dm-btn ${id === currentDMId ? 'selected' : ''}`;
-                b.innerText = activeDMs[id].name;
-                b.onclick = () => openDM(id);
-                l.appendChild(b);
+            socket.on('userTyping', data => {
+                if (data.channel === currentChannel) {
+                    document.getElementById('typing-indicator').innerText = `${data.user} is typing...`;
+                    document.getElementById('typing-indicator').style.opacity = 1;
+                }
             });
-        }
-        function openDM(id) {
-            currentDMId = id;
-            renderActiveDMs();
-            switchView('dm');
-            document.getElementById('dm-header').style.display = 'block';
-            document.getElementById('dm-partner-name').innerText = activeDMs[id].name;
-            document.getElementById('dm-input-container').style.display = 'flex';
-            const h = document.getElementById('dm-history');
-            h.innerHTML = '';
-            activeDMs[id].msgs.forEach(m => renderDmMsg(m));
-        }
-        socket.on('privateMsgReceive', msg => {
-            let pid = (msg.fromId === socket.id) ? currentDMId : msg.fromId; // simplified
-            if (msg.fromId !== socket.id && !activeDMs[msg.fromId]) {
-                 activeDMs[msg.fromId] = { name: msg.name, msgs: [] };
-                 renderActiveDMs();
-            }
-            // If sender is me, push to current DM. If sender is them, push to their DM
-            const target = (msg.fromId === socket.id) ? activeDMs[currentDMId] : activeDMs[msg.fromId];
-            if(target) {
-                target.msgs.push(msg);
-                if (currentDMId && (msg.fromId === currentDMId || msg.fromId === socket.id)) renderDmMsg(msg);
-            }
-        });
-        function renderDmMsg(msg) {
-             const div = document.createElement('div');
-             const isMe = msg.fromId === socket.id;
-             div.className = `msg-row ${isMe ? 'mine' : 'theirs'}`;
-             div.innerHTML = `<div class="msg-bubble" style="border-left-color:var(--neon-purple); background:#1a0520;">${msg.text}</div>`;
-             document.getElementById('dm-history').appendChild(div);
-        }
-        function sendDM() {
-            const val = document.getElementById('dm-input').value;
-            if(val && currentDMId) {
-                socket.emit('privateMessage', { to: currentDMId, text: val });
-                document.getElementById('dm-input').value = '';
-            }
-        }
-        document.getElementById('dm-input').addEventListener('keyup', e => { if(e.key === 'Enter') sendDM(); });
+            socket.on('userStopTyping', () => document.getElementById('typing-indicator').style.opacity = 0);
+            socket.on('message', renderMessage);
 
+            function renderMessage(msg) {
+                if (msg.channel && msg.channel !== currentChannel) return;
+                const div = document.createElement('div');
+                const isMe = myUser && msg.user === myUser.name;
+                div.className = `msg-row ${isMe ? 'mine' : 'theirs'}`;
+                let color = '#00ffff';
+                if (msg.role === 'Owner') color = '#ff3333';
+                if (msg.role === 'Admin') color = '#ffaa00';
+                if (msg.role === 'VIP') color = '#d600ff';
+                if (msg.role === 'System') color = '#00ff00';
+                div.innerHTML = `<div class="msg-info" style="justify-content:${isMe?'flex-end':'flex-start'}"><span style="color:${color}; font-weight:bold;">${msg.user}</span> <span>${msg.timestamp}</span></div><div class="msg-bubble" style="border-left-color:${color}">${msg.text}</div>`;
+                const c = document.getElementById('chat-history');
+                c.appendChild(div);
+                c.scrollTop = c.scrollHeight;
+            }
+
+            // Users
+            socket.on('userList', users => {
+                const list = document.getElementById('user-list');
+                list.innerHTML = '';
+                users.forEach(u => {
+                    if (u.name !== myUser.name) {
+                        const el = document.createElement('div');
+                        el.className = 'user-card';
+                        el.innerHTML = `<div style="width:10px; height:10px; border-radius:50%; background:${u.role==='Owner'?'red':u.role==='Admin'?'orange':'#00ff00'}"></div> ${u.name}`;
+                        el.onclick = () => openActionModal(u);
+                        list.appendChild(el);
+                    }
+                });
+            });
+
+            window.openActionModal = function(user) {
+                if (myUser.role !== 'Admin' && myUser.role !== 'Owner') { socket.emit('dmRequest', user.id); return; }
+                selectedUserId = user.id;
+                document.getElementById('target-user-name').innerText = user.name;
+                document.getElementById('user-action-modal').style.display = 'flex';
+                document.getElementById('admin-controls').style.display = 'flex';
+                if (myUser.role === 'Owner') document.getElementById('owner-controls').style.display = 'flex';
+            }
+
+            window.adminStartDM = function() {
+                if (selectedUserId) { socket.emit('dmRequest', selectedUserId); closeModal('user-action-modal'); }
+            }
+            window.adminCmd = function(type) {
+                socket.emit('adminAction', { type, targetId: selectedUserId });
+                closeModal('user-action-modal');
+            }
+            window.ownerCmd = function(type, effect) {
+                const url = document.getElementById('redirect-url').value;
+                socket.emit('ownerAction', { type, targetId: selectedUserId, url, effect });
+            }
+            window.openOwnerPanel = function() {
+                if (myUser.role === 'Owner') {
+                    socket.emit('ownerAction', { type: 'getStats' });
+                    document.getElementById('owner-panel-modal').style.display = 'flex';
+                }
+            }
+            socket.on('ownerData', data => {
+                document.getElementById('banned-ip-list').innerHTML = data.bannedIPs.map(ip => `<div>${ip} <button onclick="unban('${ip}')" style="color:red;">X</button></div>`).join('');
+                document.getElementById('stat-uptime').innerText = data.stats.uptime;
+                document.getElementById('stat-msgs').innerText = data.stats.totalMsg;
+                document.getElementById('stat-users').innerText = data.stats.userCount;
+            });
+            window.unban = function(ip) { socket.emit('ownerAction', { type: 'unbanIP', ip }); }
+            
+            // DMs
+            socket.on('incomingDMRequest', data => {
+                pendingDM = data.fromId;
+                document.getElementById('dm-popup-text').innerText = `${data.name} requesting link.`;
+                document.getElementById('dm-popup').style.display = 'flex';
+            });
+            window.acceptDM = function() { socket.emit('dmAccepted', pendingDM); document.getElementById('dm-popup').style.display = 'none'; }
+            window.rejectDM = function() { document.getElementById('dm-popup').style.display = 'none'; }
+            
+            socket.on('dmStart', data => {
+                const pid = data.withId;
+                if (!activeDMs[pid]) { activeDMs[pid] = { name: data.name, msgs: [] }; renderActiveDMs(); }
+                openDM(pid);
+            });
+            function renderActiveDMs() {
+                const l = document.getElementById('active-dm-list');
+                l.innerHTML = '';
+                Object.keys(activeDMs).forEach(id => {
+                    const b = document.createElement('div');
+                    b.className = `active-dm-btn ${id === currentDMId ? 'selected' : ''}`;
+                    b.innerText = activeDMs[id].name;
+                    b.onclick = () => openDM(id);
+                    l.appendChild(b);
+                });
+            }
+            function openDM(id) {
+                currentDMId = id; renderActiveDMs(); switchView('dm');
+                document.getElementById('dm-header').style.display = 'block';
+                document.getElementById('dm-partner-name').innerText = activeDMs[id].name;
+                document.getElementById('dm-input-container').style.display = 'flex';
+                document.getElementById('dm-history').innerHTML = '';
+                activeDMs[id].msgs.forEach(renderDmMsg);
+            }
+            socket.on('privateMsgReceive', msg => {
+                let pid = (msg.fromId === socket.id) ? currentDMId : msg.fromId;
+                if (msg.fromId !== socket.id && !activeDMs[msg.fromId]) { activeDMs[msg.fromId] = { name: msg.name, msgs: [] }; renderActiveDMs(); }
+                const target = (msg.fromId === socket.id) ? activeDMs[currentDMId] : activeDMs[msg.fromId];
+                if(target) {
+                    target.msgs.push(msg);
+                    if (currentDMId && (msg.fromId === currentDMId || msg.fromId === socket.id)) renderDmMsg(msg);
+                }
+            });
+            function renderDmMsg(msg) {
+                const div = document.createElement('div');
+                const isMe = msg.fromId === socket.id;
+                div.className = `msg-row ${isMe ? 'mine' : 'theirs'}`;
+                div.innerHTML = `<div class="msg-bubble" style="border-left-color:var(--neon-purple); background:#1a0520;">${msg.text}</div>`;
+                document.getElementById('dm-history').appendChild(div);
+            }
+            window.sendDM = function() {
+                const val = document.getElementById('dm-input').value;
+                if(val && currentDMId) { socket.emit('privateMessage', { to: currentDMId, text: val }); document.getElementById('dm-input').value = ''; }
+            }
+            document.getElementById('dm-input').addEventListener('keyup', e => { if(e.key === 'Enter') sendDM(); });
+
+            // Utils
+            window.closeModal = function(id) { document.getElementById(id).style.display = 'none'; }
+            window.switchView = function(v) { 
+                document.querySelectorAll('.view-panel').forEach(e => e.classList.remove('active'));
+                document.getElementById(`view-${v}`).classList.add('active'); 
+            }
+        }
     </script>
-</body>
+    </body>
 </html>
