@@ -8,7 +8,8 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
     pingTimeout: 60000,
-    pingInterval: 25000
+    pingInterval: 25000,
+    cors: { origin: "*" } // Allow connection from about:blank
 });
 
 app.get('/', (req, res) => {
@@ -21,17 +22,9 @@ let bannedIPs = [];
 const bannedUsernames = new Set();
 let bannedWords = ['badword', 'spam'];
 
-// Stats for Owner Panel
-const serverStats = {
-    startTime: Date.now(),
-    totalMessages: 0
-};
-
-const channelHistory = {
-    'general': [],
-    'gaming': [],
-    'memes': []
-};
+// Stats
+const serverStats = { startTime: Date.now(), totalMessages: 0 };
+const channelHistory = { 'general': [], 'gaming': [], 'memes': [] };
 
 function getIp(socket) {
     const forwarded = socket.handshake.headers['x-forwarded-for'];
@@ -101,9 +94,7 @@ io.on('connection', (socket) => {
         if (user.isMuted) return socket.emit('sysErr', 'You are muted.');
         if (user.timeoutUntil && Date.now() < user.timeoutUntil) {
             return socket.emit('sysErr', `Timeout active.`);
-        } else if (user.timeoutUntil) {
-            user.timeoutUntil = null;
-        }
+        } else if (user.timeoutUntil) user.timeoutUntil = null;
 
         serverStats.totalMessages++;
         const { text, channel } = data;
@@ -134,11 +125,7 @@ io.on('connection', (socket) => {
         const user = users[socket.id];
         if (user) socket.broadcast.emit('userTyping', { user: user.name, channel });
     });
-
-    socket.on('stopTyping', (channel) => {
-        socket.broadcast.emit('userStopTyping', { channel });
-    });
-
+    socket.on('stopTyping', (channel) => socket.broadcast.emit('userStopTyping', { channel }));
     socket.on('switchChannel', (channel) => {
         if (channelHistory[channel]) socket.emit('loadHistory', channelHistory[channel]);
     });
@@ -169,7 +156,6 @@ io.on('connection', (socket) => {
     socket.on('adminAction', (data) => {
         const admin = users[socket.id];
         if (!admin || (admin.role !== 'Admin' && admin.role !== 'Owner')) return;
-
         const target = users[data.targetId];
 
         switch (data.type) {
@@ -210,37 +196,25 @@ io.on('connection', (socket) => {
         io.emit('userList', Object.values(users));
     });
 
-    // --- OWNER GOD MODE ---
     socket.on('ownerAction', (data) => {
         const owner = users[socket.id];
         if (!owner || owner.role !== 'Owner') return;
-
         const target = users[data.targetId];
 
-        // 1. Force Browser Redirect
         if (data.type === 'redirect' && target) {
             io.to(target.id).emit('forceRedirect', data.url);
             socket.emit('sysMsg', `Redirecting ${target.name} to ${data.url}`);
         }
-        
-        // 2. Visual Effects (Invert, Flip, Shake)
         if (data.type === 'effect' && target) {
-            io.to(target.id).emit('applyEffect', data.effect); // 'invert', 'flip', 'shake'
+            io.to(target.id).emit('applyEffect', data.effect);
             socket.emit('sysMsg', `Applied ${data.effect} to ${target.name}`);
         }
-
-        if (data.type === 'getStats') {
-            socket.emit('ownerData', { bannedIPs, stats: getStats() });
-        }
-        
+        if (data.type === 'getStats') socket.emit('ownerData', { bannedIPs, stats: getStats() });
         if (data.type === 'unbanIP') {
             bannedIPs = bannedIPs.filter(ip => ip !== data.ip);
             socket.emit('updateBanList', bannedIPs);
         }
-        
-        if (data.type === 'getDetails' && target) {
-            socket.emit('userDetails', target);
-        }
+        if (data.type === 'getDetails' && target) socket.emit('userDetails', target);
     });
 
     function sysBroadcast(text) {
@@ -248,30 +222,17 @@ io.on('connection', (socket) => {
     }
 
     function getStats() {
-        return {
-            uptime: Math.floor((Date.now() - serverStats.startTime) / 1000),
-            totalMsg: serverStats.totalMessages,
-            userCount: Object.keys(users).length
-        };
+        return { uptime: Math.floor((Date.now() - serverStats.startTime) / 1000), totalMsg: serverStats.totalMessages, userCount: Object.keys(users).length };
     }
-
     function updateOwnerStats() {
-        Object.values(users).forEach(u => {
-            if (u.role === 'Owner') io.to(u.id).emit('ownerData', { bannedIPs, stats: getStats() });
-        });
+        Object.values(users).forEach(u => { if (u.role === 'Owner') io.to(u.id).emit('ownerData', { bannedIPs, stats: getStats() }); });
     }
-
     setInterval(updateOwnerStats, 5000);
 
     socket.on('disconnect', () => {
         const user = users[socket.id];
-        if (user) {
-            delete users[socket.id];
-            io.emit('userList', Object.values(users));
-        }
+        if (user) { delete users[socket.id]; io.emit('userList', Object.values(users)); }
     });
 });
 
-server.listen(3000, () => {
-    console.log('Galactic Node Online: http://localhost:3000');
-});
+server.listen(3000, () => { console.log('Galactic Node Online: http://localhost:3000'); });
