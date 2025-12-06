@@ -3,581 +3,546 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Galactic Chat Node</title>
+    <title>Galactic Node // Uplink</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto+Mono:wght@400;500&display=swap');
 
-        /* --- Core Reset & Aesthetics --- */
-        body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            background-color: #050505;
-            font-family: 'Roboto Mono', monospace;
-            color: #e0e0e0;
+        /* --- VARIABLES --- */
+        :root {
+            --neon-blue: #00ffff;
+            --neon-purple: #d600ff; /* VIP */
+            --neon-orange: #ffaa00; /* Admin */
+            --neon-red: #ff3333;    /* Owner */
+            --bg-dark: #050505;
+            --panel-bg: rgba(10, 15, 20, 0.95);
+            --border: 1px solid rgba(0, 255, 255, 0.3);
         }
 
-        /* --- NEW: High Performance CSS Background (No JS Lag) --- */
-        #space-network {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 0;
-            background: 
-                linear-gradient(rgba(0, 255, 255, 0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(0, 255, 255, 0.03) 1px, transparent 1px),
-                radial-gradient(circle at center, #0a1525 0%, #000000 100%);
-            background-size: 50px 50px, 50px 50px, 100% 100%;
-            pointer-events: none;
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: var(--bg-dark); color: #e0e0e0; font-family: 'Roboto Mono', monospace; }
+
+        /* --- BACKGROUND --- */
+        #grid-bg {
+            position: absolute; width: 100%; height: 100%; z-index: 0; pointer-events: none;
+            background: linear-gradient(rgba(0, 255, 255, 0.03) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(0, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
         }
 
-        /* --- Notification System --- */
-        #notification-area {
-            position: fixed; top: 20px; right: 20px; z-index: 2000;
-            display: flex; flex-direction: column; gap: 10px; pointer-events: none;
-        }
-
-        .notif-toast {
-            background: rgba(0, 10, 20, 0.95);
-            border: 1px solid #00ffff; border-left: 4px solid #00ffff;
-            color: #fff; padding: 15px 20px; min-width: 250px;
-            border-radius: 4px; box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
-            font-family: 'Orbitron'; font-size: 0.8rem;
-            animation: slideIn 0.3s ease-out forwards;
-            pointer-events: auto; display: flex; align-items: center; gap: 12px;
-        }
-        .notif-toast.warning { border-color: #ffaa00; color: #ffaa00; }
-        .notif-toast.danger { border-color: #ff4444; color: #ff4444; }
-
-        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-        @keyframes fadeOut { to { opacity: 0; transform: translateX(100%); } }
-
-        /* --- Layout --- */
-        #app-container {
-            position: relative; z-index: 10; display: flex;
-            justify-content: center; align-items: center;
-            height: 100%; width: 100%;
-        }
-
-        /* --- Modals --- */
-        .modal {
-            background: rgba(10, 10, 15, 0.95);
-            border: 2px solid #00ffff; padding: 2rem;
-            border-radius: 10px; box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);
-            text-align: center; display: flex; flex-direction: column;
-            gap: 1rem; width: 300px;
-        }
-
-        #announcement-overlay {
-            display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.9); z-index: 100;
-            justify-content: center; align-items: center; flex-direction: column;
-            animation: flashRed 0.5s;
-        }
-
-        @keyframes flashRed { 0% { background: rgba(255, 0, 0, 0.5); } 100% { background: rgba(0, 0, 0, 0.9); } }
-
-        #announcement-box { border: 2px solid #ff4444; padding: 30px; background: #110000; text-align: center; max-width: 600px; }
-        h2 { font-family: 'Orbitron', sans-serif; color: #00ffff; margin-top: 0; text-transform: uppercase; letter-spacing: 2px; }
-        h3.alert-title { color: #ff4444; font-size: 2rem; margin: 0 0 20px 0; }
-        p.alert-text { font-size: 1.5rem; color: white; margin-bottom: 20px; }
-
-        input, select {
-            background: rgba(255, 255, 255, 0.1); border: 1px solid #444;
-            color: white; padding: 10px; font-family: 'Roboto Mono', monospace;
-            outline: none; width: 100%; box-sizing: border-box;
-        }
-        input:focus, select:focus { border-color: #00ffff; }
-
-        button {
-            background: transparent; border: 1px solid #00ffff; color: #00ffff;
-            padding: 10px; cursor: pointer; font-family: 'Orbitron', sans-serif;
-            text-transform: uppercase; transition: all 0.3s;
-        }
-        button:hover { background: #00ffff; color: black; box-shadow: 0 0 15px #00ffff; }
+        /* --- UI STRUCTURE --- */
+        #app { display: none; width: 100vw; height: 100vh; display: flex; flex-direction: column; position: relative; z-index: 10; }
         
-        button.danger-btn { border-color: #ff4444; color: #ff4444; }
-        button.danger-btn:hover { background: #ff4444; color: black; box-shadow: 0 0 15px #ff4444; }
-        button.warn-btn { border-color: #ffaa00; color: #ffaa00; }
-        button.warn-btn:hover { background: #ffaa00; color: black; box-shadow: 0 0 15px #ffaa00; }
-
-        /* --- Main Interface --- */
-        #main-interface {
-            display: none; width: 90%; height: 90%; flex-direction: column;
-            border: 1px solid rgba(0, 255, 255, 0.3); background: rgba(0, 0, 0, 0.85);
-            backdrop-filter: blur(5px); box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
-            position: relative;
-        }
-
-        .nav-bar { display: flex; background: rgba(0, 255, 255, 0.1); border-bottom: 1px solid rgba(0, 255, 255, 0.2); }
-        .nav-tab { padding: 15px 25px; cursor: pointer; font-family: 'Orbitron', sans-serif; color: #888; border-right: 1px solid rgba(0, 255, 255, 0.1); }
-        .nav-tab.active { background: rgba(0, 255, 255, 0.2); color: #fff; text-shadow: 0 0 5px #00ffff; }
+        /* HEADER */
+        .header { height: 60px; border-bottom: var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; background: rgba(0,255,255,0.05); }
+        .header-section { display: flex; gap: 5px; height: 100%; align-items: center; }
         
-        #admin-tab { display: none; color: #ff4444; border-right: 1px solid #ff4444; }
-        #admin-tab.active { background: rgba(255, 0, 0, 0.2); color: #fff; text-shadow: 0 0 5px #ff0000; }
-
-        #dm-tab { color: #d600ff; border-right: 1px solid #d600ff; }
-        #dm-tab.active { background: rgba(214, 0, 255, 0.2); color: #fff; text-shadow: 0 0 5px #d600ff; }
-
-        /* --- Sidebar & Split View --- */
-        #interface-body { display: flex; flex: 1; overflow: hidden; width: 100%; }
-        #views-container { flex: 1; display: flex; flex-direction: column; position: relative; overflow: hidden; }
-        #sidebar { width: 250px; background: rgba(0, 10, 10, 0.6); border-left: 1px solid rgba(0, 255, 255, 0.2); display: flex; flex-direction: column; }
-        .sidebar-header { padding: 15px; font-family: 'Orbitron'; color: #00ffff; border-bottom: 1px solid rgba(0, 255, 255, 0.1); font-size: 0.9rem; letter-spacing: 1px; }
+        .nav-btn {
+            background: transparent; border: 1px solid transparent; color: #888;
+            padding: 8px 15px; cursor: pointer; font-family: 'Orbitron'; font-size: 0.8rem;
+            text-transform: uppercase; transition: 0.3s; clip-path: polygon(10% 0, 100% 0, 100% 100%, 0% 100%, 0% 30%);
+        }
+        .nav-btn:hover { color: #fff; background: rgba(255,255,255,0.1); }
+        .nav-btn.active { background: rgba(0, 255, 255, 0.15); color: var(--neon-blue); border-bottom: 2px solid var(--neon-blue); }
+        .nav-btn.channel-btn { border-color: rgba(0,255,255,0.2); }
+        
+        /* MAIN BODY */
+        .main-body { flex: 1; display: flex; overflow: hidden; }
+        
+        /* SIDEBAR (User List) */
+        .sidebar { width: 260px; border-right: var(--border); background: rgba(0,0,0,0.5); display: flex; flex-direction: column; }
+        .sidebar-header { padding: 15px; color: var(--neon-blue); font-family: 'Orbitron'; border-bottom: var(--border); letter-spacing: 1px; }
         #user-list { flex: 1; overflow-y: auto; padding: 10px; }
-        .user-item { display: flex; align-items: center; padding: 8px; margin-bottom: 5px; border-radius: 4px; background: rgba(255, 255, 255, 0.05); font-size: 0.85rem; }
+        .user-card { padding: 8px; margin-bottom: 5px; background: rgba(255,255,255,0.05); border-radius: 4px; display: flex; align-items: center; gap: 10px; cursor: pointer; }
+        .user-card:hover { background: rgba(255,255,255,0.1); }
+
+        /* BOTTOM BAR (My Profile / Owner Trigger) */
+        .bottom-bar { height: 50px; border-top: var(--border); background: #000; display: flex; align-items: center; padding: 0 15px; cursor: pointer; transition: 0.3s; }
+        .bottom-bar:hover { background: #111; }
+        .my-status-dot { width: 10px; height: 10px; border-radius: 50%; background: #00ff00; box-shadow: 0 0 5px #00ff00; margin-right: 10px; }
+
+        /* VIEW AREA */
+        .view-container { flex: 1; display: flex; flex-direction: column; position: relative; background: rgba(0,0,0,0.2); }
+        .view-panel { display: none; flex: 1; flex-direction: column; overflow: hidden; }
+        .view-panel.active { display: flex; }
+
+        /* CHAT STYLES */
+        #chat-history { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 8px; }
+        .msg-row { display: flex; flex-direction: column; max-width: 85%; }
+        .msg-row.mine { align-self: flex-end; align-items: flex-end; }
         
-        .status-dot { width: 8px; height: 8px; border-radius: 50%; margin-right: 10px; box-shadow: 0 0 5px currentColor; }
-        .status-chat { color: #00ff00; background: #00ff00; }
-        .status-hub { color: #ffaa00; background: #ffaa00; }
-        .status-admin { color: #ff0000; background: #ff0000; }
-        .status-dm { color: #d600ff; background: #d600ff; }
+        .msg-bubble { padding: 10px 15px; border-radius: 6px; background: #1a1a1a; border-left: 3px solid #666; word-break: break-word; position: relative; }
+        .msg-info { font-size: 0.7rem; color: #666; margin-bottom: 4px; display: flex; gap: 8px; align-items: center; }
+        
+        /* BADGES */
+        .badge { font-size: 0.6rem; padding: 2px 5px; border-radius: 3px; font-weight: bold; font-family: 'Orbitron'; text-transform: uppercase; border: 1px solid; }
+        .badge-owner { color: var(--neon-red); border-color: var(--neon-red); text-shadow: 0 0 5px var(--neon-red); }
+        .badge-admin { color: var(--neon-orange); border-color: var(--neon-orange); text-shadow: 0 0 5px var(--neon-orange); }
+        .badge-vip { color: var(--neon-purple); border-color: var(--neon-purple); text-shadow: 0 0 5px var(--neon-purple); }
+        .badge-user { display: none; }
 
-        .user-info-group { display: flex; flex-direction: column; }
-        .user-status-text { font-size: 0.65rem; color: #888; margin-top: 2px; }
+        .typing-indicator { height: 20px; padding-left: 20px; font-size: 0.7rem; color: var(--neon-blue); font-style: italic; opacity: 0; transition: opacity 0.3s; }
 
-        /* --- Content Views --- */
-        .view-section { flex: 1; display: none; overflow: hidden; }
-        .view-section.active { display: flex; }
+        .input-area { padding: 15px; background: rgba(0,0,0,0.8); border-top: var(--border); display: flex; gap: 10px; }
+        input { flex: 1; background: #111; border: 1px solid #444; color: white; padding: 10px; font-family: 'Roboto Mono'; outline: none; }
+        input:focus { border-color: var(--neon-blue); }
+        button.send-btn { background: var(--neon-blue); color: #000; border: none; font-weight: bold; cursor: pointer; padding: 0 20px; font-family: 'Orbitron'; }
 
-        /* Chat View */
-        #chat-view { flex-direction: column; height: 100%; }
-        #messages-container { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
-        .message-row { display: flex; flex-direction: column; max-width: 80%; }
-        .message-row.mine { align-self: flex-end; align-items: flex-end; }
-        .message-row.theirs { align-self: flex-start; align-items: flex-start; }
-        .msg-meta { font-size: 0.75rem; margin-bottom: 4px; opacity: 0.8; }
-        .msg-bubble { background-color: #333; color: #fff; padding: 10px 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.5); word-wrap: break-word; }
-        .role-Owner { color: #ffd700; text-shadow: 0 0 5px #ffd700; }
-        .role-Admin { color: #ff4444; text-shadow: 0 0 5px #ff0000; }
-        .role-User { color: #00ffff; }
-        .role-System { color: #00ff00; font-style: italic; }
-        .input-area { padding: 20px; background: rgba(0, 0, 0, 0.5); display: flex; gap: 10px; border-top: 1px solid rgba(255, 255, 255, 0.1); }
-        .input-area input { flex: 1; }
+        /* DM LAYOUT (Sidebar within View) */
+        .dm-layout { display: flex; height: 100%; }
+        .dm-sidebar { width: 200px; border-right: var(--border); background: rgba(0,0,0,0.3); overflow-y: auto; }
+        .dm-chat-area { flex: 1; display: flex; flex-direction: column; background: #000; }
+        .active-dm-btn { padding: 15px; border-bottom: 1px solid #333; cursor: pointer; color: var(--neon-purple); }
+        .active-dm-btn:hover { background: rgba(214, 0, 255, 0.1); }
+        .active-dm-btn.selected { background: rgba(214, 0, 255, 0.2); border-left: 3px solid var(--neon-purple); }
 
-        /* DM Styles */
-        .dm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; padding: 20px; }
-        .dm-user-card { background: rgba(214, 0, 255, 0.05); border: 1px solid #d600ff; padding: 15px; border-radius: 5px; cursor: pointer; transition: all 0.3s; display: flex; align-items: center; justify-content: space-between; }
-        .dm-user-card:hover { background: #d600ff; color: black; box-shadow: 0 0 15px #d600ff; }
-        .msg-bubble.dm-private { background-color: #5a1863; border: 1px solid #d600ff; color: #f0cfff; }
+        /* MODALS */
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 2000; display: none; justify-content: center; align-items: center; }
+        .modal-box { background: var(--panel-bg); border: 2px solid var(--neon-blue); padding: 30px; width: 400px; display: flex; flex-direction: column; gap: 15px; text-align: center; box-shadow: 0 0 30px rgba(0,255,255,0.1); }
 
-        /* Hub View */
-        #hub-view { flex-direction: column; background: rgba(10, 20, 30, 0.8); height: 100%; padding: 0; }
-        .hub-header { padding: 10px 15px; background: rgba(0, 255, 255, 0.05); border-bottom: 1px solid rgba(0, 255, 255, 0.2); display: flex; align-items: center; justify-content: space-between; }
-        .hub-title { font-family: 'Orbitron'; color: #ffaa00; font-size: 1.1rem; letter-spacing: 2px; }
-        .hub-controls { display: flex; gap: 10px; }
-        .hub-app-btn { background: rgba(0, 0, 0, 0.6); border: 1px solid #00ffff; color: #00ffff; padding: 8px 12px; cursor: pointer; font-family: 'Roboto Mono'; font-size: 0.75rem; transition: all 0.2s; display: flex; align-items: center; gap: 6px; text-transform: uppercase; }
-        .hub-app-btn:hover { background: #00ffff; color: #000; box-shadow: 0 0 10px #00ffff; }
-        .hub-display { flex: 1; position: relative; width: 100%; height: 100%; background: #000; overflow: hidden; }
-        #hub-iframe { width: 100%; height: 100%; border: none; display: none; }
-        #hub-overlay-msg { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #444; font-family: 'Orbitron'; font-size: 1.5rem; pointer-events: none; text-align: center; letter-spacing: 2px; border: 1px solid #333; padding: 20px; }
-
-        /* Admin View */
-        #admin-view { padding: 20px; flex-direction: column; gap: 20px; overflow-y: auto; height: 100%; }
-        .admin-panel-card { background: rgba(0,0,0,0.5); border: 1px solid #ff4444; padding: 20px; border-radius: 5px; }
-        .admin-header { color: #ff4444; font-family: 'Orbitron'; border-bottom: 1px solid #ff4444; padding-bottom: 10px; margin-bottom: 15px; display: block; }
-        .control-group { margin-bottom: 15px; display: flex; gap: 10px; align-items: center; }
+        /* OWNER PANEL */
+        #owner-panel { border-color: var(--neon-red); text-align: left; }
+        .ip-list-item { display: flex; justify-content: space-between; padding: 5px; border-bottom: 1px solid #333; font-size: 0.8rem; }
+        
+        /* ADMIN PANEL NEW LAYOUT */
+        .admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .admin-card { border: 1px solid var(--neon-orange); padding: 15px; background: rgba(255, 170, 0, 0.05); }
 
     </style>
 </head>
 <body>
+    <div id="grid-bg"></div>
 
-    <div id="space-network"></div>
-    
-    <div id="notification-area"></div>
-
-    <div id="announcement-overlay">
-        <div id="announcement-box">
-            <h3 class="alert-title">⚠ IMPORTANT ANNOUNCEMENT ⚠</h3>
-            <p id="announce-text" class="alert-text">...</p>
-            <p id="announce-sender" style="color: #888; font-size: 0.9rem;"></p>
-            <button onclick="document.getElementById('announcement-overlay').style.display='none'">ACKNOWLEDGE</button>
+    <div id="login-modal" class="modal" style="display: flex;">
+        <div class="modal-box">
+            <h1 style="font-family:'Orbitron'; color:var(--neon-blue); margin:0;">GALACTIC NODE</h1>
+            <input type="text" id="username" placeholder="Designation (Name)">
+            <input type="password" id="password" placeholder="Clearance Code (Optional)">
+            <button class="send-btn" style="padding:15px;" onclick="login()">INITIALIZE UPLINK</button>
+            <div id="login-error" style="color:red; font-size:0.8rem;"></div>
         </div>
     </div>
 
-    <div id="dm-request-modal" class="modal" style="display:none; position:fixed; top:30%; left:50%; transform:translate(-50%, -50%); z-index:5000; border-color:#d600ff; box-shadow: 0 0 30px #d600ff;">
-        <h2 style="color:#d600ff;">INCOMING LINK</h2>
-        <p id="dm-req-text" style="color:white;">User wants to connect.</p>
-        <div style="display:flex; gap:10px; justify-content:center;">
-            <button onclick="acceptDM()" style="border-color:#00ff00; color:#00ff00;">ACCEPT</button>
-            <button onclick="rejectDM()" style="border-color:#ff0000; color:#ff0000;">DENY</button>
+    <div id="user-details-modal" class="modal">
+        <div class="modal-box" style="border-color:var(--neon-red);">
+            <h2 style="color:var(--neon-red); font-family:'Orbitron';">TARGET ANALYSIS</h2>
+            <div id="detail-content" style="text-align:left; font-size:0.9rem; line-height:1.6;"></div>
+            <button class="send-btn" style="background:var(--neon-red); color:white;" onclick="closeModal('user-details-modal')">CLOSE</button>
         </div>
     </div>
 
-    <div id="app-container">
+    <div id="owner-panel-modal" class="modal">
+        <div class="modal-box" id="owner-panel">
+            <h2 style="color:var(--neon-red); font-family:'Orbitron'; margin-top:0;">OVERSEER CONTROL</h2>
+            <div style="font-size:0.8rem; color:#888;">BANNED IP REGISTRY</div>
+            <div id="banned-ip-list" style="height:150px; overflow-y:auto; border:1px solid #333; margin-bottom:10px;"></div>
+            <button class="send-btn" style="background:var(--neon-red); color:white; width:100%;" onclick="closeModal('owner-panel-modal')">CLOSE DECK</button>
+        </div>
+    </div>
+
+    <div id="app" style="display:none;">
         
-        <div id="login-modal" class="modal">
-            <h2>Galactic Link</h2>
-            <input type="text" id="username-input" placeholder="Enter Designation (Name)" maxlength="15">
-            <input type="password" id="password-input" placeholder="Access Code (Optional)">
-            <button onclick="attemptLogin()">Initialize</button>
-            <div id="login-error" style="color: red; font-size: 0.8rem; display: none;"></div>
+        <div class="header">
+            <div class="header-section">
+                <button class="nav-btn channel-btn active" onclick="switchChannel('bridge')">MAIN BRIDGE</button>
+                <button class="nav-btn channel-btn" onclick="switchChannel('holodeck')">HOLO-DECK</button>
+                <button class="nav-btn channel-btn" onclick="switchChannel('simulation')">SIMULATIONS</button>
+            </div>
+            <div class="header-section">
+                <button class="nav-btn" onclick="switchView('hub')"><i class="fas fa-satellite"></i> HUB</button>
+                <button class="nav-btn" onclick="switchView('dm')"><i class="fas fa-lock"></i> SECURE LINK</button>
+                <button class="nav-btn" id="admin-btn" style="display:none; color:var(--neon-orange);" onclick="switchView('admin')"><i class="fas fa-shield-alt"></i> ADMIN</button>
+            </div>
         </div>
 
-        <div id="main-interface">
-            <div class="nav-bar">
-                <div class="nav-tab active" onclick="switchTab('chat')">Live Comms</div>
-                <div class="nav-tab" onclick="switchTab('hub')">Deep Space Hub</div>
-                <div class="nav-tab" id="dm-tab" onclick="switchTab('dm')">SECURE LINK</div>
-                <div class="nav-tab" id="admin-tab" onclick="switchTab('admin')">COMMAND DECK</div>
-                <div style="margin-left: auto; padding: 15px; color: #00ffff; font-size: 0.8rem;" id="user-status"></div>
+        <div class="main-body">
+            <div class="sidebar">
+                <div class="sidebar-header">ACTIVE AGENTS</div>
+                <div id="user-list"></div>
+                <div class="bottom-bar" id="my-profile-bar" onclick="openProfile()">
+                    <div class="my-status-dot"></div>
+                    <div style="display:flex; flex-direction:column;">
+                        <span id="my-name" style="font-weight:bold; font-size:0.9rem;">LOADING...</span>
+                        <span id="my-role" style="font-size:0.7rem; color:#888;">CONNECTING</span>
+                    </div>
+                </div>
             </div>
 
-            <div id="interface-body">
-                <div id="views-container">
-                    
-                    <div id="chat-view" class="view-section active">
-                        <div id="messages-container"></div>
-                        <div class="input-area">
-                            <input type="text" id="msg-input" placeholder="Transmit message..." maxlength="255">
-                            <button onclick="sendMessage()">Send</button>
-                        </div>
+            <div class="view-container">
+                
+                <div id="view-chat" class="view-panel active">
+                    <div id="chat-history"></div>
+                    <div id="typing-indicator" class="typing-indicator">User is transmitting...</div>
+                    <div class="input-area">
+                        <input type="text" id="chat-input" placeholder="Broadcast message...">
+                        <button class="send-btn" onclick="sendChat()">TRANSMIT</button>
                     </div>
-
-                    <div id="hub-view" class="view-section">
-                        <div class="hub-header">
-                            <span class="hub-title">DEEP SPACE HUB</span>
-                            <div class="hub-controls">
-                                <button class="hub-app-btn" onclick="openHubApp('https://amp.nov.su')">
-                                    <i class="fas fa-network-wired"></i> PROXY
-                                </button>
-                                <button class="hub-app-btn" onclick="openHubApp('https://spaceracer.onrender.com')">
-                                    <i class="fas fa-gamepad"></i> STELLAR DRIFT
-                                </button>
-                                <button class="hub-app-btn" style="border-color: #ffaa00; color: #ffaa00;" onclick="closeHubApp()">
-                                    <i class="fas fa-times-circle"></i> TERMINATE
-                                </button>
-                            </div>
-                        </div>
-                        <div class="hub-display">
-                            <iframe id="hub-iframe" src="about:blank" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
-                            <div id="hub-overlay-msg">
-                                AWAITING MODULE SELECTION<br>
-                                <span style="font-size: 0.8rem; color: #666; font-family: 'Roboto Mono'; margin-top: 10px; display:block;">SECURE UPLINK READY</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div id="dm-view" class="view-section">
-                        <div id="dm-lobby" style="padding:20px;">
-                            <div class="admin-header" style="color: #d600ff; border-color: #d600ff;">AVAILABLE TARGETS</div>
-                            <div id="dm-user-list" class="dm-grid"></div>
-                        </div>
-
-                        <div id="dm-active-chat" style="display:none; flex-direction:column; height:100%;">
-                            <div class="hub-header" style="background: rgba(214, 0, 255, 0.1); border-color: #d600ff;">
-                                <span id="dm-partner-name" class="hub-title" style="color: #d600ff;">TARGET LOCKED</span>
-                                <button class="hub-app-btn" onclick="exitDM()" style="border-color: #d600ff; color: #d600ff;">
-                                    <i class="fas fa-sign-out-alt"></i> DISCONNECT
-                                </button>
-                            </div>
-                            <div id="dm-messages" style="flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:10px;"></div>
-                            <div class="input-area" style="border-top-color: #d600ff;">
-                                <input type="text" id="dm-input" placeholder="Encrypting transmission..." style="border-color: #555;" maxlength="255">
-                                <button onclick="sendDM()" style="border-color: #d600ff; color: #d600ff;">SEND</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div id="admin-view" class="view-section">
-                        <div class="admin-panel-card">
-                            <span class="admin-header">BANISHMENT PROTOCOLS (BAN USER + IP)</span>
-                            <div class="control-group">
-                                <select id="user-select"><option value="">Select Target...</option></select>
-                                <button class="danger-btn" onclick="banUser()">EXECUTE BAN</button>
-                            </div>
-                        </div>
-                        <div class="admin-panel-card">
-                            <span class="admin-header">COMMUNICATION FILTERS (BAN WORD)</span>
-                            <div class="control-group">
-                                <input type="text" id="ban-word-input" placeholder="Enter word to censor...">
-                                <button class="danger-btn" onclick="banWord()">ADD TO BLACKLIST</button>
-                            </div>
-                        </div>
-                        <div class="admin-panel-card">
-                            <span class="admin-header">GLOBAL BROADCAST SYSTEM</span>
-                            <div class="control-group">
-                                <input type="text" id="announce-input" placeholder="Enter announcement text...">
-                                <button class="warn-btn" onclick="sendAnnouncement()">BROADCAST</button>
-                            </div>
-                        </div>
-                    </div>
-
                 </div>
 
-                <div id="sidebar">
-                    <div class="sidebar-header">ACTIVE AGENTS</div>
-                    <div id="user-list"></div>
+                <div id="view-hub" class="view-panel" style="padding:20px;">
+                    <h2 style="font-family:'Orbitron'; color:var(--neon-blue);">DEEP SPACE HUB</h2>
+                    <div style="display:flex; gap:10px; margin-bottom:10px;">
+                        <button class="nav-btn" style="border:1px solid var(--neon-blue);" onclick="document.getElementById('hub-frame').src='https://amp.nov.su'">PROXY</button>
+                        <button class="nav-btn" style="border:1px solid var(--neon-blue);" onclick="document.getElementById('hub-frame').src='https://spaceracer.onrender.com'">GAME</button>
+                        <button class="nav-btn" style="border:1px solid red; color:red;" onclick="document.getElementById('hub-frame').src='about:blank'">TERMINATE</button>
+                    </div>
+                    <iframe id="hub-frame" src="about:blank" style="flex:1; border:none; background:#000;" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
                 </div>
+
+                <div id="view-admin" class="view-panel" style="padding:30px;">
+                    <h2 style="font-family:'Orbitron'; color:var(--neon-orange);">COMMAND DECK</h2>
+                    <div class="admin-grid">
+                        <div class="admin-card">
+                            <h3 style="color:var(--neon-orange); margin-top:0;">EXILE USER</h3>
+                            <input type="text" id="ban-target" placeholder="User Designation">
+                            <button class="send-btn" style="background:var(--neon-orange); margin-top:10px; width:100%; color:black;" onclick="adminAction('ban_user')">EXECUTE BAN</button>
+                        </div>
+                        <div class="admin-card">
+                            <h3 style="color:var(--neon-orange); margin-top:0;">SYSTEM BROADCAST</h3>
+                            <input type="text" id="announce-text" placeholder="Message content">
+                            <button class="send-btn" style="background:var(--neon-orange); margin-top:10px; width:100%; color:black;" onclick="adminAction('announce')">BROADCAST</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="view-dm" class="view-panel">
+                    <div class="dm-layout">
+                        <div class="dm-sidebar">
+                            <div style="padding:15px; border-bottom:var(--border); font-family:'Orbitron'; color:var(--neon-purple);">ENCRYPTED LINKS</div>
+                            <div style="padding:10px;">
+                                <select id="dm-select-target" style="width:100%; background:#111; color:white; padding:5px; margin-bottom:5px;">
+                                    <option value="">Select Target...</option>
+                                </select>
+                                <button class="send-btn" style="background:var(--neon-purple); width:100%; color:white;" onclick="startNewDM()">OPEN LINK</button>
+                            </div>
+                            <div id="active-dm-list"></div>
+                        </div>
+                        <div class="dm-chat-area">
+                            <div id="dm-header" style="padding:15px; border-bottom:1px solid #333; color:var(--neon-purple); display:none;">
+                                LINKED: <span id="dm-partner-name" style="font-weight:bold;">NONE</span>
+                            </div>
+                            <div id="dm-history" style="flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:8px;"></div>
+                            <div id="dm-input-container" class="input-area" style="display:none; border-top:1px solid var(--neon-purple);">
+                                <input type="text" id="dm-input" style="border-color:var(--neon-purple);" placeholder="Encrypted transmission...">
+                                <button class="send-btn" style="background:var(--neon-purple); color:white;" onclick="sendDM()">SEND</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <div id="dm-popup" class="modal">
+        <div class="modal-box" style="border-color:var(--neon-purple); width:300px;">
+            <h2 style="color:var(--neon-purple); font-family:'Orbitron';">INCOMING SIGNAL</h2>
+            <p id="dm-popup-text">User wants to connect.</p>
+            <div style="display:flex; gap:10px;">
+                <button class="send-btn" style="background:#00ff00; flex:1;" onclick="acceptDM()">ACCEPT</button>
+                <button class="send-btn" style="background:red; color:white; flex:1;" onclick="rejectDM()">DENY</button>
             </div>
         </div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
-        // --- Socket Init with Robust Reconnection ---
-        const socket = io({
-            reconnection: true,
-            reconnectionAttempts: Infinity,
-            reconnectionDelay: 1000,
-            reconnectionDelayMax: 5000,
-            timeout: 60000 // 60s before considering connection lost
-        });
+        const socket = io();
+        let myUser = null;
+        let currentChannel = 'bridge';
+        let typingTimeout;
+        
+        // DM State
+        let activeDMs = {}; // { userId: { name: 'Bob', messages: [] } }
+        let currentDMId = null;
+        let pendingDM = null;
 
-        let myData = null;
-        let currentDMPartnerId = null;
-        let incomingRequestFrom = null;
-
-        // --- Notification Logic ---
-        function showNotification(text, type = 'info') {
-            const container = document.getElementById('notification-area');
-            const notif = document.createElement('div');
-            let icon = '<i class="fas fa-info-circle"></i>';
-            if(type === 'warning') icon = '<i class="fas fa-exclamation-triangle"></i>';
-            if(type === 'danger') icon = '<i class="fas fa-radiation-alt"></i>';
-            notif.className = `notif-toast ${type}`;
-            notif.innerHTML = `${icon} <span>${text}</span>`;
-            container.appendChild(notif);
-            setTimeout(() => {
-                notif.style.animation = 'fadeOut 0.5s ease-out forwards';
-                setTimeout(() => notif.remove(), 500);
-            }, 4000);
+        // --- LOGIN ---
+        function login() {
+            const name = document.getElementById('username').value;
+            const pass = document.getElementById('password').value;
+            if (name) socket.emit('join', { name, password: pass });
         }
-
-        // --- Auth Logic ---
-        function attemptLogin() {
-            const name = document.getElementById('username-input').value.trim();
-            const pass = document.getElementById('password-input').value;
-            if(!name) {
-                document.getElementById('login-error').innerText = "Designation required.";
-                document.getElementById('login-error').style.display = "block";
-                return;
-            }
-            socket.emit('join', { name: name, password: pass });
-        }
-        // Allow Enter key to login
-        document.getElementById('username-input').addEventListener('keypress', (e) => { if(e.key === 'Enter') attemptLogin(); });
-
-        socket.on('loginSuccess', (data) => {
-            myData = data.user;
+        socket.on('loginError', msg => document.getElementById('login-error').innerText = msg);
+        
+        socket.on('loginSuccess', data => {
+            myUser = data.user;
             document.getElementById('login-modal').style.display = 'none';
-            document.getElementById('main-interface').style.display = 'flex';
-            const statusDiv = document.getElementById('user-status');
-            statusDiv.innerHTML = `${myData.name} <span class="role-${myData.role}">[${myData.role}]</span>`;
-            if(myData.role === 'Admin' || myData.role === 'Owner') {
-                document.getElementById('admin-tab').style.display = 'block';
+            document.getElementById('app').style.display = 'flex';
+            
+            // Setup Profile Bar
+            document.getElementById('my-name').innerText = myUser.name;
+            document.getElementById('my-role').innerText = myUser.role.toUpperCase();
+            
+            if (myUser.role === 'Admin' || myUser.role === 'Owner') {
+                document.getElementById('admin-btn').style.display = 'block';
             }
         });
 
-        socket.on('loginError', (msg) => {
-            const errDiv = document.getElementById('login-error');
-            errDiv.innerText = msg;
-            errDiv.style.display = 'block';
+        socket.on('banAlert', msg => {
+            document.body.innerHTML = `<h1 style="color:red; text-align:center; margin-top:20%; font-family:monospace;">${msg}</h1>`;
         });
 
-        socket.on('banAlert', (msg) => {
-            document.body.innerHTML = `<div style="height:100vh; display:flex; justify-content:center; align-items:center; background:black; color:red; flex-direction:column; font-family:'Orbitron'; text-align:center;"><h1 style="font-size:3rem;">⛔ ACCESS DENIED ⛔</h1><h2 style="color:white;">${msg}</h2></div>`;
-        });
-
-        // --- Chat Logic ---
-        function sendMessage() {
-            const input = document.getElementById('msg-input');
-            const text = input.value.trim();
-            if(text) { socket.emit('chatMessage', text); input.value = ''; }
+        // --- CHANNELS & HISTORY ---
+        function switchChannel(channel) {
+            currentChannel = channel;
+            document.querySelectorAll('.channel-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // Clear current chat view
+            document.getElementById('chat-history').innerHTML = '';
+            
+            // Switch view to chat if not already
+            switchView('chat'); 
+            
+            socket.emit('switchChannel', channel);
         }
-        document.getElementById('msg-input').addEventListener('keypress', (e) => { if(e.key === 'Enter') sendMessage(); });
 
-        socket.on('message', (msg) => {
-            const container = document.getElementById('messages-container');
-            const row = document.createElement('div');
-            const isMe = myData && msg.user === myData.name;
-            row.className = `message-row ${isMe ? 'mine' : 'theirs'}`;
-            
-            const meta = document.createElement('div');
-            meta.className = 'msg-meta';
-            // Use innerText for user names to prevent HTML injection
-            const nameSpan = document.createElement('span');
-            nameSpan.className = `role-${msg.role}`;
-            nameSpan.innerText = msg.user;
-            meta.appendChild(nameSpan);
-            meta.innerHTML += ` • ${msg.timestamp}`;
-
-            const bubble = document.createElement('div');
-            bubble.className = 'msg-bubble';
-            bubble.innerText = msg.text; // Safe text rendering
-            
-            row.appendChild(meta); row.appendChild(bubble);
-            container.appendChild(row); 
-            row.scrollIntoView({ behavior: 'smooth' }); // Smooth scroll
-
-            if (msg.role === 'System') showNotification(msg.text, 'warning');
+        socket.on('loadHistory', history => {
+            document.getElementById('chat-history').innerHTML = '';
+            history.forEach(renderMessage);
         });
 
-        // --- Reconnection Logic ---
-        socket.on('disconnect', (reason) => {
-            showNotification("SIGNAL LOST. RECONNECTING...", "danger");
+        // --- CHAT LOGIC ---
+        function sendChat() {
+            const input = document.getElementById('chat-input');
+            const text = input.value;
+            if (text) {
+                socket.emit('chatMessage', { text, channel: currentChannel });
+                input.value = '';
+                socket.emit('stopTyping', currentChannel);
+            }
+        }
+        
+        // Typing Indicators
+        document.getElementById('chat-input').addEventListener('input', () => {
+            socket.emit('typing', currentChannel);
+            clearTimeout(typingTimeout);
+            typingTimeout = setTimeout(() => socket.emit('stopTyping', currentChannel), 1000);
         });
-        socket.on('connect', () => {
-            if(myData) {
-                showNotification("CONNECTION RESTORED", "info");
-                // Optional: Re-authenticate if session lost
-                // socket.emit('join', { name: myData.name, password: '' });
+
+        socket.on('userTyping', data => {
+            if (data.channel === currentChannel) {
+                const ind = document.getElementById('typing-indicator');
+                ind.innerText = `${data.user} is transmitting...`;
+                ind.style.opacity = 1;
             }
         });
+        socket.on('userStopTyping', data => {
+            if (data.channel === currentChannel) document.getElementById('typing-indicator').style.opacity = 0;
+        });
 
-        // --- Hub Logic ---
-        function openHubApp(url) {
-            const frame = document.getElementById('hub-iframe');
-            const overlay = document.getElementById('hub-overlay-msg');
-            frame.src = url; frame.style.display = 'block'; overlay.style.display = 'none';
-        }
-        function closeHubApp() {
-            const frame = document.getElementById('hub-iframe');
-            const overlay = document.getElementById('hub-overlay-msg');
-            frame.src = 'about:blank'; frame.style.display = 'none'; overlay.style.display = 'block';
+        socket.on('message', renderMessage);
+
+        function renderMessage(msg) {
+            // Filter by channel if it's a channel message
+            if (msg.channel && msg.channel !== currentChannel) return;
+
+            const div = document.createElement('div');
+            const isMe = myUser && msg.user === myUser.name;
+            div.className = `msg-row ${isMe ? 'mine' : 'theirs'}`;
+            
+            // Role Colors & Badges
+            let color = '#00ffff';
+            let badgeClass = 'badge-user';
+            
+            if (msg.role === 'Owner') { color = '#ff3333'; badgeClass = 'badge-owner'; }
+            if (msg.role === 'Admin') { color = '#ffaa00'; badgeClass = 'badge-admin'; }
+            if (msg.role === 'VIP')   { color = '#d600ff'; badgeClass = 'badge-vip'; }
+            if (msg.role === 'System') color = '#00ff00';
+
+            const badgeHtml = msg.role !== 'User' && msg.role !== 'System' ? `<span class="badge ${badgeClass}">${msg.role}</span>` : '';
+            
+            div.innerHTML = `
+                <div class="msg-info" style="justify-content: ${isMe ? 'flex-end' : 'flex-start'}">
+                    ${badgeHtml} <span style="color:${color}; font-weight:bold;">${msg.user}</span> <span>${msg.timestamp}</span>
+                </div>
+                <div class="msg-bubble" style="border-left-color:${color}">${msg.text}</div>
+            `;
+            
+            const container = document.getElementById('chat-history');
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
         }
 
-        // --- DM System ---
-        function updateDMLobby(users) {
-            const list = document.getElementById('dm-user-list');
-            if(!list) return;
+        // --- USER LIST ---
+        socket.on('userList', users => {
+            const list = document.getElementById('user-list');
+            const dmSelect = document.getElementById('dm-select-target');
+            
             list.innerHTML = '';
+            dmSelect.innerHTML = '<option value="">Select Target...</option>';
+
             users.forEach(u => {
-                if (myData && u.name === myData.name) return;
-                
-                const card = document.createElement('div');
-                card.className = 'dm-user-card';
-                // Safe name rendering
-                const nameSpan = document.createElement('span');
-                nameSpan.innerText = u.name;
-                card.appendChild(nameSpan);
-                card.innerHTML += `<i class="fas fa-lock"></i>`;
-                card.onclick = () => requestDM(u.id);
-                list.appendChild(card);
+                // Sidebar List (Hide Self)
+                if (u.name !== myUser.name) {
+                    const el = document.createElement('div');
+                    el.className = 'user-card';
+                    el.innerHTML = `<div class="my-status-dot" style="background:${u.role==='Owner'?'red':u.role==='Admin'?'orange':'#00ff00'}"></div> ${u.name} <span class="badge badge-${u.role.toLowerCase()}">${u.role}</span>`;
+                    
+                    // Owner Feature: Click to view details
+                    if (myUser.role === 'Owner') {
+                        el.onclick = () => socket.emit('ownerAction', { type: 'getDetails', targetId: u.id });
+                    }
+                    list.appendChild(el);
+
+                    // DM Select List
+                    const opt = document.createElement('option');
+                    opt.value = u.id;
+                    opt.innerText = u.name;
+                    dmSelect.appendChild(opt);
+                }
+            });
+        });
+
+        // --- OWNER FEATURES ---
+        function openProfile() {
+            if (myUser.role === 'Owner') {
+                document.getElementById('owner-panel-modal').style.display = 'flex';
+            }
+        }
+
+        socket.on('userDetails', user => {
+            document.getElementById('detail-content').innerHTML = `
+                <strong>IDENTITY:</strong> ${user.name}<br>
+                <strong>ROLE:</strong> ${user.role}<br>
+                <strong>IP ADDRESS:</strong> ${user.ip}<br>
+                <strong>STATUS:</strong> ${user.status}<br>
+                <strong>ID:</strong> ${user.id}
+            `;
+            document.getElementById('user-details-modal').style.display = 'flex';
+        });
+
+        socket.on('updateBanList', ips => {
+            const list = document.getElementById('banned-ip-list');
+            list.innerHTML = '';
+            ips.forEach(ip => {
+                const row = document.createElement('div');
+                row.className = 'ip-list-item';
+                row.innerHTML = `<span>${ip}</span> <button onclick="unbanIP('${ip}')" style="background:transparent; border:none; color:#00ff00; cursor:pointer;">UNBAN</button>`;
+                list.appendChild(row);
+            });
+        });
+
+        function unbanIP(ip) {
+            socket.emit('ownerAction', { type: 'unbanIP', ip });
+        }
+
+        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+        // --- ADMIN ---
+        function adminAction(type) {
+            const targetName = document.getElementById('ban-target').value;
+            const announceText = document.getElementById('announce-text').value;
+            if (type === 'ban_user' && targetName) socket.emit('adminAction', { type, targetName });
+            if (type === 'announce' && announceText) socket.emit('adminAction', { type, text: announceText });
+        }
+        
+        socket.on('announcement', data => alert(`BROADCAST FROM ${data.sender}: ${data.text}`));
+
+        // --- DM LOGIC (Multiple) ---
+        function startNewDM() {
+            const targetId = document.getElementById('dm-select-target').value;
+            if (targetId) socket.emit('dmRequest', targetId);
+        }
+
+        socket.on('incomingDMRequest', data => {
+            pendingDM = data.fromId;
+            document.getElementById('dm-popup-text').innerText = `${data.name} requesting secure link.`;
+            document.getElementById('dm-popup').style.display = 'flex';
+        });
+
+        function acceptDM() { socket.emit('dmAccepted', pendingDM); document.getElementById('dm-popup').style.display = 'none'; }
+        function rejectDM() { document.getElementById('dm-popup').style.display = 'none'; }
+
+        socket.on('dmStart', data => {
+            const partnerId = data.withId;
+            if (!activeDMs[partnerId]) {
+                activeDMs[partnerId] = { name: data.name, messages: [] };
+                renderActiveDMList();
+            }
+            switchToDM(partnerId);
+        });
+
+        function renderActiveDMList() {
+            const container = document.getElementById('active-dm-list');
+            container.innerHTML = '';
+            Object.keys(activeDMs).forEach(id => {
+                const btn = document.createElement('div');
+                btn.className = 'active-dm-btn';
+                if (id === currentDMId) btn.classList.add('selected');
+                btn.innerText = activeDMs[id].name;
+                btn.onclick = () => switchToDM(id);
+                container.appendChild(btn);
             });
         }
-        function requestDM(targetId) {
-            showNotification("Requesting Secure Link...", "warning");
-            socket.emit('dmRequest', targetId);
+
+        function switchToDM(id) {
+            currentDMId = id;
+            renderActiveDMList();
+            const dm = activeDMs[id];
+            
+            document.getElementById('dm-header').style.display = 'block';
+            document.getElementById('dm-partner-name').innerText = dm.name;
+            document.getElementById('dm-input-container').style.display = 'flex';
+            
+            // Render History
+            const hist = document.getElementById('dm-history');
+            hist.innerHTML = '';
+            dm.messages.forEach(renderPrivateMessage);
         }
-        socket.on('incomingDMRequest', (data) => {
-            incomingRequestFrom = data.fromId;
-            document.getElementById('dm-req-text').innerText = `${data.name} is requesting a secure line.`;
-            document.getElementById('dm-request-modal').style.display = 'block';
-        });
-        function acceptDM() { socket.emit('dmAccepted', incomingRequestFrom); document.getElementById('dm-request-modal').style.display = 'none'; }
-        function rejectDM() { socket.emit('dmRejected', incomingRequestFrom); document.getElementById('dm-request-modal').style.display = 'none'; }
 
-        socket.on('dmRejectedAlert', (msg) => {
-             showNotification(msg, 'danger');
+        socket.on('privateMsgReceive', msg => {
+            // Determine partner ID (if I sent it, partner is 'to', if I received, partner is 'fromId') 
+            // NOTE: Logic simplified here, assuming 'fromId' is partner if not me.
+            // But we need to find which DM conversation this belongs to.
+            
+            let partnerId = (msg.fromId === socket.id) ? currentDMId : msg.fromId; // Fallback for sender
+            
+            // If receiving from someone new
+            if (msg.fromId !== socket.id && !activeDMs[msg.fromId]) {
+                activeDMs[msg.fromId] = { name: msg.name, messages: [] };
+                renderActiveDMList();
+            }
+            
+            // Store message
+            const targetDM = (msg.fromId === socket.id) ? activeDMs[currentDMId] : activeDMs[msg.fromId];
+            if (targetDM) {
+                targetDM.messages.push(msg);
+                // If currently viewing this DM, render it
+                if ((msg.fromId === socket.id && currentDMId) || (msg.fromId === currentDMId)) {
+                    renderPrivateMessage(msg);
+                }
+            }
         });
 
-        socket.on('dmStart', (data) => {
-            currentDMPartnerId = data.withId;
-            switchTab('dm');
-            document.getElementById('dm-lobby').style.display = 'none';
-            document.getElementById('dm-active-chat').style.display = 'flex';
-            document.getElementById('dm-partner-name').innerText = `LINKED: ${data.name}`;
-            document.getElementById('dm-messages').innerHTML = '';
-            showNotification("SECURE CHANNEL ESTABLISHED", "warning");
-        });
-
-        function exitDM() {
-            currentDMPartnerId = null;
-            document.getElementById('dm-active-chat').style.display = 'none';
-            document.getElementById('dm-lobby').style.display = 'grid';
+        function renderPrivateMessage(msg) {
+            const div = document.createElement('div');
+            const isMe = msg.fromId === socket.id;
+            div.className = `msg-row ${isMe ? 'mine' : 'theirs'}`;
+            div.innerHTML = `
+                <div class="msg-info" style="color:var(--neon-purple);">${isMe ? 'ME' : msg.name}</div>
+                <div class="msg-bubble" style="border-left-color:var(--neon-purple); background:#1a0520;">${msg.text}</div>
+            `;
+            document.getElementById('dm-history').appendChild(div);
         }
 
         function sendDM() {
-            const input = document.getElementById('dm-input');
-            const text = input.value.trim();
-            if(text && currentDMPartnerId) { socket.emit('privateMessage', { to: currentDMPartnerId, text: text }); input.value = ''; }
-        }
-        document.getElementById('dm-input').addEventListener('keypress', (e) => { if(e.key === 'Enter') sendDM(); });
-
-        socket.on('privateMsgReceive', (msg) => {
-            const container = document.getElementById('dm-messages');
-            const row = document.createElement('div');
-            const isMe = msg.fromId === socket.id;
-            row.className = `message-row ${isMe ? 'mine' : 'theirs'}`;
-            const meta = document.createElement('div');
-            meta.className = 'msg-meta';
-            meta.innerHTML = `<span style="color: #d600ff;">${msg.name}</span>`;
-            const bubble = document.createElement('div');
-            bubble.className = 'msg-bubble dm-private';
-            bubble.innerText = msg.text;
-            row.appendChild(meta); row.appendChild(bubble);
-            container.appendChild(row); 
-            row.scrollIntoView({ behavior: 'smooth' });
-        });
-
-        // --- User List & Admin ---
-        socket.on('userList', (users) => {
-            const select = document.getElementById('user-select');
-            if(select) {
-                const currentVal = select.value;
-                select.innerHTML = '<option value="">Select Target...</option>';
-                users.forEach(u => {
-                    const opt = document.createElement('option');
-                    opt.value = u.name; opt.innerText = `${u.name} [${u.role}]`;
-                    select.appendChild(opt);
-                });
-                select.value = currentVal;
+            const txt = document.getElementById('dm-input').value;
+            if (txt && currentDMId) {
+                socket.emit('privateMessage', { to: currentDMId, text: txt });
+                document.getElementById('dm-input').value = '';
             }
-            const listContainer = document.getElementById('user-list');
-            listContainer.innerHTML = '';
-            users.forEach(u => {
-                const div = document.createElement('div');
-                div.className = 'user-item';
-                let statusClass = 'status-chat';
-                let statusText = u.status || 'In Comms';
-                if(statusText.includes('Hub')) statusClass = 'status-hub';
-                if(statusText.includes('Deck')) statusClass = 'status-admin';
-                if(statusText.includes('Secure')) statusClass = 'status-dm';
-                
-                // Safe HTML Injection
-                div.innerHTML = `<div class="status-dot ${statusClass}"></div><div class="user-info-group"><span style="font-weight:bold; color:#e0e0e0;">${u.name}</span><span class="user-status-text">${statusText}</span></div>`;
-                listContainer.appendChild(div);
-            });
-            updateDMLobby(users);
-        });
-
-        function banUser() {
-            const targetName = document.getElementById('user-select').value;
-            if(targetName && confirm(`BAN ${targetName}?`)) socket.emit('adminAction', { type: 'ban_user', targetName: targetName });
         }
-        function banWord() {
-            const word = document.getElementById('ban-word-input').value.trim();
-            if(word) { socket.emit('adminAction', { type: 'ban_word', word: word }); document.getElementById('ban-word-input').value = ''; }
-        }
-        function sendAnnouncement() {
-            const text = document.getElementById('announce-input').value.trim();
-            if(text) { socket.emit('adminAction', { type: 'announce', text: text }); document.getElementById('announce-input').value = ''; }
-        }
-        socket.on('announcement', (data) => {
-            document.getElementById('announce-text').innerText = data.text;
-            document.getElementById('announce-sender').innerText = `Broadcast: ${data.sender}`;
-            document.getElementById('announcement-overlay').style.display = 'flex';
-        });
 
-        // --- Navigation ---
-        window.switchTab = function(tabName) {
-            document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-            let status = 'Unknown';
-            if(tabName === 'chat') { document.querySelectorAll('.nav-tab')[0].classList.add('active'); status = 'In Comms'; }
-            if(tabName === 'hub') { document.querySelectorAll('.nav-tab')[1].classList.add('active'); status = 'Exploring Hub'; }
-            if(tabName === 'dm') { document.getElementById('dm-tab').classList.add('active'); status = 'Secure Link'; }
-            if(tabName === 'admin') { document.getElementById('admin-tab').classList.add('active'); status = 'Command Deck'; }
-
-            document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
-            if(tabName === 'chat') document.getElementById('chat-view').classList.add('active');
-            if(tabName === 'hub') document.getElementById('hub-view').classList.add('active');
-            if(tabName === 'dm') document.getElementById('dm-view').classList.add('active');
-            if(tabName === 'admin') document.getElementById('admin-view').classList.add('active');
-
-            if(socket && myData) socket.emit('updateStatus', status);
+        // --- UTILS ---
+        function switchView(viewName) {
+            document.querySelectorAll('.view-panel').forEach(el => el.classList.remove('active'));
+            document.getElementById(`view-${viewName}`).classList.add('active');
+            
+            // Channel buttons only active in chat view
+            if (viewName !== 'bridge' && viewName !== 'holodeck' && viewName !== 'simulation') {
+                // Keeping visual state logic simple
+            }
         }
     </script>
 </body>
