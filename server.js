@@ -7,10 +7,14 @@ const app = express();
 const server = http.createServer(app);
 
 const io = new Server(server, {
-    cors: { origin: "*" },
+    cors: { origin: "*" }, // Allows connection from the about:blank cloak
     pingTimeout: 60000,
     pingInterval: 25000
 });
+
+// --- 1. SERVE STATIC FILES (THE FIX) ---
+// This tells the server to look in the 'public' folder for index.html
+app.use(express.static(path.join(__dirname, 'public')));
 
 // --- STATE ---
 const users = {};
@@ -31,11 +35,6 @@ function getTime() {
     return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-// Serve the index.html file
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
-});
-
 io.on('connection', (socket) => {
     const clientIp = getIp(socket);
 
@@ -45,6 +44,7 @@ io.on('connection', (socket) => {
         return;
     }
 
+    // --- LOGIN ---
     socket.on('join', (data) => {
         const name = (data.name || '').trim();
         if (!name || bannedUsernames.has(name.toLowerCase())) return socket.emit('loginError', 'Identity denied.');
@@ -66,6 +66,7 @@ io.on('connection', (socket) => {
         io.emit('message', { channel: 'general', user: 'SYSTEM', text: `${name} has connected.`, role: 'System', timestamp: getTime() });
     });
 
+    // --- CHAT & SPAM ---
     socket.on('chatMessage', (data) => {
         const user = users[socket.id];
         if (!user || !data.text.trim()) return;
