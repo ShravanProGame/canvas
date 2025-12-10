@@ -2,35 +2,31 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Classlink</title>
+    <title>System Gateway</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        /* --- LAUNCHER STYLES --- */
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; font-family: 'Courier New', Courier, monospace; overflow: hidden; color: #00ff00; }
-        
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; font-family: sans-serif; overflow: hidden; color: #fff; }
         #launcher-shield {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999;
             display: flex; flex-direction: column; justify-content: center; align-items: center;
-            background: #000;
-            cursor: pointer;
+            background: radial-gradient(circle at center, #1a1a1a 0%, #000000 100%);
         }
         .shield-btn {
-            padding: 20px 50px; font-size: 1.5rem; background: #000; color: #00ff00;
-            border: 2px solid #00ff00; border-radius: 5px; cursor: pointer; transition: 0.2s;
-            text-transform: uppercase; font-weight: bold; letter-spacing: 2px;
+            padding: 15px 40px; font-size: 1.2rem; background: transparent; color: #00ffff;
+            border: 2px solid #00ffff; border-radius: 30px; cursor: pointer; transition: 0.3s;
+            text-transform: uppercase; letter-spacing: 2px;
         }
-        .shield-btn:hover { background: #00ff00; color: #000; box-shadow: 0 0 20px #00ff00; }
-        
-        /* Hidden Payload Container */
+        .shield-btn:hover { background: #00ffff; color: #000; box-shadow: 0 0 20px #00ffff; }
+        /* Hide Payload */
         #payload-content { display: none; }
     </style>
 </head>
 <body>
 
-    <div id="launcher-shield" onclick="launchCloak()">
-        <h1 style="margin-bottom: 30px;">SECURE UPLINK</h1>
-        <button class="shield-btn">INITIALIZE</button>
-        <p style="margin-top: 20px; opacity: 0.7;">[ CLICK TO BYPASS ]</p>
+    <div id="launcher-shield">
+        <h2 style="color:#00ffff; margin-bottom:20px;">SECURE UPLINK</h2>
+        <button class="shield-btn" onclick="launchCloak()">ESTABLISH CONNECTION</button>
+        <p style="color:#666; font-size:0.8rem; margin-top:20px;">Launching in secure environment...</p>
     </div>
 
     <textarea id="payload-content">
@@ -42,13 +38,14 @@
             <style>
                 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Orbitron:wght@500;700&display=swap');
                 :root { --primary: #00eaff; --secondary: #7000ff; --bg: #05070a; --glass: rgba(20, 25, 35, 0.7); --border: rgba(255, 255, 255, 0.1); }
-                body { margin: 0; overflow: hidden; background: var(--bg); font-family: 'Inter', sans-serif; color: #eef2f5; }
+                body { margin: 0; overflow: hidden; background: var(--bg); font-family: 'Inter', sans-serif; color: #eef2f5; transition: 0.5s; }
                 body.fx-invert { filter: invert(1); } body.fx-flip { transform: rotate(180deg); }
                 body.fx-shake { animation: shake 0.1s infinite; } @keyframes shake { 0% { transform: translate(1px, 1px); } 50% { transform: translate(-1px, -2px); } }
                 #app { display: flex; width: 100vw; height: 100vh; flex-direction: column; background: radial-gradient(circle at 50% 50%, #1a1a2e 0%, #000 100%); }
                 .glass-panel { background: var(--glass); backdrop-filter: blur(12px); border: 1px solid var(--border); box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
                 .header { height: 60px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; background: rgba(0,0,0,0.3); }
                 .nav-btn { background: transparent; border: none; color: #889; padding: 10px 15px; cursor: pointer; font-family: 'Orbitron'; font-size: 0.8rem; transition: 0.3s; border-radius: 4px; }
+                .nav-btn:hover { color: white; background: rgba(255,255,255,0.05); }
                 .nav-btn.active { color: var(--primary); background: rgba(0, 234, 255, 0.1); box-shadow: 0 0 10px rgba(0, 234, 255, 0.2); }
                 .main-body { flex: 1; display: flex; overflow: hidden; padding: 20px; gap: 20px; }
                 .sidebar { width: 250px; display: flex; flex-direction: column; border-radius: 12px; padding: 15px; gap: 10px; }
@@ -185,7 +182,7 @@
                                 <div id="dm-list"></div>
                             </div>
                             <div style="flex:1; display:flex; flex-direction:column; background:rgba(0,0,0,0.2);">
-                                <div id="dm-header" style="padding:10px; border-bottom:1px solid var(--border); display:none;">LINKED</div>
+                                <div id="dm-header" style="padding:10px; border-bottom:1px solid var(--border); display:none; color:var(--secondary);">LINKED</div>
                                 <div id="dm-history" style="flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:10px;"></div>
                                 <div id="dm-typing" style="height:20px; font-size:0.7rem; color:var(--secondary); padding-left:20px;"></div>
                                 <div id="dm-input-box" class="input-area" style="display:none;">
@@ -197,13 +194,13 @@
                     </div>
                 </div>
             </div>
-            <script src="/socket.io/socket.io.js"><\/script>
+            <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"><\/script>
             <script>
-                // --- THE INITIALIZATION SCRIPT ---
-                const socket = io();
+                // CRITICAL: Connect back to the origin server!
+                const socket = io(window.SERVER_URL);
+                
                 let me = null; let curChan = 'general'; let selUser = null; let activeDMs = {}; let curDM = null; let typeTO;
 
-                // LOGIN
                 function login() {
                     const name = document.getElementById('u').value;
                     const pass = document.getElementById('p').value;
@@ -221,11 +218,7 @@
                     document.getElementById('my-role').innerText = me.role;
                 });
 
-                // CHAT
-                socket.on('message', m => {
-                    if(m.channel && m.channel !== curChan) return;
-                    renderMsg(m, 'chat-history');
-                });
+                socket.on('message', m => { if(m.channel && m.channel !== curChan) return; renderMsg(m, 'chat-history'); });
                 function renderMsg(m, divId) {
                     const d = document.createElement('div');
                     const isMe = me && m.user === me.name;
@@ -250,7 +243,6 @@
                 socket.on('userTyping', d => { if(d.channel === curChan) document.getElementById('typing').innerText = `${d.user} is typing...`; });
                 socket.on('userStopTyping', () => document.getElementById('typing').innerText = '');
 
-                // USERS & MENU
                 socket.on('userList', l => {
                     const list = document.getElementById('user-list');
                     list.innerHTML = '';
@@ -266,6 +258,7 @@
                         list.appendChild(el);
                     });
                 });
+
                 function openUserMenu(u) {
                     selUser = u;
                     document.getElementById('target-name').innerText = u.name;
@@ -274,7 +267,6 @@
                     if(me.role === 'Owner') document.getElementById('owner-opts').style.display='block';
                 }
 
-                // ACTIONS
                 function startDM() { socket.emit('dmRequest', selUser.id); closeModal('user-menu'); }
                 function adm(t) { socket.emit('adminAction', {type:t, targetId: selUser.id}); closeModal('user-menu'); }
                 function own(t, fx) {
@@ -298,7 +290,6 @@
                 function unban(ip) { socket.emit('ownerAction', {type:'unbanIP', ip}); }
                 socket.on('userDetails', u => alert(`IP: ${u.ip}\nID: ${u.id}\nStatus: ${u.status}`));
 
-                // DM
                 socket.on('incomingDMRequest', d => { if(confirm(`${d.name} wants to link.`)) socket.emit('dmAccepted', d.fromId); });
                 socket.on('dmStart', d => {
                     if(!activeDMs[d.withId]) activeDMs[d.withId] = {name: d.name, msgs: []};
@@ -330,10 +321,7 @@
                     const pid = m.fromId === socket.id ? curDM : m.fromId;
                     if(!activeDMs[pid] && m.fromId !== socket.id) activeDMs[m.fromId] = {name: m.name, msgs: []};
                     const target = activeDMs[pid];
-                    if(target) {
-                        target.msgs.push(m);
-                        if(curDM === pid) renderDmMsg(m);
-                    }
+                    if(target) { target.msgs.push(m); if(curDM === pid) renderDmMsg(m); }
                 });
                 function renderDmMsg(m) {
                     const d = document.createElement('div');
@@ -346,7 +334,6 @@
                     const t = document.getElementById('dm-in').value;
                     if(t && curDM) { socket.emit('privateMessage', {to: curDM, text: t}); document.getElementById('dm-in').value=''; }
                 }
-                // DM Typing
                 document.getElementById('dm-in').addEventListener('input', () => {
                     if(curDM) socket.emit('typing', {targetId: curDM});
                     clearTimeout(typeTO); typeTO = setTimeout(() => socket.emit('stopTyping', {targetId: curDM}), 1000);
@@ -355,7 +342,6 @@
                 socket.on('dmTyping', d => { if(curDM === d.fromId) document.getElementById('dm-typing').innerText = 'User is typing...'; });
                 socket.on('dmStopTyping', d => { if(curDM === d.fromId) document.getElementById('dm-typing').innerText = ''; });
 
-                // UTILS
                 function setView(v) { document.querySelectorAll('.view-panel').forEach(e=>e.classList.remove('active')); document.getElementById('view-'+v).classList.add('active'); }
                 function setChan(c) { curChan = c; document.getElementById('chat-history').innerHTML=''; socket.emit('switchChannel', c); setView('chat'); }
                 function closeModal(id) { document.getElementById(id).style.display='none'; }
@@ -378,10 +364,15 @@
             // 2. Get Payload
             const payload = document.getElementById('payload-content').value;
 
-            // 3. Inject Base Tag (CRITICAL FIX FOR "socket.io not found")
+            // 3. Inject Server URL + Base Tag
             const origin = window.location.origin;
+            // Inject a global variable before the HTML so the socket script finds it
+            const scriptInject = `<script>window.SERVER_URL = "${origin}";<\/script>`;
             const baseTag = `<base href="${origin}/">`;
-            const finalHTML = payload.replace('<head>', `<head>${baseTag}`);
+            
+            // Reconstruct HTML with injection
+            let finalHTML = payload.replace('<head>', `<head>${baseTag}`);
+            finalHTML = finalHTML.replace('<body>', `<body>${scriptInject}`);
 
             // 4. Write to window
             win.document.open();
