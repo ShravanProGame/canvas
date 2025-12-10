@@ -6,14 +6,14 @@ const path = require('path');
 const app = express();
 const server = http.createServer(app);
 
+// 1. Setup Socket with CORS for about:blank
 const io = new Server(server, {
-    cors: { origin: "*" }, // Allows connection from the about:blank cloak
+    cors: { origin: "*" },
     pingTimeout: 60000,
     pingInterval: 25000
 });
 
-// --- 1. SERVE STATIC FILES (THE FIX) ---
-// This tells the server to look in the 'public' folder for index.html
+// 2. Serve the 'public' folder
 app.use(express.static(path.join(__dirname, 'public')));
 
 // --- STATE ---
@@ -25,18 +25,14 @@ const spamMap = {};
 const serverStats = { startTime: Date.now(), totalMessages: 0 };
 const channelHistory = { 'general': [], 'gaming': [], 'memes': [] };
 
-function getIp(socket) {
-    const forwarded = socket.handshake.headers['x-forwarded-for'];
-    if (forwarded) return forwarded.split(',')[0].trim();
-    return socket.handshake.address;
-}
-
 function getTime() {
     return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
 io.on('connection', (socket) => {
-    const clientIp = getIp(socket);
+    // IP Check
+    const forwarded = socket.handshake.headers['x-forwarded-for'];
+    const clientIp = forwarded ? forwarded.split(',')[0].trim() : socket.handshake.address;
 
     if (bannedIPs.includes(clientIp)) {
         socket.emit('banAlert', 'TERMINAL LOCKED: IP BLACKLISTED.');
@@ -44,29 +40,51 @@ io.on('connection', (socket) => {
         return;
     }
 
-    // --- LOGIN ---
+    // Login Logic
     socket.on('join', (data) => {
         const name = (data.name || '').trim();
-        if (!name || bannedUsernames.has(name.toLowerCase())) return socket.emit('loginError', 'Identity denied.');
-        if (Object.values(users).some(u => u.name.toLowerCase() === name.toLowerCase())) return socket.emit('loginError', 'Identity active.');
+        
+        // Validation
+        if (!name) return socket.emit('loginError', 'Identity required.');
+        if (bannedUsernames.has(name.toLowerCase())) return socket.emit('loginError', 'Identity banned.');
+        if (Object.values(users).some(u => u.name.toLowerCase() === name.toLowerCase())) {
+            return socket.emit('loginError', 'Identity already active.');
+        }
 
+        // Role Logic
         let role = 'User';
         if (data.password === 'owner999') role = 'Owner';
         else if (data.password === 'admin123') role = 'Admin';
         else if (data.password === 'very-important-person') role = 'VIP';
 
-        users[socket.id] = { id: socket.id, name: name, role: role, ip: clientIp, isMuted: false, timeoutUntil: null, status: 'Online' };
-        spamMap[socket.id] = { count: 0, lastMsg: Date.now() };
-
+        // Save User
+        users[socket.id] = { 
+            id: socket.id, 
+            name: name, 
+            role: role, 
+            ip: clientIp, 
+            isMuted: false, 
+            timeoutUntil: null, 
+            status: 'Online' 
+        };
+        
+        // Success Response
         socket.emit('loginSuccess', { user: users[socket.id] });
         socket.emit('loadHistory', channelHistory['general']);
+        
         if (role === 'Owner') socket.emit('ownerData', { bannedIPs, bannedWords, stats: getStats() });
         io.emit('userList', Object.values(users));
         
-        io.emit('message', { channel: 'general', user: 'SYSTEM', text: `${name} has connected.`, role: 'System', timestamp: getTime() });
+        io.emit('message', {
+            channel: 'general',
+            user: 'SYSTEM',
+            text: `${name} has connected.`,
+            role: 'System',
+            timestamp: getTime()
+        });
     });
 
-    // --- CHAT & SPAM ---
+    // Chat & Spam Logic
     socket.on('chatMessage', (data) => {
         const user = users[socket.id];
         if (!user || !data.text.trim()) return;
@@ -77,8 +95,11 @@ io.on('connection', (socket) => {
             else user.timeoutUntil = null;
         }
 
+        // Anti-Spam
         const now = Date.now();
+        if (!spamMap[socket.id]) spamMap[socket.id] = { count: 0, lastMsg: now };
         const spam = spamMap[socket.id];
+        
         if (now - spam.lastMsg < 2000) spam.count++; else spam.count = 1;
         spam.lastMsg = now;
 
@@ -97,6 +118,7 @@ io.on('connection', (socket) => {
         });
 
         const msgObj = { user: user.name, text: finalText, role: user.role, channel: data.channel, timestamp: getTime() };
+        
         if (channelHistory[data.channel]) {
             channelHistory[data.channel].push(msgObj);
             if (channelHistory[data.channel].length > 50) channelHistory[data.channel].shift();
@@ -104,20 +126,22 @@ io.on('connection', (socket) => {
         io.emit('message', msgObj);
     });
 
+    // Other events (Typing, DMs, Admin, Owner)
     socket.on('typing', (data) => {
         const user = users[socket.id];
-        if(!user) return;
-        if (data.targetId) io.to(data.targetId).emit('dmTyping', { fromId: socket.id });
-        else socket.broadcast.emit('userTyping', { user: user.name, channel: data.channel });
+        if (user) {
+            if (data.targetId) io.to(data.targetId).emit('dmTyping', { fromId: socket.id });
+            else socket.broadcast.emit('userTyping', { user: user.name, channel: data.channel });
+        }
     });
-
+    
     socket.on('stopTyping', (data) => {
         if (data.targetId) io.to(data.targetId).emit('dmStopTyping', { fromId: socket.id });
         else socket.broadcast.emit('userStopTyping', { channel: data.channel });
     });
 
-    socket.on('switchChannel', (channel) => {
-        if (channelHistory[channel]) socket.emit('loadHistory', channelHistory[channel]);
+    socket.on('switchChannel', (c) => {
+        if (channelHistory[c]) socket.emit('loadHistory', channelHistory[c]);
     });
 
     socket.on('dmRequest', (targetId) => {
