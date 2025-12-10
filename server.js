@@ -6,14 +6,13 @@ const path = require('path');
 const app = express();
 const server = http.createServer(app);
 
-// 1. Setup Socket with CORS for about:blank
 const io = new Server(server, {
     cors: { origin: "*" },
     pingTimeout: 60000,
     pingInterval: 25000
 });
 
-// 2. Serve the 'public' folder
+// Serve the 'public' folder
 app.use(express.static(path.join(__dirname, 'public')));
 
 // --- STATE ---
@@ -30,7 +29,6 @@ function getTime() {
 }
 
 io.on('connection', (socket) => {
-    // IP Check
     const forwarded = socket.handshake.headers['x-forwarded-for'];
     const clientIp = forwarded ? forwarded.split(',')[0].trim() : socket.handshake.address;
 
@@ -40,51 +38,30 @@ io.on('connection', (socket) => {
         return;
     }
 
-    // Login Logic
     socket.on('join', (data) => {
         const name = (data.name || '').trim();
         
-        // Validation
         if (!name) return socket.emit('loginError', 'Identity required.');
         if (bannedUsernames.has(name.toLowerCase())) return socket.emit('loginError', 'Identity banned.');
         if (Object.values(users).some(u => u.name.toLowerCase() === name.toLowerCase())) {
             return socket.emit('loginError', 'Identity already active.');
         }
 
-        // Role Logic
         let role = 'User';
         if (data.password === 'owner999') role = 'Owner';
         else if (data.password === 'admin123') role = 'Admin';
         else if (data.password === 'very-important-person') role = 'VIP';
 
-        // Save User
-        users[socket.id] = { 
-            id: socket.id, 
-            name: name, 
-            role: role, 
-            ip: clientIp, 
-            isMuted: false, 
-            timeoutUntil: null, 
-            status: 'Online' 
-        };
-        
-        // Success Response
+        users[socket.id] = { id: socket.id, name: name, role: role, ip: clientIp, isMuted: false, timeoutUntil: null, status: 'Online' };
+        spamMap[socket.id] = { count: 0, lastMsg: Date.now() };
+
         socket.emit('loginSuccess', { user: users[socket.id] });
         socket.emit('loadHistory', channelHistory['general']);
-        
         if (role === 'Owner') socket.emit('ownerData', { bannedIPs, bannedWords, stats: getStats() });
         io.emit('userList', Object.values(users));
-        
-        io.emit('message', {
-            channel: 'general',
-            user: 'SYSTEM',
-            text: `${name} has connected.`,
-            role: 'System',
-            timestamp: getTime()
-        });
+        io.emit('message', { channel: 'general', user: 'SYSTEM', text: `${name} has connected.`, role: 'System', timestamp: getTime() });
     });
 
-    // Chat & Spam Logic
     socket.on('chatMessage', (data) => {
         const user = users[socket.id];
         if (!user || !data.text.trim()) return;
@@ -95,7 +72,6 @@ io.on('connection', (socket) => {
             else user.timeoutUntil = null;
         }
 
-        // Anti-Spam
         const now = Date.now();
         if (!spamMap[socket.id]) spamMap[socket.id] = { count: 0, lastMsg: now };
         const spam = spamMap[socket.id];
@@ -118,7 +94,6 @@ io.on('connection', (socket) => {
         });
 
         const msgObj = { user: user.name, text: finalText, role: user.role, channel: data.channel, timestamp: getTime() };
-        
         if (channelHistory[data.channel]) {
             channelHistory[data.channel].push(msgObj);
             if (channelHistory[data.channel].length > 50) channelHistory[data.channel].shift();
@@ -126,23 +101,19 @@ io.on('connection', (socket) => {
         io.emit('message', msgObj);
     });
 
-    // Other events (Typing, DMs, Admin, Owner)
     socket.on('typing', (data) => {
         const user = users[socket.id];
-        if (user) {
-            if (data.targetId) io.to(data.targetId).emit('dmTyping', { fromId: socket.id });
-            else socket.broadcast.emit('userTyping', { user: user.name, channel: data.channel });
-        }
+        if(!user) return;
+        if (data.targetId) io.to(data.targetId).emit('dmTyping', { fromId: socket.id });
+        else socket.broadcast.emit('userTyping', { user: user.name, channel: data.channel });
     });
-    
+
     socket.on('stopTyping', (data) => {
         if (data.targetId) io.to(data.targetId).emit('dmStopTyping', { fromId: socket.id });
         else socket.broadcast.emit('userStopTyping', { channel: data.channel });
     });
 
-    socket.on('switchChannel', (c) => {
-        if (channelHistory[c]) socket.emit('loadHistory', channelHistory[c]);
-    });
+    socket.on('switchChannel', (c) => { if (channelHistory[c]) socket.emit('loadHistory', channelHistory[c]); });
 
     socket.on('dmRequest', (targetId) => {
         const sender = users[socket.id];
@@ -225,4 +196,4 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => { delete users[socket.id]; io.emit('userList', Object.values(users)); });
 });
 
-server.listen(3000, () => { console.log('Server Online on Port 3000'); });
+server.listen(3000, () => { console.log('Server Online: http://localhost:3000'); });
