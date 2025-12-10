@@ -6,16 +6,17 @@ const path = require('path');
 const app = express();
 const server = http.createServer(app);
 
+// Enable CORS so the 'about:blank' window can connect
 const io = new Server(server, {
     cors: { origin: "*" },
     pingTimeout: 60000,
     pingInterval: 25000
 });
 
-// Serve the 'public' folder
+// Serve files from the 'public' folder
 app.use(express.static(path.join(__dirname, 'public')));
 
-// --- STATE ---
+// --- DATA STORE ---
 const users = {};
 let bannedIPs = []; 
 const bannedUsernames = new Set();
@@ -29,39 +30,53 @@ function getTime() {
 }
 
 io.on('connection', (socket) => {
+    // Basic IP Handling
     const forwarded = socket.handshake.headers['x-forwarded-for'];
     const clientIp = forwarded ? forwarded.split(',')[0].trim() : socket.handshake.address;
 
+    // Check Ban
     if (bannedIPs.includes(clientIp)) {
         socket.emit('banAlert', 'TERMINAL LOCKED: IP BLACKLISTED.');
         socket.disconnect(true);
         return;
     }
 
+    console.log(`Connection attempt: ${socket.id}`);
+
+    // --- LOGIN LOGIC ---
     socket.on('join', (data) => {
         const name = (data.name || '').trim();
         
         if (!name) return socket.emit('loginError', 'Identity required.');
         if (bannedUsernames.has(name.toLowerCase())) return socket.emit('loginError', 'Identity banned.');
-        if (Object.values(users).some(u => u.name.toLowerCase() === name.toLowerCase())) {
-            return socket.emit('loginError', 'Identity already active.');
-        }
+        
+        // Duplicate check
+        const isDuplicate = Object.values(users).some(u => u.name.toLowerCase() === name.toLowerCase());
+        if (isDuplicate) return socket.emit('loginError', 'Identity already active.');
 
+        // Role Check
         let role = 'User';
         if (data.password === 'owner999') role = 'Owner';
         else if (data.password === 'admin123') role = 'Admin';
         else if (data.password === 'very-important-person') role = 'VIP';
 
+        // Create User
         users[socket.id] = { id: socket.id, name: name, role: role, ip: clientIp, isMuted: false, timeoutUntil: null, status: 'Online' };
         spamMap[socket.id] = { count: 0, lastMsg: Date.now() };
 
+        // Send success to client
         socket.emit('loginSuccess', { user: users[socket.id] });
         socket.emit('loadHistory', channelHistory['general']);
+        
+        // If Owner, send admin data
         if (role === 'Owner') socket.emit('ownerData', { bannedIPs, bannedWords, stats: getStats() });
+
+        // Broadcast join
         io.emit('userList', Object.values(users));
         io.emit('message', { channel: 'general', user: 'SYSTEM', text: `${name} has connected.`, role: 'System', timestamp: getTime() });
     });
 
+    // --- CHAT LOGIC ---
     socket.on('chatMessage', (data) => {
         const user = users[socket.id];
         if (!user || !data.text.trim()) return;
@@ -69,19 +84,20 @@ io.on('connection', (socket) => {
         if (user.isMuted) return socket.emit('sysErr', 'You are muted.');
         if (user.timeoutUntil) {
             if (Date.now() < user.timeoutUntil) return socket.emit('sysErr', `Timed out.`);
-            else user.timeoutUntil = null;
+            user.timeoutUntil = null;
         }
 
+        // Anti-Spam
         const now = Date.now();
         if (!spamMap[socket.id]) spamMap[socket.id] = { count: 0, lastMsg: now };
-        const spam = spamMap[socket.id];
         
-        if (now - spam.lastMsg < 2000) spam.count++; else spam.count = 1;
-        spam.lastMsg = now;
+        if (now - spamMap[socket.id].lastMsg < 2000) spamMap[socket.id].count++;
+        else spamMap[socket.id].count = 1;
+        spamMap[socket.id].lastMsg = now;
 
-        if (spam.count > 5) {
+        if (spamMap[socket.id].count > 5) {
             user.timeoutUntil = Date.now() + 30000;
-            spam.count = 0;
+            spamMap[socket.id].count = 0;
             io.to(socket.id).emit('sysErr', 'ANTI-SPAM: Timed out for 30s.');
             return;
         }
@@ -94,6 +110,7 @@ io.on('connection', (socket) => {
         });
 
         const msgObj = { user: user.name, text: finalText, role: user.role, channel: data.channel, timestamp: getTime() };
+        
         if (channelHistory[data.channel]) {
             channelHistory[data.channel].push(msgObj);
             if (channelHistory[data.channel].length > 50) channelHistory[data.channel].shift();
@@ -101,41 +118,7 @@ io.on('connection', (socket) => {
         io.emit('message', msgObj);
     });
 
-    socket.on('typing', (data) => {
-        const user = users[socket.id];
-        if(!user) return;
-        if (data.targetId) io.to(data.targetId).emit('dmTyping', { fromId: socket.id });
-        else socket.broadcast.emit('userTyping', { user: user.name, channel: data.channel });
-    });
-
-    socket.on('stopTyping', (data) => {
-        if (data.targetId) io.to(data.targetId).emit('dmStopTyping', { fromId: socket.id });
-        else socket.broadcast.emit('userStopTyping', { channel: data.channel });
-    });
-
-    socket.on('switchChannel', (c) => { if (channelHistory[c]) socket.emit('loadHistory', channelHistory[c]); });
-
-    socket.on('dmRequest', (targetId) => {
-        const sender = users[socket.id];
-        if (users[targetId]) io.to(targetId).emit('incomingDMRequest', { fromId: socket.id, name: sender.name });
-    });
-    socket.on('dmAccepted', (targetId) => {
-        const me = users[socket.id];
-        const them = users[targetId];
-        if (me && them) {
-            io.to(targetId).emit('dmStart', { withId: socket.id, name: me.name });
-            socket.emit('dmStart', { withId: targetId, name: them.name });
-        }
-    });
-    socket.on('privateMessage', ({ to, text }) => {
-        const sender = users[socket.id];
-        if (users[to]) {
-            const msgData = { fromId: socket.id, name: sender.name, text, timestamp: getTime() };
-            io.to(to).emit('privateMsgReceive', msgData);
-            socket.emit('privateMsgReceive', msgData);
-        }
-    });
-
+    // --- OWNER/ADMIN ACTIONS ---
     socket.on('adminAction', (data) => {
         const admin = users[socket.id];
         if (!admin || (admin.role !== 'Admin' && admin.role !== 'Owner')) return;
@@ -185,6 +168,7 @@ io.on('connection', (socket) => {
         }
     });
 
+    // --- HELPERS ---
     function getStats() {
         return { uptime: Math.floor((Date.now() - serverStats.startTime) / 1000), totalMsg: serverStats.totalMessages, userCount: Object.keys(users).length };
     }
@@ -196,4 +180,4 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => { delete users[socket.id]; io.emit('userList', Object.values(users)); });
 });
 
-server.listen(3000, () => { console.log('Server Online: http://localhost:3000'); });
+server.listen(3000, () => { console.log('Server Online on Port 3000'); });
