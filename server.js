@@ -56,8 +56,8 @@ io.on('connection', (socket) => {
         }
 
         let role = 'User';
-        if (data.password === 'owner999') role = 'Owner';
-        else if (data.password === 'admin123') role = 'Admin';
+        if (data.password === '10owna12') role = 'Owner';
+        else if (data.password === 'thebestadminever67') role = 'Admin';
         else if (data.password === 'very-important-person') role = 'VIP';
 
         users[socket.id] = {
