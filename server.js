@@ -215,4 +215,3 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => { delete users[socket.id]; io.emit('userList', Object.values(users)); });
 });
 
-server.listen(3000, () => { console.log('Server Online: http://localhost:3000'); });
