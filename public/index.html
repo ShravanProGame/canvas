@@ -2,37 +2,38 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>System Gateway</title>
+    <title>Classlink</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         /* --- LAUNCHER STYLES --- */
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; font-family: sans-serif; overflow: hidden; color: #fff; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; font-family: 'Courier New', Courier, monospace; overflow: hidden; color: #00ff00; }
         
         #launcher-shield {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999;
             display: flex; flex-direction: column; justify-content: center; align-items: center;
-            background: radial-gradient(circle at center, #1a1a1a 0%, #000000 100%);
+            background: #000;
+            cursor: pointer;
         }
         .shield-btn {
-            padding: 15px 40px; font-size: 1.2rem; background: transparent; color: #00ffff;
-            border: 2px solid #00ffff; border-radius: 30px; cursor: pointer; transition: 0.3s;
-            text-transform: uppercase; letter-spacing: 2px;
+            padding: 20px 50px; font-size: 1.5rem; background: #000; color: #00ff00;
+            border: 2px solid #00ff00; border-radius: 5px; cursor: pointer; transition: 0.2s;
+            text-transform: uppercase; font-weight: bold; letter-spacing: 2px;
         }
-        .shield-btn:hover { background: #00ffff; color: #000; box-shadow: 0 0 20px #00ffff; }
-
-        /* --- PAYLOAD TEMPLATE --- */
-        #payload-template { display: none; }
+        .shield-btn:hover { background: #00ff00; color: #000; box-shadow: 0 0 20px #00ff00; }
+        
+        /* Hidden Payload Container */
+        #payload-content { display: none; }
     </style>
 </head>
 <body>
 
-    <div id="launcher-shield">
-        <h2 style="color:#00ffff; margin-bottom:20px;">SECURE UPLINK GATEWAY</h2>
-        <button class="shield-btn" onclick="launchCloak()">ESTABLISH CONNECTION</button>
-        <p style="color:#666; font-size:0.8rem; margin-top:20px;">Launching in secure environment (about:blank)</p>
+    <div id="launcher-shield" onclick="launchCloak()">
+        <h1 style="margin-bottom: 30px;">SECURE UPLINK</h1>
+        <button class="shield-btn">INITIALIZE</button>
+        <p style="margin-top: 20px; opacity: 0.7;">[ CLICK TO BYPASS ]</p>
     </div>
 
-    <template id="payload-template">
+    <textarea id="payload-content">
         <!DOCTYPE html>
         <html>
         <head>
@@ -40,30 +41,20 @@
             <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
             <style>
                 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Orbitron:wght@500;700&display=swap');
-                
                 :root { --primary: #00eaff; --secondary: #7000ff; --bg: #05070a; --glass: rgba(20, 25, 35, 0.7); --border: rgba(255, 255, 255, 0.1); }
-                
-                body { margin: 0; overflow: hidden; background: var(--bg); font-family: 'Inter', sans-serif; color: #eef2f5; transition: 0.5s; }
-                
+                body { margin: 0; overflow: hidden; background: var(--bg); font-family: 'Inter', sans-serif; color: #eef2f5; }
                 body.fx-invert { filter: invert(1); } body.fx-flip { transform: rotate(180deg); }
                 body.fx-shake { animation: shake 0.1s infinite; } @keyframes shake { 0% { transform: translate(1px, 1px); } 50% { transform: translate(-1px, -2px); } }
-
                 #app { display: flex; width: 100vw; height: 100vh; flex-direction: column; background: radial-gradient(circle at 50% 50%, #1a1a2e 0%, #000 100%); }
-                
                 .glass-panel { background: var(--glass); backdrop-filter: blur(12px); border: 1px solid var(--border); box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
-                
                 .header { height: 60px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; background: rgba(0,0,0,0.3); }
                 .nav-btn { background: transparent; border: none; color: #889; padding: 10px 15px; cursor: pointer; font-family: 'Orbitron'; font-size: 0.8rem; transition: 0.3s; border-radius: 4px; }
-                .nav-btn:hover { color: white; background: rgba(255,255,255,0.05); }
                 .nav-btn.active { color: var(--primary); background: rgba(0, 234, 255, 0.1); box-shadow: 0 0 10px rgba(0, 234, 255, 0.2); }
-
                 .main-body { flex: 1; display: flex; overflow: hidden; padding: 20px; gap: 20px; }
                 .sidebar { width: 250px; display: flex; flex-direction: column; border-radius: 12px; padding: 15px; gap: 10px; }
                 .content { flex: 1; display: flex; flex-direction: column; border-radius: 12px; overflow: hidden; position: relative; }
-                
                 .view-panel { display: none; flex: 1; flex-direction: column; }
                 .view-panel.active { display: flex; }
-
                 #chat-history { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
                 .msg-row { display: flex; flex-direction: column; max-width: 75%; animation: pop 0.2s ease; }
                 @keyframes pop { from{transform:scale(0.95); opacity:0;} to{transform:scale(1); opacity:1;} }
@@ -72,22 +63,18 @@
                 .msg-row.mine .msg-bubble { background: linear-gradient(135deg, var(--secondary), #5000cc); color: white; border-bottom-right-radius: 2px; }
                 .msg-row.theirs .msg-bubble { background: rgba(255,255,255,0.1); border-bottom-left-radius: 2px; }
                 .msg-info { font-size: 0.7rem; color: #889; margin-bottom: 4px; }
-
                 .input-area { padding: 15px; background: rgba(0,0,0,0.2); display: flex; gap: 10px; align-items: center; }
                 input { flex: 1; background: rgba(0,0,0,0.4); border: 1px solid var(--border); color: white; padding: 12px; border-radius: 8px; outline: none; font-family: 'Inter'; }
                 input:focus { border-color: var(--primary); }
                 .send-btn { background: var(--primary); color: #000; border: none; padding: 0 20px; border-radius: 8px; font-weight: bold; cursor: pointer; height: 40px; font-family: 'Orbitron'; }
-
                 .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 2000; display: none; justify-content: center; align-items: center; backdrop-filter: blur(5px); }
                 .modal-box { background: #151a25; border: 1px solid var(--border); padding: 30px; width: 400px; border-radius: 16px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); text-align: center; }
                 .act-btn { width: 100%; padding: 10px; margin-top: 5px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: #ccc; cursor: pointer; border-radius: 6px; }
                 .act-btn:hover { background: rgba(255,255,255,0.1); color: white; }
-
                 .dm-sidebar { width: 200px; background: rgba(0,0,0,0.2); border-right: 1px solid var(--border); overflow-y: auto; }
                 .dm-btn { padding: 15px; border-bottom: 1px solid var(--border); cursor: pointer; color: #aaa; transition: 0.2s; }
                 .dm-btn:hover { background: rgba(255,255,255,0.05); color: white; }
                 .dm-btn.selected { border-left: 3px solid var(--secondary); background: rgba(112, 0, 255, 0.1); color: var(--secondary); }
-
                 .user-card { padding: 10px; background: rgba(255,255,255,0.03); border-radius: 6px; display: flex; align-items: center; gap: 10px; cursor: pointer; margin-bottom: 5px; }
                 .user-card:hover { background: rgba(255,255,255,0.08); }
                 .status-dot { width: 8px; height: 8px; border-radius: 50%; }
@@ -103,7 +90,6 @@
                     <div id="login-err" style="color:#ff4444; font-size:0.8rem; margin-top:10px;"></div>
                 </div>
             </div>
-
             <div id="user-menu" class="modal">
                 <div class="modal-box">
                     <h3 id="target-name" style="color:var(--primary); font-family:'Orbitron';">USER</h3>
@@ -127,7 +113,6 @@
                     <button class="act-btn" style="margin-top:15px;" onclick="closeModal('user-menu')">CLOSE</button>
                 </div>
             </div>
-
             <div id="owner-panel" class="modal">
                 <div class="modal-box" style="width:500px;">
                     <h2 style="font-family:'Orbitron'; color:var(--primary);">OVERSEER</h2>
@@ -154,7 +139,6 @@
                     <button class="act-btn" onclick="closeModal('owner-panel')">CLOSE</button>
                 </div>
             </div>
-
             <div id="app" style="display:none;">
                 <div class="header glass-panel">
                     <div>
@@ -167,7 +151,6 @@
                         <button class="nav-btn" onclick="setView('dm')">SECURE</button>
                     </div>
                 </div>
-
                 <div class="main-body">
                     <div class="sidebar glass-panel">
                         <div style="font-family:'Orbitron'; color:var(--primary); margin-bottom:10px;">AGENTS</div>
@@ -180,7 +163,6 @@
                             </div>
                         </div>
                     </div>
-
                     <div class="content glass-panel">
                         <div id="view-chat" class="view-panel active">
                             <div id="chat-history"></div>
@@ -203,7 +185,7 @@
                                 <div id="dm-list"></div>
                             </div>
                             <div style="flex:1; display:flex; flex-direction:column; background:rgba(0,0,0,0.2);">
-                                <div id="dm-header" style="padding:10px; border-bottom:1px solid var(--border); display:none; color:var(--secondary);">LINKED</div>
+                                <div id="dm-header" style="padding:10px; border-bottom:1px solid var(--border); display:none;">LINKED</div>
                                 <div id="dm-history" style="flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:10px;"></div>
                                 <div id="dm-typing" style="height:20px; font-size:0.7rem; color:var(--secondary); padding-left:20px;"></div>
                                 <div id="dm-input-box" class="input-area" style="display:none;">
@@ -215,14 +197,13 @@
                     </div>
                 </div>
             </div>
-
-            <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"><\/script>
+            <script src="/socket.io/socket.io.js"><\/script>
             <script>
-                // --- CONFIGURATION ---
-                const SERVER = 'http://localhost:3000'; // CHANGE THIS TO YOUR SERVER URL ON RENDER
-                const socket = io(SERVER);
+                // --- THE INITIALIZATION SCRIPT ---
+                const socket = io();
                 let me = null; let curChan = 'general'; let selUser = null; let activeDMs = {}; let curDM = null; let typeTO;
 
+                // LOGIN
                 function login() {
                     const name = document.getElementById('u').value;
                     const pass = document.getElementById('p').value;
@@ -240,7 +221,11 @@
                     document.getElementById('my-role').innerText = me.role;
                 });
 
-                socket.on('message', m => { if(m.channel && m.channel !== curChan) return; renderMsg(m, 'chat-history'); });
+                // CHAT
+                socket.on('message', m => {
+                    if(m.channel && m.channel !== curChan) return;
+                    renderMsg(m, 'chat-history');
+                });
                 function renderMsg(m, divId) {
                     const d = document.createElement('div');
                     const isMe = me && m.user === me.name;
@@ -265,6 +250,7 @@
                 socket.on('userTyping', d => { if(d.channel === curChan) document.getElementById('typing').innerText = `${d.user} is typing...`; });
                 socket.on('userStopTyping', () => document.getElementById('typing').innerText = '');
 
+                // USERS & MENU
                 socket.on('userList', l => {
                     const list = document.getElementById('user-list');
                     list.innerHTML = '';
@@ -280,7 +266,6 @@
                         list.appendChild(el);
                     });
                 });
-
                 function openUserMenu(u) {
                     selUser = u;
                     document.getElementById('target-name').innerText = u.name;
@@ -289,6 +274,7 @@
                     if(me.role === 'Owner') document.getElementById('owner-opts').style.display='block';
                 }
 
+                // ACTIONS
                 function startDM() { socket.emit('dmRequest', selUser.id); closeModal('user-menu'); }
                 function adm(t) { socket.emit('adminAction', {type:t, targetId: selUser.id}); closeModal('user-menu'); }
                 function own(t, fx) {
@@ -312,8 +298,12 @@
                 function unban(ip) { socket.emit('ownerAction', {type:'unbanIP', ip}); }
                 socket.on('userDetails', u => alert(`IP: ${u.ip}\nID: ${u.id}\nStatus: ${u.status}`));
 
+                // DM
                 socket.on('incomingDMRequest', d => { if(confirm(`${d.name} wants to link.`)) socket.emit('dmAccepted', d.fromId); });
-                socket.on('dmStart', d => { if(!activeDMs[d.withId]) activeDMs[d.withId] = {name: d.name, msgs: []}; openDM(d.withId); });
+                socket.on('dmStart', d => {
+                    if(!activeDMs[d.withId]) activeDMs[d.withId] = {name: d.name, msgs: []};
+                    openDM(d.withId);
+                });
                 function openDM(id) {
                     curDM = id;
                     const h = document.getElementById('dm-history');
@@ -340,7 +330,10 @@
                     const pid = m.fromId === socket.id ? curDM : m.fromId;
                     if(!activeDMs[pid] && m.fromId !== socket.id) activeDMs[m.fromId] = {name: m.name, msgs: []};
                     const target = activeDMs[pid];
-                    if(target) { target.msgs.push(m); if(curDM === pid) renderDmMsg(m); }
+                    if(target) {
+                        target.msgs.push(m);
+                        if(curDM === pid) renderDmMsg(m);
+                    }
                 });
                 function renderDmMsg(m) {
                     const d = document.createElement('div');
@@ -353,6 +346,7 @@
                     const t = document.getElementById('dm-in').value;
                     if(t && curDM) { socket.emit('privateMessage', {to: curDM, text: t}); document.getElementById('dm-in').value=''; }
                 }
+                // DM Typing
                 document.getElementById('dm-in').addEventListener('input', () => {
                     if(curDM) socket.emit('typing', {targetId: curDM});
                     clearTimeout(typeTO); typeTO = setTimeout(() => socket.emit('stopTyping', {targetId: curDM}), 1000);
@@ -361,6 +355,7 @@
                 socket.on('dmTyping', d => { if(curDM === d.fromId) document.getElementById('dm-typing').innerText = 'User is typing...'; });
                 socket.on('dmStopTyping', d => { if(curDM === d.fromId) document.getElementById('dm-typing').innerText = ''; });
 
+                // UTILS
                 function setView(v) { document.querySelectorAll('.view-panel').forEach(e=>e.classList.remove('active')); document.getElementById('view-'+v).classList.add('active'); }
                 function setChan(c) { curChan = c; document.getElementById('chat-history').innerHTML=''; socket.emit('switchChannel', c); setView('chat'); }
                 function closeModal(id) { document.getElementById(id).style.display='none'; }
@@ -372,16 +367,28 @@
             <\/script>
         </body>
         </html>
-    </template>
+    </textarea>
 
     <script>
         function launchCloak() {
+            // 1. Open new window
             const win = window.open('about:blank', '_blank');
-            if(!win) { alert("Enable Popups for this file."); return; }
-            const payload = document.getElementById('payload-template').innerHTML;
-            win.document.write(payload);
+            if(!win) { alert("Enable Popups for this site."); return; }
+
+            // 2. Get Payload
+            const payload = document.getElementById('payload-content').value;
+
+            // 3. Inject Base Tag (CRITICAL FIX FOR "socket.io not found")
+            const origin = window.location.origin;
+            const baseTag = `<base href="${origin}/">`;
+            const finalHTML = payload.replace('<head>', `<head>${baseTag}`);
+
+            // 4. Write to window
+            win.document.open();
+            win.document.write(finalHTML);
             win.document.close();
-            // Redirect this tab to ClassLink
+
+            // 5. Redirect main tab
             window.location.replace("https://myapps.classlink.com/home");
         }
     </script>
