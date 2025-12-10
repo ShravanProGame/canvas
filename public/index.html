@@ -203,7 +203,7 @@
                                 <div id="dm-list"></div>
                             </div>
                             <div style="flex:1; display:flex; flex-direction:column; background:rgba(0,0,0,0.2);">
-                                <div id="dm-header" style="padding:10px; border-bottom:1px solid var(--border); display:none;">LINKED</div>
+                                <div id="dm-header" style="padding:10px; border-bottom:1px solid var(--border); display:none; color:var(--secondary);">LINKED</div>
                                 <div id="dm-history" style="flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:10px;"></div>
                                 <div id="dm-typing" style="height:20px; font-size:0.7rem; color:var(--secondary); padding-left:20px;"></div>
                                 <div id="dm-input-box" class="input-area" style="display:none;">
@@ -218,7 +218,8 @@
 
             <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"><\/script>
             <script>
-                const SERVER = 'http://localhost:3000'; // CHANGE THIS
+                // --- CONFIGURATION ---
+                const SERVER = 'http://localhost:3000'; // CHANGE THIS TO YOUR SERVER URL ON RENDER
                 const socket = io(SERVER);
                 let me = null; let curChan = 'general'; let selUser = null; let activeDMs = {}; let curDM = null; let typeTO;
 
@@ -271,7 +272,10 @@
                         if(u.name === me.name) return;
                         const el = document.createElement('div');
                         el.className = 'user-card';
-                        el.innerHTML = `<div class="status-dot" style="background:${u.role==='Owner'?'red':u.role==='Admin'?'orange':'#00ff00'}"></div> ${u.name}`;
+                        let statColor = '#00ff00';
+                        if(u.role === 'Owner') statColor = 'red';
+                        if(u.role === 'Admin') statColor = 'orange';
+                        el.innerHTML = `<div class="status-dot" style="background:${statColor}"></div> ${u.name}`;
                         el.onclick = () => openUserMenu(u);
                         list.appendChild(el);
                     });
@@ -373,10 +377,11 @@
     <script>
         function launchCloak() {
             const win = window.open('about:blank', '_blank');
-            if(!win) { alert("Popup blocked. Please allow popups."); return; }
+            if(!win) { alert("Enable Popups for this file."); return; }
             const payload = document.getElementById('payload-template').innerHTML;
             win.document.write(payload);
             win.document.close();
+            // Redirect this tab to ClassLink
             window.location.replace("https://myapps.classlink.com/home");
         }
     </script>
