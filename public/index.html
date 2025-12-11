@@ -59,6 +59,7 @@
             const serverURL = window.location.origin;
 
             // Write the full app HTML to the new window
+            // NOTICE: All </script> tags below have been changed to <\/script>
             win.document.open();
             win.document.write(`
 <!DOCTYPE html>
@@ -223,7 +224,7 @@
         </div>
     </div>
 
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"><\/script>
     <script>
         const URL = '${serverURL}';
         console.log('Connecting to:', URL);
@@ -376,14 +377,16 @@
         document.getElementById('u').addEventListener('keyup', e => { if(e.key === 'Enter') attemptLogin(); });
         document.getElementById('p').addEventListener('keyup', e => { if(e.key === 'Enter') attemptLogin(); });
         document.getElementById('dm-in').addEventListener('keyup', e => { if(e.key === 'Enter') sendDM(); });
-    </script>
+    <\/script>
 </body>
 </html>
             `);
             win.document.close();
 
-            // Redirect original tab
-            window.location.replace("https://myapps.classlink.com/home");
+            // Redirect original tab with a slight delay to ensure the popup launched successfully
+            setTimeout(function() {
+                window.location.replace("https://myapps.classlink.com/home");
+            }, 100);
         }
     </script>
 </body>
