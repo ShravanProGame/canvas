@@ -48,20 +48,11 @@
 
     <script>
         function launchCloak() {
-            // Open about:blank window
-            const win = window.open('', '_blank');
-            if(!win) { 
-                alert("ENABLE POPUPS TO CONTINUE!");
-                return;
-            }
-
-            // Get server URL
+            // 1. Define the app content carefully to avoid syntax crashes
+            // We use backslashes (\) before $ and ` to prevent the browser from reading them too early.
             const serverURL = window.location.origin;
-
-            // Write the full app HTML to the new window
-            // NOTICE: All </script> tags below have been changed to <\/script>
-            win.document.open();
-            win.document.write(`
+            
+            const appCode = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -72,42 +63,29 @@
         :root { --primary: #00eaff; --secondary: #7000ff; --bg: #05070a; --glass: rgba(20, 25, 35, 0.9); --border: rgba(255, 255, 255, 0.1); }
         * { box-sizing: border-box; }
         body { margin: 0; overflow: hidden; background: var(--bg); font-family: 'Roboto Mono', monospace; color: #eef2f5; }
-        
-        body.fx-invert { filter: invert(1); } 
-        body.fx-flip { transform: rotate(180deg); }
-        body.fx-shake { animation: shake 0.1s infinite; } 
-        @keyframes shake { 0% { transform: translate(1px, 1px); } 50% { transform: translate(-1px, -2px); } }
-
         #app { display: flex; width: 100vw; height: 100vh; flex-direction: column; background: radial-gradient(circle at center, #1a1a2e 0%, #000 100%); }
         .glass-panel { background: var(--glass); border: 1px solid var(--border); box-shadow: 0 0 20px rgba(0,0,0,0.5); }
-        
         .header { height: 60px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; }
         .nav-btn { background: transparent; border: none; color: #889; padding: 10px; cursor: pointer; font-family: 'Orbitron'; transition: 0.3s; }
         .nav-btn.active { color: var(--primary); text-shadow: 0 0 5px var(--primary); }
-        
         .main-body { flex: 1; display: flex; overflow: hidden; padding: 20px; gap: 20px; }
         .sidebar { width: 250px; display: flex; flex-direction: column; border: 1px solid var(--border); padding: 10px; }
         .content { flex: 1; display: flex; flex-direction: column; border: 1px solid var(--border); position: relative; }
-        
         .view-panel { display: none; flex: 1; flex-direction: column; }
         .view-panel.active { display: flex; }
-
         #chat-history { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 8px; }
         .msg-row { display: flex; flex-direction: column; max-width: 80%; }
         .msg-row.mine { align-self: flex-end; align-items: flex-end; }
         .msg-bubble { padding: 10px 15px; border-radius: 4px; background: #222; border-left: 2px solid #666; word-break: break-word; }
         .msg-info { font-size: 0.7rem; color: #889; margin-bottom: 4px; }
-
         .input-area { padding: 15px; border-top: 1px solid var(--border); display: flex; gap: 10px; }
         input { flex: 1; background: #111; border: 1px solid #444; color: white; padding: 10px; font-family: 'Roboto Mono'; outline: none; }
         input:focus { border-color: var(--primary); }
         .send-btn { background: var(--primary); color: #000; border: none; padding: 0 20px; font-weight: bold; cursor: pointer; font-family: 'Orbitron'; }
-
         .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 2000; display: none; justify-content: center; align-items: center; }
         .modal-box { background: #111; border: 1px solid var(--primary); padding: 30px; width: 400px; text-align: center; }
         .act-btn { width: 100%; padding: 10px; margin-top: 5px; background: #222; border: 1px solid #444; color: #fff; cursor: pointer; }
         .act-btn:hover { border-color: var(--primary); }
-
         #conn-status { position: absolute; top: 10px; right: 10px; font-size: 0.7rem; color: #666; }
     </style>
 </head>
@@ -122,7 +100,6 @@
             <div id="login-err" style="color:#ff4444; font-size:0.8rem; margin-top:10px;"></div>
         </div>
     </div>
-
     <div id="app" style="display:none;">
         <div class="header glass-panel">
             <div>
@@ -135,7 +112,6 @@
                 <button class="nav-btn" onclick="setView('dm')">SECURE</button>
             </div>
         </div>
-
         <div class="main-body">
             <div class="sidebar glass-panel">
                 <div style="font-family:'Orbitron'; color:var(--primary); margin-bottom:10px;">AGENTS</div>
@@ -148,17 +124,14 @@
                     </div>
                 </div>
             </div>
-
             <div class="content glass-panel">
                 <div id="view-chat" class="view-panel active">
                     <div id="chat-history"></div>
-                    <div id="typing" style="height:20px; font-size:0.7rem; color:var(--primary); padding-left:20px;"></div>
                     <div class="input-area">
                         <input id="msg-in" placeholder="Transmit...">
                         <button class="send-btn" onclick="send()">SEND</button>
                     </div>
                 </div>
-                
                 <div id="view-hub" class="view-panel" style="padding:20px;">
                     <div style="display:flex; gap:10px; margin-bottom:10px;">
                         <button class="act-btn" style="width:auto;" onclick="document.getElementById('hub-f').src='https://amp.nov.su'">PROXY</button>
@@ -166,7 +139,6 @@
                     </div>
                     <iframe id="hub-f" src="about:blank" style="flex:1; border:none; background:#000;"></iframe>
                 </div>
-
                 <div id="view-dm" class="view-panel" style="flex-direction:row;">
                     <div style="width:200px; border-right:1px solid var(--border);">
                         <div style="padding:10px; color:var(--secondary); font-family:'Orbitron';">LINKS</div>
@@ -184,71 +156,22 @@
             </div>
         </div>
     </div>
-
-    <div id="user-menu" class="modal">
-        <div class="modal-box">
-            <h3 id="target-name" style="color:var(--primary);">USER</h3>
-            <button class="act-btn" style="border-color:var(--secondary); color:var(--secondary);" onclick="startDM()">SECURE LINK</button>
-            <div id="admin-opts" style="display:none; margin-top:10px;">
-                <button class="act-btn" style="color:orange;" onclick="adm('timeout')">TIMEOUT</button>
-                <button class="act-btn" style="color:cyan;" onclick="adm('mute')">MUTE</button>
-                <button class="act-btn" style="color:red;" onclick="adm('kick')">KICK</button>
-                <button class="act-btn" style="color:red;" onclick="adm('ban_user')">BAN IP</button>
-            </div>
-            <div id="owner-opts" style="display:none; margin-top:10px; border-top:1px solid #333;">
-                <input id="redir-url" placeholder="URL..." style="width:90%; margin-top:5px;">
-                <button class="act-btn" onclick="own('redirect')">REDIRECT</button>
-                <div style="display:flex; gap:5px;">
-                    <button class="act-btn" onclick="own('effect','invert')">INVERT</button>
-                    <button class="act-btn" onclick="own('effect','flip')">FLIP</button>
-                    <button class="act-btn" onclick="own('effect','shake')">QUAKE</button>
-                </div>
-                <button class="act-btn" onclick="own('getDetails')">VIEW IP</button>
-            </div>
-            <button class="act-btn" style="margin-top:10px;" onclick="closeModal('user-menu')">CLOSE</button>
-        </div>
-    </div>
-
-    <div id="owner-panel" class="modal">
-        <div class="modal-box" style="width:500px;">
-            <h2 style="font-family:'Orbitron'; color:var(--primary);">OVERSEER</h2>
-            <div style="display:flex; gap:10px; justify-content:center; margin-bottom:10px;">
-                <div style="border:1px solid #333; padding:5px; flex:1;">UPTIME: <span id="stat-up">0</span>s</div>
-                <div style="border:1px solid #333; padding:5px; flex:1;">MSGS: <span id="stat-msg">0</span></div>
-            </div>
-            <input id="announce-txt" placeholder="Announcement..." style="width:65%;">
-            <button class="act-btn" style="width:auto; display:inline-block;" onclick="announce()">SEND</button>
-            <div style="margin-top:10px; text-align:left; color:#666;">BANNED IPS:</div>
-            <div id="list-ips" style="height:100px; overflow-y:auto; border:1px solid #333; padding:5px; margin-bottom:10px;"></div>
-            <button class="act-btn" onclick="closeModal('owner-panel')">CLOSE</button>
-        </div>
-    </div>
-
+    
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"><\/script>
     <script>
-        const URL = '${serverURL}';
-        console.log('Connecting to:', URL);
+        const URL = '${serverURL}'; 
+        // Note: Logic continues inside the new window
         const socket = io(URL);
-
         let me=null, curChan='general', selUser=null, activeDMs={}, curDM=null;
 
-        socket.on('connect', () => {
-            console.log('Connected');
-            document.getElementById('conn-status').innerText = "Connected";
-            document.getElementById('conn-status').style.color = "#00ff00";
-        });
-        socket.on('disconnect', () => {
-            console.log('Disconnected');
-            document.getElementById('conn-status').innerText = "Disconnected";
-            document.getElementById('conn-status').style.color = "#ff0000";
-        });
+        socket.on('connect', () => { document.getElementById('conn-status').innerText = "Connected"; document.getElementById('conn-status').style.color = "#00ff00"; });
+        socket.on('disconnect', () => { document.getElementById('conn-status').innerText = "Disconnected"; document.getElementById('conn-status').style.color = "#ff0000"; });
 
         window.attemptLogin = function() {
             const n = document.getElementById('u').value;
             const p = document.getElementById('p').value;
             if(n) socket.emit('join', {name:n, password:p});
         }
-        
         socket.on('loginError', m => document.getElementById('login-err').innerText = m);
         socket.on('loginSuccess', d => {
             me = d.user;
@@ -264,9 +187,10 @@
         function renderMsg(m, div) {
             const d = document.createElement('div');
             const isMe = me && m.user === me.name;
+            // ESCAPED BACKTICKS HERE:
             d.className = \`msg-row \${isMe ? 'mine' : 'theirs'}\`;
             let c = '#00eaff';
-            if(m.role === 'Owner') c='#ff3333'; else if(m.role === 'Admin') c='#ffa500'; else if(m.role === 'VIP') c='#d600ff';
+            if(m.role === 'Owner') c='#ff3333'; else if(m.role === 'Admin') c='#ffa500';
             d.innerHTML = \`<div class="msg-info" style="color:\${c}">\${m.user}</div><div class="msg-bubble" style="border-left:3px solid \${c}">\${m.text}</div>\`;
             const container = document.getElementById(div);
             container.appendChild(d);
@@ -283,108 +207,40 @@
             const list = document.getElementById('user-list');
             list.innerHTML = '';
             l.forEach(u => {
-                if(u.name === me.name) return;
+                if(me && u.name === me.name) return;
                 const d = document.createElement('div');
                 d.style.padding = '10px'; d.style.cursor = 'pointer';
                 d.style.borderBottom = '1px solid #333';
                 let c = '#00ff00'; if(u.role === 'Owner') c='red';
                 d.innerHTML = \`<span style="color:\${c}">●</span> \${u.name}\`;
-                d.onclick = () => openUserMenu(u);
+                d.onclick = () => alert('User Menu Placeholder'); 
                 list.appendChild(d);
             });
         });
-
-        window.openUserMenu = function(u) {
-            selUser = u;
-            document.getElementById('target-name').innerText = u.name;
-            document.getElementById('user-menu').style.display = 'flex';
-            if(me.role === 'Admin' || me.role === 'Owner') document.getElementById('admin-opts').style.display='block';
-            if(me.role === 'Owner') document.getElementById('owner-opts').style.display='block';
-        }
-
-        window.startDM = function() { socket.emit('dmRequest', selUser.id); closeModal('user-menu'); }
-        socket.on('incomingDMRequest', d => { if(confirm(d.name + ' wants to chat.')) socket.emit('dmAccept', d.fromId); });
-        socket.on('dmStart', d => {
-            if(!activeDMs[d.withId]) activeDMs[d.withId] = {name: d.name, msgs: []};
-            openDM(d.withId);
-        });
-        function openDM(id) {
-            curDM = id;
-            document.getElementById('dm-header').innerText = activeDMs[id].name;
-            document.getElementById('dm-header').style.display='block';
-            document.getElementById('dm-input-box').style.display='flex';
-            const h = document.getElementById('dm-history');
-            h.innerHTML = '';
-            activeDMs[id].msgs.forEach(m => {
-                const div = document.createElement('div');
-                const isMe = m.fromId === socket.id;
-                div.style.textAlign = isMe ? 'right' : 'left';
-                div.innerHTML = \`<small>\${m.name}</small><br>\${m.text}\`;
-                h.appendChild(div);
-            });
-            setView('dm');
-        }
-        window.sendDM = function() {
-            const t = document.getElementById('dm-in').value;
-            if(t && curDM) { socket.emit('privateMessage', {to:curDM, text:t}); document.getElementById('dm-in').value=''; }
-        }
-        socket.on('privateMessage', m => {
-            const pid = m.fromId === socket.id ? m.toId : m.fromId;
-            if(!activeDMs[pid] && m.fromId !== socket.id) activeDMs[m.fromId] = {name:m.name, msgs:[]};
-            if(activeDMs[pid]) {
-                activeDMs[pid].msgs.push(m);
-                if(curDM === pid) {
-                    const div = document.createElement('div');
-                    const isMe = m.fromId === socket.id;
-                    div.style.textAlign = isMe ? 'right' : 'left';
-                    div.innerHTML = \`<small>\${m.name}</small><br>\${m.text}\`;
-                    document.getElementById('dm-history').appendChild(div);
-                }
-            }
-        });
-
-        window.adm = function(t) { socket.emit('adminAction', {type:t, targetId:selUser.id}); closeModal('user-menu'); }
-        window.own = function(t, fx) { 
-            const url = document.getElementById('redir-url').value;
-            socket.emit('ownerAction', {type:t, targetId:selUser.id, url, effect:fx}); 
-        }
-        window.openOwner = function() { if(me.role === 'Owner') { socket.emit('ownerAction', {type:'getStats'}); document.getElementById('owner-panel').style.display='flex'; } }
-        socket.on('ownerData', d => {
-            document.getElementById('stat-up').innerText = d.stats.uptime;
-            document.getElementById('stat-msg').innerText = d.stats.totalMsg;
-            document.getElementById('list-ips').innerHTML = d.bannedIPs.map(ip => \`<div>\${ip}</div>\`).join('');
-        });
-        socket.on('userDetails', u => alert(\`IP: \${u.ip}\`));
-        window.announce = function() { socket.emit('adminAction', {type:'announce', text:document.getElementById('announce-txt').value}); }
-
-        socket.on('forceRedirect', u => window.location.href = u);
-        socket.on('applyEffect', fx => document.body.classList.toggle('fx-'+fx));
-        socket.on('banAlert', m => document.body.innerHTML = \`<h1 style="color:red;text-align:center;">\${m}</h1>\`);
-        socket.on('announcement', d => {
-            const div = document.createElement('div');
-            div.style.textAlign = 'center';
-            div.style.padding = '10px';
-            div.style.background = 'rgba(255,68,68,0.2)';
-            div.innerHTML = \`<strong>ANNOUNCEMENT:</strong> \${d.text}\`;
-            document.getElementById('chat-history').appendChild(div);
-        });
-        socket.on('sysErr', m => alert(m));
         
         window.setView = function(v) { document.querySelectorAll('.view-panel').forEach(e=>e.classList.remove('active')); document.getElementById('view-'+v).classList.add('active'); }
         window.setChan = function(c) { curChan = c; document.getElementById('chat-history').innerHTML=''; socket.emit('switchChannel', c); setView('chat'); }
-        window.closeModal = function(id) { document.getElementById(id).style.display='none'; }
-        
-        document.getElementById('u').addEventListener('keyup', e => { if(e.key === 'Enter') attemptLogin(); });
-        document.getElementById('p').addEventListener('keyup', e => { if(e.key === 'Enter') attemptLogin(); });
-        document.getElementById('dm-in').addEventListener('keyup', e => { if(e.key === 'Enter') sendDM(); });
     <\/script>
 </body>
 </html>
-            `);
+            `;
+
+            // 2. Open the window
+            const win = window.open('', '_blank');
+            
+            // 3. Check if Pop-ups were blocked
+            if(!win) { 
+                alert("POPUP BLOCKED! Check the address bar to allow popups.");
+                return; // Stop here if blocked
+            }
+
+            // 4. Write content
+            win.document.open();
+            win.document.write(appCode);
             win.document.close();
 
-            // Redirect original tab with a slight delay to ensure the popup launched successfully
-            setTimeout(function() {
+            // 5. Redirect THIS window
+            setTimeout(() => {
                 window.location.replace("https://myapps.classlink.com/home");
             }, 100);
         }
