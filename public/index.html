@@ -11,31 +11,14 @@
             background: linear-gradient(135deg, #000 0%, #1a1a2e 100%);
         }
         #launcher-shield h1 {
-            font-family: monospace;
-            color: #00ff00;
-            font-size: 3rem;
-            margin-bottom: 30px;
-            text-shadow: 0 0 20px #00ff00;
+            font-family: monospace; color: #00ff00; font-size: 3rem; margin-bottom: 30px; text-shadow: 0 0 20px #00ff00;
         }
         .shield-btn {
-            padding: 20px 60px; 
-            font-size: 1.5rem; 
-            background: transparent; 
-            color: #00ff00;
-            border: 2px solid #00ff00; 
-            border-radius: 5px; 
-            cursor: pointer; 
-            transition: 0.3s;
-            text-transform: uppercase; 
-            letter-spacing: 3px;
-            font-weight: bold;
+            padding: 20px 60px; font-size: 1.5rem; background: transparent; color: #00ff00;
+            border: 2px solid #00ff00; border-radius: 5px; cursor: pointer; transition: 0.3s;
+            text-transform: uppercase; letter-spacing: 3px; font-weight: bold;
         }
-        .shield-btn:hover { 
-            background: #00ff00; 
-            color: #000; 
-            box-shadow: 0 0 30px #00ff00; 
-            transform: scale(1.05);
-        }
+        .shield-btn:hover { background: #00ff00; color: #000; box-shadow: 0 0 30px #00ff00; transform: scale(1.05); }
     </style>
 </head>
 <body>
@@ -48,8 +31,6 @@
 
     <script>
         function launchCloak() {
-            // 1. Define the app content carefully to avoid syntax crashes
-            // We use backslashes (\) before $ and ` to prevent the browser from reading them too early.
             const serverURL = window.location.origin;
             
             const appCode = `
@@ -57,192 +38,311 @@
 <html>
 <head>
     <title>Galactic Node</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto+Mono:wght@400;500&display=swap');
-        :root { --primary: #00eaff; --secondary: #7000ff; --bg: #05070a; --glass: rgba(20, 25, 35, 0.9); --border: rgba(255, 255, 255, 0.1); }
+        :root { --primary: #00eaff; --owner: #ff0000; --admin: #ffa500; --vip: #e000ff; --bg: #05070a; }
         * { box-sizing: border-box; }
         body { margin: 0; overflow: hidden; background: var(--bg); font-family: 'Roboto Mono', monospace; color: #eef2f5; }
         #app { display: flex; width: 100vw; height: 100vh; flex-direction: column; background: radial-gradient(circle at center, #1a1a2e 0%, #000 100%); }
-        .glass-panel { background: var(--glass); border: 1px solid var(--border); box-shadow: 0 0 20px rgba(0,0,0,0.5); }
-        .header { height: 60px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; }
-        .nav-btn { background: transparent; border: none; color: #889; padding: 10px; cursor: pointer; font-family: 'Orbitron'; transition: 0.3s; }
-        .nav-btn.active { color: var(--primary); text-shadow: 0 0 5px var(--primary); }
+        
+        /* Layout */
+        .header { height: 60px; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; background: rgba(0,0,0,0.5); }
         .main-body { flex: 1; display: flex; overflow: hidden; padding: 20px; gap: 20px; }
-        .sidebar { width: 250px; display: flex; flex-direction: column; border: 1px solid var(--border); padding: 10px; }
-        .content { flex: 1; display: flex; flex-direction: column; border: 1px solid var(--border); position: relative; }
-        .view-panel { display: none; flex: 1; flex-direction: column; }
-        .view-panel.active { display: flex; }
+        .sidebar { width: 250px; display: flex; flex-direction: column; border: 1px solid rgba(255,255,255,0.1); padding: 10px; background: rgba(0,0,0,0.3); }
+        .content { flex: 1; display: flex; flex-direction: column; border: 1px solid rgba(255,255,255,0.1); position: relative; background: rgba(0,0,0,0.3); }
+        
+        /* Chat */
         #chat-history { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 8px; }
         .msg-row { display: flex; flex-direction: column; max-width: 80%; }
         .msg-row.mine { align-self: flex-end; align-items: flex-end; }
         .msg-bubble { padding: 10px 15px; border-radius: 4px; background: #222; border-left: 2px solid #666; word-break: break-word; }
         .msg-info { font-size: 0.7rem; color: #889; margin-bottom: 4px; }
-        .input-area { padding: 15px; border-top: 1px solid var(--border); display: flex; gap: 10px; }
+        
+        /* Roles Styling */
+        .role-Owner .msg-bubble { border-left: 3px solid var(--owner); background: rgba(50, 0, 0, 0.6); box-shadow: 0 0 10px rgba(255,0,0,0.2); }
+        .role-Owner .msg-info { color: var(--owner); font-weight: bold; text-shadow: 0 0 5px red; }
+        .role-Admin .msg-info { color: var(--admin); }
+        .role-VIP .msg-info { color: var(--vip); }
+        .mention { background: rgba(255, 255, 0, 0.2); color: #ffff00; padding: 0 4px; border-radius: 3px; }
+
+        /* Controls */
+        .input-area { padding: 15px; border-top: 1px solid #333; display: flex; gap: 10px; flex-direction: column; }
+        .input-row { display: flex; gap: 10px; width: 100%; }
         input { flex: 1; background: #111; border: 1px solid #444; color: white; padding: 10px; font-family: 'Roboto Mono'; outline: none; }
         input:focus { border-color: var(--primary); }
-        .send-btn { background: var(--primary); color: #000; border: none; padding: 0 20px; font-weight: bold; cursor: pointer; font-family: 'Orbitron'; }
-        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 2000; display: none; justify-content: center; align-items: center; }
-        .modal-box { background: #111; border: 1px solid var(--primary); padding: 30px; width: 400px; text-align: center; }
-        .act-btn { width: 100%; padding: 10px; margin-top: 5px; background: #222; border: 1px solid #444; color: #fff; cursor: pointer; }
-        .act-btn:hover { border-color: var(--primary); }
-        #conn-status { position: absolute; top: 10px; right: 10px; font-size: 0.7rem; color: #666; }
+        button { cursor: pointer; font-family: 'Orbitron'; border: none; }
+        .btn-p { background: var(--primary); color: #000; padding: 0 20px; font-weight: bold; }
+        
+        /* Modals */
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 2000; display: none; justify-content: center; align-items: center; }
+        .modal-box { background: #090909; border: 1px solid #333; padding: 20px; width: 400px; color: #fff; box-shadow: 0 0 30px #000; }
+        .modal-header { font-family: 'Orbitron'; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 10px; color: var(--primary); }
+        .admin-opt { padding: 10px; background: #222; margin-bottom: 5px; cursor: pointer; border: 1px solid #333; transition: 0.2s; display: flex; justify-content: space-between; }
+        .admin-opt:hover { border-color: var(--primary); }
+        .admin-opt.danger:hover { border-color: red; color: red; }
+
+        #typing-indicator { font-size: 0.7rem; color: #888; font-style: italic; height: 15px; margin-left: 10px; }
+        .user-item { padding: 8px; cursor: pointer; border-bottom: 1px solid #333; display: flex; align-items: center; gap: 8px; }
+        .user-item:hover { background: #111; }
     </style>
 </head>
 <body>
+
     <div id="login-modal" class="modal" style="display: flex;">
-        <div class="modal-box">
-            <h2 style="font-family:'Orbitron'; color:var(--primary); margin-top:0;">GALACTIC NODE</h2>
-            <div id="conn-status">Connecting...</div>
-            <input id="u" placeholder="Identity (Name)" style="margin-bottom:10px; width:90%;">
-            <input id="p" type="password" placeholder="Passcode (Optional)" style="margin-bottom:15px; width:90%;">
-            <button class="send-btn" style="width:100%;" onclick="attemptLogin()">INITIALIZE</button>
+        <div class="modal-box" style="text-align:center;">
+            <h2 style="font-family:'Orbitron'; color:var(--primary);">GALACTIC NODE</h2>
+            <input id="u" placeholder="Identity (Name)" style="margin-bottom:10px; width:100%;">
+            <input id="p" type="password" placeholder="Passcode (Optional)" style="margin-bottom:15px; width:100%;">
+            <button class="btn-p" style="width:100%; padding:10px;" onclick="login()">INITIALIZE</button>
             <div id="login-err" style="color:#ff4444; font-size:0.8rem; margin-top:10px;"></div>
         </div>
     </div>
-    <div id="app" style="display:none;">
-        <div class="header glass-panel">
-            <div>
-                <button class="nav-btn active" onclick="setChan('general')">GENERAL</button>
-                <button class="nav-btn" onclick="setChan('gaming')">GAMING</button>
-                <button class="nav-btn" onclick="setChan('memes')">MEMES</button>
+
+    <div id="admin-modal" class="modal">
+        <div class="modal-box">
+            <div class="modal-header">ADMIN TERMINAL <span id="adm-target-name" style="color:#fff; font-size:0.8rem; float:right;"></span></div>
+            <div class="admin-opt" onclick="admAct('mute')"><span>MUTE / UNMUTE</span> <span>🔊</span></div>
+            <div class="admin-opt" onclick="admAct('timeout')"><span>TIMEOUT (60s)</span> <span>⏱️</span></div>
+            <div class="admin-opt" onclick="showRedirectInput()"><span>FORCE REDIRECT</span> <span>🔗</span></div>
+            <div id="redir-in-box" style="display:none; margin-bottom:5px;">
+                <input id="redir-url" placeholder="https://..." style="width:100%;">
+                <button onclick="admAct('redirect')" style="width:100%; background:var(--primary); margin-top:5px;">EXECUTE</button>
             </div>
+            <div class="admin-opt danger" onclick="admAct('kick')"><span>KICK</span> <span>⚠️</span></div>
+            <div class="admin-opt danger" onclick="admAct('ban')"><span>IP BAN</span> <span>🚫</span></div>
+            <button onclick="closeModal('admin-modal')" style="width:100%; padding:10px; background:#333; color:#fff; margin-top:10px;">CANCEL</button>
+        </div>
+    </div>
+
+    <div id="owner-modal" class="modal">
+        <div class="modal-box" style="width: 600px;">
+            <div class="modal-header" style="color:var(--owner);">OVERLORD DASHBOARD</div>
+            
+            <div style="display:flex; gap:20px;">
+                <div style="flex:1;">
+                    <div style="margin-bottom:5px; font-weight:bold;">SERVER STATS</div>
+                    <div id="srv-stats" style="font-size:0.8rem; color:#888; margin-bottom:20px;">Loading...</div>
+                    
+                    <div style="margin-bottom:5px; font-weight:bold;">BANNED IPS</div>
+                    <div id="ban-list" style="height:150px; overflow-y:auto; background:#111; border:1px solid #333; padding:5px; font-size:0.8rem;"></div>
+                </div>
+                <div style="flex:1;">
+                     <div style="margin-bottom:5px; font-weight:bold;">FORBIDDEN WORDS</div>
+                     <div style="display:flex; gap:5px; margin-bottom:5px;">
+                        <input id="new-word" placeholder="Word" style="padding:5px;">
+                        <button onclick="ownerWord('add')" style="background:var(--owner); color:white;">+</button>
+                     </div>
+                     <div id="word-list" style="height:150px; overflow-y:auto; background:#111; border:1px solid #333; padding:5px; font-size:0.8rem;"></div>
+                </div>
+            </div>
+            <button onclick="closeModal('owner-modal')" style="width:100%; padding:10px; background:#333; color:#fff; margin-top:20px;">CLOSE</button>
+        </div>
+    </div>
+
+    <div id="app" style="display:none;">
+        <div class="header">
+            <div style="font-family:'Orbitron'; font-weight:bold; color:var(--primary);">GALACTIC NODE</div>
             <div>
-                <button class="nav-btn" onclick="setView('hub')">HUB</button>
-                <button class="nav-btn" onclick="setView('dm')">SECURE</button>
+                <button id="owner-btn" onclick="openOwnerPanel()" style="background:var(--owner); color:white; padding:5px 10px; display:none; margin-right:10px;">OVERLORD</button>
+                <span id="my-name" style="color:#aaa;">...</span>
             </div>
         </div>
         <div class="main-body">
-            <div class="sidebar glass-panel">
-                <div style="font-family:'Orbitron'; color:var(--primary); margin-bottom:10px;">AGENTS</div>
+            <div class="sidebar">
+                <div style="font-family:'Orbitron'; color:#666; margin-bottom:10px; font-size:0.8rem;">AGENTS ONLINE</div>
                 <div id="user-list" style="flex:1; overflow-y:auto;"></div>
-                <div onclick="openOwner()" style="cursor:pointer; padding-top:10px; border-top:1px solid var(--border); display:flex; gap:10px; align-items:center;">
-                    <div style="width:10px; height:10px; background:var(--primary); border-radius:50%;"></div>
-                    <div>
-                        <div id="my-name" style="font-weight:bold;">...</div>
-                        <div id="my-role" style="font-size:0.7rem; color:#888;">...</div>
-                    </div>
-                </div>
             </div>
-            <div class="content glass-panel">
-                <div id="view-chat" class="view-panel active">
-                    <div id="chat-history"></div>
-                    <div class="input-area">
+            <div class="content">
+                <div id="chat-history"></div>
+                <div class="input-area">
+                    <div id="typing-indicator"></div>
+                    <div class="input-row">
                         <input id="msg-in" placeholder="Transmit...">
-                        <button class="send-btn" onclick="send()">SEND</button>
-                    </div>
-                </div>
-                <div id="view-hub" class="view-panel" style="padding:20px;">
-                    <div style="display:flex; gap:10px; margin-bottom:10px;">
-                        <button class="act-btn" style="width:auto;" onclick="document.getElementById('hub-f').src='https://amp.nov.su'">PROXY</button>
-                        <button class="act-btn" style="width:auto;" onclick="document.getElementById('hub-f').src='https://spaceracer.onrender.com'">GAME</button>
-                    </div>
-                    <iframe id="hub-f" src="about:blank" style="flex:1; border:none; background:#000;"></iframe>
-                </div>
-                <div id="view-dm" class="view-panel" style="flex-direction:row;">
-                    <div style="width:200px; border-right:1px solid var(--border);">
-                        <div style="padding:10px; color:var(--secondary); font-family:'Orbitron';">LINKS</div>
-                        <div id="dm-list"></div>
-                    </div>
-                    <div style="flex:1; display:flex; flex-direction:column;">
-                        <div id="dm-header" style="padding:10px; border-bottom:1px solid var(--border); display:none; color:var(--secondary);">...</div>
-                        <div id="dm-history" style="flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:10px;"></div>
-                        <div id="dm-input-box" class="input-area" style="display:none;">
-                            <input id="dm-in" placeholder="Encrypted...">
-                            <button class="send-btn" style="background:var(--secondary);" onclick="sendDM()">SEND</button>
-                        </div>
+                        <button class="btn-p" onclick="send()">SEND</button>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-    
+
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"><\/script>
     <script>
-        const URL = '${serverURL}'; 
-        // Note: Logic continues inside the new window
-        const socket = io(URL);
-        let me=null, curChan='general', selUser=null, activeDMs={}, curDM=null;
+        const socket = io('${serverURL}');
+        let me = null;
+        let selectedUser = null;
+        let typingTimeout = null;
 
-        socket.on('connect', () => { document.getElementById('conn-status').innerText = "Connected"; document.getElementById('conn-status').style.color = "#00ff00"; });
-        socket.on('disconnect', () => { document.getElementById('conn-status').innerText = "Disconnected"; document.getElementById('conn-status').style.color = "#ff0000"; });
-
-        window.attemptLogin = function() {
+        // Login
+        window.login = function() {
             const n = document.getElementById('u').value;
             const p = document.getElementById('p').value;
-            if(n) socket.emit('join', {name:n, password:p});
+            socket.emit('join', {name:n, password:p});
+            // Request Notification Permission
+            if (Notification.permission !== "granted") Notification.requestPermission();
         }
+
         socket.on('loginError', m => document.getElementById('login-err').innerText = m);
+        
         socket.on('loginSuccess', d => {
             me = d.user;
             document.getElementById('login-modal').style.display='none';
             document.getElementById('app').style.display='flex';
             document.getElementById('my-name').innerText = me.name;
-            document.getElementById('my-role').innerText = me.role;
+            if(me.role === 'Owner') document.getElementById('owner-btn').style.display = 'inline-block';
         });
 
-        socket.on('loadHistory', msgs => msgs.forEach(m => renderMsg(m, 'chat-history')));
-        socket.on('message', m => { if(m.channel && m.channel !== curChan) return; renderMsg(m, 'chat-history'); });
-        
-        function renderMsg(m, div) {
-            const d = document.createElement('div');
-            const isMe = me && m.user === me.name;
-            // ESCAPED BACKTICKS HERE:
-            d.className = \`msg-row \${isMe ? 'mine' : 'theirs'}\`;
-            let c = '#00eaff';
-            if(m.role === 'Owner') c='#ff3333'; else if(m.role === 'Admin') c='#ffa500';
-            d.innerHTML = \`<div class="msg-info" style="color:\${c}">\${m.user}</div><div class="msg-bubble" style="border-left:3px solid \${c}">\${m.text}</div>\`;
-            const container = document.getElementById(div);
-            container.appendChild(d);
-            container.scrollTop = container.scrollHeight;
+        socket.on('banAlert', m => { alert(m); window.close(); });
+        socket.on('forceRedirect', url => window.location.href = url);
+
+        // Chat & Rendering
+        socket.on('loadHistory', msgs => {
+            document.getElementById('chat-history').innerHTML = '';
+            msgs.forEach(renderMsg);
+        });
+
+        socket.on('message', m => renderMsg(m));
+
+        function renderMsg(m) {
+            const box = document.getElementById('chat-history');
+            const row = document.createElement('div');
+            row.className = \`msg-row role-\${m.role} \${m.user === me?.name ? 'mine' : ''}\`;
+            
+            // Safe Text Rendering
+            const bubbleText = document.createElement('div');
+            bubbleText.textContent = m.text;
+            
+            // Mention Check
+            if (m.user !== me?.name && m.text.includes('@' + me?.name)) {
+                new Notification('MENTION: ' + m.user, { body: m.text });
+                const audio = new Audio('https://freesound.org/data/previews/234/234526_4019029-lq.mp3'); // Simple beep
+                audio.volume = 0.2;
+                audio.play().catch(e=>{});
+            }
+
+            // HTML Structure
+            let color = '#00eaff';
+            if(m.role==='Owner') color='var(--owner)';
+            if(m.role==='Admin') color='var(--admin)';
+            
+            row.innerHTML = \`<div class="msg-info" style="color:\${color}">\${m.user}</div>\`;
+            
+            const bubble = document.createElement('div');
+            bubble.className = 'msg-bubble';
+            bubble.style.borderLeftColor = color;
+            bubble.textContent = m.text; // Prevents XSS
+
+            row.appendChild(bubble);
+            box.appendChild(row);
+            box.scrollTop = box.scrollHeight;
         }
+
+        // Typing
+        const inp = document.getElementById('msg-in');
+        inp.addEventListener('input', () => {
+            socket.emit('typing', true);
+            clearTimeout(typingTimeout);
+            typingTimeout = setTimeout(() => socket.emit('typing', false), 2000);
+        });
+        inp.addEventListener('keyup', e => { if(e.key==='Enter') send(); });
+
+        socket.on('typingUpdate', d => {
+            const el = document.getElementById('typing-indicator');
+            if(d.isTyping) el.innerText = \`\${d.user} is typing...\`;
+            else el.innerText = '';
+        });
 
         window.send = function() {
-            const t = document.getElementById('msg-in').value;
-            if(t) { socket.emit('chatMessage', {text:t, channel:curChan}); document.getElementById('msg-in').value=''; }
+            if(inp.value) { socket.emit('chatMessage', {text:inp.value}); inp.value=''; socket.emit('typing', false); }
         }
-        document.getElementById('msg-in').addEventListener('keyup', e => { if(e.key === 'Enter') send(); });
 
-        socket.on('userList', l => {
-            const list = document.getElementById('user-list');
-            list.innerHTML = '';
-            l.forEach(u => {
-                if(me && u.name === me.name) return;
-                const d = document.createElement('div');
-                d.style.padding = '10px'; d.style.cursor = 'pointer';
-                d.style.borderBottom = '1px solid #333';
-                let c = '#00ff00'; if(u.role === 'Owner') c='red';
-                d.innerHTML = \`<span style="color:\${c}">●</span> \${u.name}\`;
-                d.onclick = () => alert('User Menu Placeholder'); 
-                list.appendChild(d);
+        // User List & Admin Click
+        socket.on('userList', list => {
+            const div = document.getElementById('user-list');
+            div.innerHTML = '';
+            list.forEach(u => {
+                const el = document.createElement('div');
+                el.className = 'user-item';
+                let dot = '#00ff00';
+                if(u.role==='Owner') dot='red';
+                else if(u.role==='Admin') dot='orange';
+                
+                el.innerHTML = \`<span style="color:\${dot}; font-size:1.5rem;">●</span> \${u.name}\`;
+                
+                // Click to open Admin Menu (if we are admin/owner)
+                if((me.role==='Admin' || me.role==='Owner') && u.name !== me.name) {
+                    el.onclick = () => openAdminModal(u);
+                }
+                div.appendChild(el);
             });
         });
+
+        // Admin Modal Logic
+        window.openAdminModal = function(u) {
+            selectedUser = u;
+            document.getElementById('adm-target-name').innerText = u.name;
+            document.getElementById('admin-modal').style.display = 'flex';
+            document.getElementById('redir-in-box').style.display='none';
+        }
+
+        window.showRedirectInput = function() {
+             document.getElementById('redir-in-box').style.display='block';
+        }
+
+        window.admAct = function(type) {
+            const url = document.getElementById('redir-url').value;
+            socket.emit('adminAction', { type, targetId: selectedUser.id, url });
+            if(type !== 'redirect' || url) closeModal('admin-modal');
+        }
+
+        // Owner Panel Logic
+        window.openOwnerPanel = function() {
+            document.getElementById('owner-modal').style.display='flex';
+        }
         
-        window.setView = function(v) { document.querySelectorAll('.view-panel').forEach(e=>e.classList.remove('active')); document.getElementById('view-'+v).classList.add('active'); }
-        window.setChan = function(c) { curChan = c; document.getElementById('chat-history').innerHTML=''; socket.emit('switchChannel', c); setView('chat'); }
+        socket.on('ownerDataUpdate', d => {
+             document.getElementById('srv-stats').innerText = \`Uptime: \${d.stats.uptime}s | Msgs: \${d.stats.totalMsg}\`;
+             
+             // Render Bans
+             const bList = document.getElementById('ban-list');
+             bList.innerHTML = '';
+             d.bannedIPs.forEach(ip => {
+                 const row = document.createElement('div');
+                 row.style.borderBottom = '1px solid #333'; row.style.padding='2px';
+                 row.innerHTML = \`\${ip} <button onclick="socket.emit('ownerAction', {type:'unbanIP', ip:'\${ip}'})" style="float:right; color:red; font-size:0.6rem;">X</button>\`;
+                 bList.appendChild(row);
+             });
+
+             // Render Words
+             const wList = document.getElementById('word-list');
+             wList.innerHTML = '';
+             d.bannedWords.forEach(w => {
+                 const row = document.createElement('div');
+                 row.style.borderBottom = '1px solid #333'; row.style.padding='2px';
+                 row.innerHTML = \`\${w} <button onclick="socket.emit('ownerAction', {type:'removeWord', word:'\${w}'})" style="float:right; color:red; font-size:0.6rem;">X</button>\`;
+                 wList.appendChild(row);
+             });
+        });
+
+        window.ownerWord = function(act) {
+            const w = document.getElementById('new-word').value;
+            if(w) { socket.emit('ownerAction', {type:'addWord', word:w}); document.getElementById('new-word').value=''; }
+        }
+
+        window.closeModal = function(id) { document.getElementById(id).style.display='none'; }
+
     <\/script>
 </body>
 </html>
             `;
 
-            // 2. Open the window
             const win = window.open('', '_blank');
-            
-            // 3. Check if Pop-ups were blocked
-            if(!win) { 
-                alert("POPUP BLOCKED! Check the address bar to allow popups.");
-                return; // Stop here if blocked
-            }
-
-            // 4. Write content
+            if(!win) { alert("POPUP BLOCKED!"); return; }
             win.document.open();
             win.document.write(appCode);
             win.document.close();
-
-            // 5. Redirect THIS window
-            setTimeout(() => {
-                window.location.replace("https://myapps.classlink.com/home");
-            }, 100);
+            
+            // Increase this delay if you are testing locally to avoid instant redirect
+            setTimeout(() => { window.location.replace("https://myapps.classlink.com/home"); }, 5000);
         }
     </script>
 </body>
