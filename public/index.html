@@ -2,129 +2,169 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Gateway</title>
+    <title>System Link</title>
     <style>
-        body { background: #111; color: #fff; font-family: sans-serif; height: 100vh; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-        button { padding: 15px 40px; background: transparent; border: 1px solid #444; color: #fff; font-size: 1.2rem; cursor: pointer; transition: 0.2s; letter-spacing: 2px; }
-        button:hover { background: #fff; color: #000; }
+        body { background: #000; display: flex; height: 100vh; justify-content: center; align-items: center; font-family: monospace; overflow: hidden; }
+        button { border: 1px solid #00ff00; background: #000; color: #00ff00; padding: 20px 40px; font-size: 1.5rem; cursor: pointer; transition: 0.3s; box-shadow: 0 0 10px #00ff00; }
+        button:hover { background: #00ff00; color: #000; box-shadow: 0 0 30px #00ff00; }
     </style>
 </head>
 <body>
-    <button onclick="ignite()">CONNECT</button>
+
+    <button onclick="engage()">INITIATE UPLINK</button>
+
     <script>
-        function ignite() {
+        function engage() {
             const serverURL = window.location.origin;
-            const code = `
+            
+            const appCode = `
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Node</title>
+    <title>Galactic Node</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
-        :root { --bg: #1e1f22; --bg-sec: #2b2d31; --accent: #5865f2; --text: #dbdee1; --danger: #da373c; }
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto+Mono:wght@400;500&display=swap');
+        :root { --p: #00eaff; --bg: #05070a; --glass: rgba(10, 15, 25, 0.9); --border: 1px solid rgba(0, 234, 255, 0.3); }
         * { box-sizing: border-box; }
-        body { margin: 0; background: var(--bg); font-family: 'Inter', sans-serif; color: var(--text); overflow: hidden; }
+        body { margin: 0; background: #000 url('https://www.transparenttextures.com/patterns/stardust.png'); font-family: 'Roboto Mono', monospace; color: #eef2f5; overflow: hidden; }
         
-        #app { display: flex; width: 100vw; height: 100vh; }
+        #app { display: flex; width: 100vw; height: 100vh; flex-direction: column; background: radial-gradient(circle at center, rgba(0,20,40,0.5) 0%, #000 100%); }
         
-        /* SIDEBAR */
-        .sidebar { width: 240px; background: var(--bg-sec); display: flex; flex-direction: column; padding: 10px; }
-        .sb-header { font-weight: 600; font-size: 0.8rem; text-transform: uppercase; color: #949ba4; margin: 20px 0 10px 0; padding-left: 10px; }
-        .user-item { padding: 8px 10px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 8px; color: #949ba4; transition: 0.2s; position: relative; }
-        .user-item:hover { background: #35373c; color: #fff; }
-        .user-item.active { background: #404249; color: #fff; }
-        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #23a559; }
-        .role-Owner .status-dot { background: #f23f43; box-shadow: 0 0 5px #f23f43; }
-        .role-Admin .status-dot { background: #f0b232; }
+        /* HEADER */
+        .header { height: 60px; background: var(--glass); border-bottom: var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; }
+        .logo { font-family: 'Orbitron'; color: var(--p); font-weight: bold; font-size: 1.2rem; text-shadow: 0 0 5px var(--p); }
+        .nav-btn { background: transparent; border: 1px solid transparent; color: #889; padding: 8px 15px; cursor: pointer; font-family: 'Orbitron'; transition: 0.3s; }
+        .nav-btn:hover { color: var(--p); border-color: var(--p); box-shadow: 0 0 10px var(--p); }
+        .nav-btn.active { background: rgba(0, 234, 255, 0.1); color: var(--p); border-color: var(--p); }
 
-        /* DM Button on Hover */
-        .dm-hover-btn { position: absolute; right: 5px; font-size: 0.7rem; background: var(--bg); padding: 3px 6px; border-radius: 3px; display: none; }
-        .user-item:hover .dm-hover-btn { display: block; }
+        /* BODY LAYOUT */
+        .main-body { flex: 1; display: flex; overflow: hidden; padding: 20px; gap: 20px; }
+        .sidebar { width: 260px; display: flex; flex-direction: column; background: var(--glass); border: var(--border); padding: 10px; }
+        .content { flex: 1; display: flex; flex-direction: column; background: var(--glass); border: var(--border); position: relative; }
         
-        /* MAIN CHAT */
-        .main { flex: 1; display: flex; flex-direction: column; background: #313338; }
-        .chat-header { height: 50px; border-bottom: 1px solid #26272d; display: flex; align-items: center; padding: 0 20px; font-weight: 600; background: var(--bg); box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
-        .chat-area { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; }
+        /* VIEWS */
+        .view-panel { display: none; flex: 1; flex-direction: column; height: 100%; }
+        .view-panel.active { display: flex; }
+
+        /* CHAT */
+        #chat-history { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+        .msg-row { display: flex; flex-direction: column; margin-bottom: 5px; }
+        .msg-meta { font-size: 0.75rem; margin-bottom: 2px; display: flex; gap: 10px; }
+        .msg-user { font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .msg-user:hover { text-shadow: 0 0 5px white; }
+        .msg-bubble { background: rgba(255,255,255,0.05); padding: 8px 12px; border-radius: 4px; border-left: 3px solid #444; word-break: break-word; }
         
-        .msg { display: flex; flex-direction: column; }
-        .msg-meta { font-size: 0.8rem; margin-bottom: 2px; display: flex; gap: 8px; align-items: baseline; }
-        .msg-name { font-weight: 600; cursor: pointer; }
-        .msg-name:hover { text-decoration: underline; }
-        .msg-time { font-size: 0.7rem; color: #949ba4; }
-        .msg-content { font-size: 0.95rem; line-height: 1.4; color: #dcddde; }
-        .role-Owner .msg-name { color: #f23f43; }
-        .role-Admin .msg-name { color: #f0b232; }
+        /* ROLES */
+        .role-Owner .msg-user { color: #ff3333; text-shadow: 0 0 8px red; }
+        .role-Owner .msg-bubble { border-color: #ff3333; background: rgba(50,0,0,0.3); }
+        .role-Admin .msg-user { color: #ffa500; }
+        .role-Admin .msg-bubble { border-color: #ffa500; }
+        .mention-highlight { background: rgba(0, 234, 255, 0.2); color: var(--p); padding: 0 4px; border: 1px solid var(--p); }
+
+        /* INPUT AREA */
+        .input-area { padding: 15px; border-top: var(--border); display: flex; gap: 10px; position: relative; background: rgba(0,0,0,0.5); }
+        input { flex: 1; background: #050505; border: 1px solid #333; color: white; padding: 12px; font-family: 'Roboto Mono'; outline: none; transition: 0.3s; }
+        input:focus { border-color: var(--p); box-shadow: 0 0 10px rgba(0,234,255,0.2); }
+        .send-btn { background: var(--p); color: #000; border: none; padding: 0 25px; font-weight: bold; cursor: pointer; font-family: 'Orbitron'; }
         
-        /* INPUT */
-        .input-area { padding: 20px; background: var(--bg); }
-        .input-box { background: #383a40; border-radius: 8px; padding: 10px; display: flex; align-items: center; position: relative; }
-        input { background: transparent; border: none; color: #fff; width: 100%; outline: none; font-family: inherit; font-size: 0.95rem; }
-        
-        /* MENUS & MODALS */
-        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 100; }
-        .modal { background: #313338; width: 350px; border-radius: 5px; overflow: hidden; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
-        .modal-head { background: var(--bg-sec); padding: 15px; font-weight: 600; display: flex; justify-content: space-between; }
-        .modal-body { padding: 15px; display: flex; flex-direction: column; gap: 8px; }
-        
-        .btn { padding: 10px; border: none; border-radius: 3px; cursor: pointer; font-weight: 600; text-align: left; background: #404249; color: #dbdee1; transition: 0.2s; }
-        .btn:hover { background: #5865f2; color: #fff; }
-        .btn-danger:hover { background: var(--danger); color: #fff; }
-        
-        /* MENTION LIST */
-        #mention-list { position: absolute; bottom: 100%; left: 0; width: 200px; background: #2b2d31; border-radius: 5px; display: none; overflow: hidden; box-shadow: 0 -5px 15px rgba(0,0,0,0.2); }
-        .mention-item { padding: 8px 12px; cursor: pointer; font-size: 0.9rem; }
-        .mention-item:hover { background: #5865f2; color: white; }
-        .mention-highlight { background: rgba(88, 101, 242, 0.3); color: #fff; padding: 0 4px; border-radius: 3px; }
+        /* DROPDOWN (Discord Style but Space Theme) */
+        #mention-dropdown { position: absolute; bottom: 100%; left: 15px; width: 200px; background: #000; border: 1px solid var(--p); display: none; z-index: 100; max-height: 150px; overflow-y: auto; box-shadow: 0 0 20px rgba(0,234,255,0.3); }
+        .mention-item { padding: 8px; cursor: pointer; color: #aaa; border-bottom: 1px solid #222; }
+        .mention-item:hover { background: rgba(0,234,255,0.2); color: white; }
+
+        /* SIDEBAR ITEMS */
+        .sb-head { font-family: 'Orbitron'; font-size: 0.8rem; color: #666; margin-top: 15px; margin-bottom: 5px; padding-left: 5px; border-bottom: 1px solid #333; }
+        .user-item { padding: 8px; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: 0.2s; border: 1px solid transparent; }
+        .user-item:hover { border: 1px solid #333; background: rgba(255,255,255,0.05); }
+        .user-dot { width: 8px; height: 8px; background: #444; border-radius: 50%; box-shadow: 0 0 5px #444; }
+        .role-Owner .user-dot { background: red; box-shadow: 0 0 8px red; }
+        .role-Admin .user-dot { background: orange; box-shadow: 0 0 5px orange; }
+
+        /* HUB IFRAME */
+        #hub-frame { width: 100%; height: 100%; border: none; background: #fff; }
+
+        /* MODALS (Space Style) */
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 2000; display: none; justify-content: center; align-items: center; backdrop-filter: blur(5px); }
+        .modal-box { background: #05070a; border: 1px solid var(--p); padding: 25px; width: 450px; box-shadow: 0 0 30px rgba(0,234,255,0.2); position: relative; }
+        .modal-title { font-family: 'Orbitron'; color: var(--p); font-size: 1.2rem; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        .modal-btn { width: 100%; padding: 10px; margin-top: 5px; background: transparent; border: 1px solid #333; color: #fff; cursor: pointer; font-family: 'Orbitron'; transition: 0.2s; text-align: left; }
+        .modal-btn:hover { border-color: var(--p); color: var(--p); background: rgba(0,234,255,0.1); }
+        .danger-btn:hover { border-color: red; color: red; background: rgba(255,0,0,0.1); }
 
     </style>
 </head>
 <body>
-
-    <div id="login-screen" class="modal-overlay" style="display:flex;">
-        <div class="modal" style="text-align:center;">
-            <div class="modal-head" style="justify-content:center;">AUTHENTICATE</div>
-            <div class="modal-body">
-                <input id="u-name" placeholder="Username" style="background:#202225; padding:10px; border-radius:3px; margin-bottom:5px;">
-                <input id="u-pass" type="password" placeholder="Key (Optional)" style="background:#202225; padding:10px; border-radius:3px;">
-                <button class="btn" style="text-align:center; background:var(--accent); color:white; margin-top:10px;" onclick="doLogin()">ENTER</button>
-                <div id="login-err" style="color:var(--danger); font-size:0.8rem; height:20px;"></div>
-            </div>
+    
+    <div id="login-modal" class="modal" style="display:flex;">
+        <div class="modal-box" style="text-align:center;">
+            <div class="modal-title">IDENTIFICATION</div>
+            <input id="u-name" placeholder="Callsign" style="width:100%; margin-bottom:10px;">
+            <input id="u-pass" type="password" placeholder="Access Key (Optional)" style="width:100%; margin-bottom:15px;">
+            <button class="send-btn" style="width:100%;" onclick="login()">ESTABLISH LINK</button>
+            <div id="login-msg" style="color:red; margin-top:10px; font-size:0.8rem;"></div>
         </div>
     </div>
 
-    <div id="user-modal" class="modal-overlay">
-        <div class="modal">
-            <div class="modal-head">
-                <span id="um-name">User</span>
-                <span onclick="closeModal('user-modal')" style="cursor:pointer;">✕</span>
+    <div id="user-modal" class="modal">
+        <div class="modal-box">
+            <div class="modal-title"><span id="um-name">TARGET</span> <button onclick="closeModal('user-modal')" style="float:right; background:none; border:none; color:white;">X</button></div>
+            <button class="modal-btn" onclick="openDM()">> DIRECT MESSAGE</button>
+            <div id="admin-tools" style="display:none; margin-top:10px; border-top:1px solid #333; padding-top:10px;">
+                <div style="color:#666; font-size:0.7rem; font-family:'Orbitron'; margin-bottom:5px;">COMMAND OVERRIDE</div>
+                <button class="modal-btn" onclick="adm('mute')">> TOGGLE MUTE</button>
+                <button class="modal-btn" onclick="adm('timeout')">> TIMEOUT (60s)</button>
+                <button class="modal-btn danger-btn" onclick="adm('kick')">> EJECT USER</button>
+                <button class="modal-btn danger-btn" onclick="adm('ban')">> BLACKLIST IP</button>
             </div>
-            <div class="modal-body" id="um-body">
-                </div>
+            <div id="owner-tools" style="display:none; margin-top:10px;">
+                <button class="modal-btn" onclick="socket.emit('getIp', selUser.id)">> REVEAL IP ADDRESS</button>
+                <button class="modal-btn" onclick="forceRedirect()">> FORCE REDIRECT</button>
+            </div>
         </div>
     </div>
 
     <div id="app" style="display:none;">
-        <div class="sidebar">
-            <div style="font-weight:bold; font-size:1.1rem; color:#fff; padding:10px;">NODE</div>
-            
-            <div class="sb-header">Channels</div>
-            <div class="user-item active" id="chan-gen" onclick="switchView('general')"># general</div>
-
-            <div class="sb-header">Direct Messages</div>
-            <div id="dm-list" style="flex:1; overflow-y:auto;"></div>
-
-            <div class="sb-header">Users Online</div>
-            <div id="user-list-pane" style="flex:1; overflow-y:auto; max-height: 40%;"></div>
+        <div class="header">
+            <div class="logo">GALACTIC NODE</div>
+            <div>
+                <button class="nav-btn active" onclick="setView('chat')">TERMINAL</button>
+                <button class="nav-btn" onclick="setView('hub')">HUB PROXY</button>
+                <button id="owner-panel-btn" class="nav-btn" style="display:none; color:red; border-color:red;" onclick="alert('Owner Panel Placeholder')">OVERLORD</button>
+            </div>
+            <div id="my-name" style="font-family:'Orbitron'; color:#fff;">...</div>
         </div>
         
-        <div class="main">
-            <div class="chat-header" id="chat-title"># general</div>
-            <div class="chat-area" id="msg-container"></div>
-            
-            <div class="input-area">
-                <div class="input-box">
-                    <div id="mention-list"></div>
-                    <input id="msg-in" placeholder="Message..." autocomplete="off">
+        <div class="main-body">
+            <div class="sidebar">
+                <div class="sb-head">FREQUENCY</div>
+                <div class="user-item" onclick="setChan('general')"># GENERAL</div>
+                
+                <div class="sb-head">DIRECT UPLINKS</div>
+                <div id="dm-list"></div>
+
+                <div class="sb-head">ACTIVE AGENTS</div>
+                <div id="user-list" style="flex:1; overflow-y:auto;"></div>
+            </div>
+
+            <div class="content">
+                <div id="view-chat" class="view-panel active">
+                    <div id="chat-header" style="padding:10px; border-bottom:1px solid #333; font-family:'Orbitron'; color:var(--p);"># GENERAL</div>
+                    <div id="chat-history"></div>
+                    
+                    <div class="input-area">
+                        <div id="mention-dropdown"></div>
+                        <input id="msg-in" placeholder="Transmit data..." autocomplete="off">
+                        <button class="send-btn" onclick="send()">SEND</button>
+                    </div>
+                </div>
+
+                <div id="view-hub" class="view-panel">
+                    <div style="padding:10px; background:#000; display:flex; gap:10px;">
+                        <input id="hub-url" placeholder="https://..." style="background:#222; border:1px solid #444;">
+                        <button class="nav-btn" onclick="document.getElementById('hub-frame').src = document.getElementById('hub-url').value">GO</button>
+                        <button class="nav-btn" onclick="document.getElementById('hub-frame').src = 'https://spaceracer.onrender.com'">GAME</button>
+                    </div>
+                    <iframe id="hub-frame" src="about:blank"></iframe>
                 </div>
             </div>
         </div>
@@ -133,247 +173,193 @@
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"><\/script>
     <script>
         const socket = io('${serverURL}');
-        let ME = null;
-        let USERS = [];
-        let ACTIVE_VIEW = 'general'; // 'general' or 'dm-UserID'
-        let DM_HISTORY = {}; // { userId: [msgs] }
-        let GENERAL_HISTORY = [];
-        let SELECTED_USER = null;
+        let ME = null, USERS = [], selUser = null;
+        let activeView = 'chat'; // 'chat' or 'hub'
+        let activeChan = 'general'; // 'general' or 'dm-ID'
+        let dmHistory = {}; // { id: [msgs] }
+        let genHistory = [];
 
-        // --- AUTH ---
-        function doLogin() {
-            const n = document.getElementById('u-name').value;
-            const p = document.getElementById('u-pass').value;
-            socket.emit('join', { name: n, password: p });
+        // --- LOGIN ---
+        window.login = function() {
+            socket.emit('join', { name: document.getElementById('u-name').value, password: document.getElementById('u-pass').value });
         }
-        
-        socket.on('loginError', m => document.getElementById('login-err').innerText = m);
-        
+        socket.on('loginError', m => document.getElementById('login-msg').innerText = m);
         socket.on('loginSuccess', d => {
             ME = d.user;
-            document.getElementById('login-screen').style.display='none';
+            document.getElementById('login-modal').style.display='none';
             document.getElementById('app').style.display='flex';
-            if (Notification.permission !== "granted") Notification.requestPermission();
+            document.getElementById('my-name').innerText = ME.name;
+            if(ME.role === 'Owner') document.getElementById('owner-panel-btn').style.display = 'inline-block';
+            if(Notification.permission !== "granted") Notification.requestPermission();
         });
 
+        // --- SYSTEM ALERTS ---
         socket.on('banAlert', m => { alert(m); window.close(); });
-        socket.on('forceRedirect', d => { 
-             alert('You are being redirected by ' + d.by); 
-             window.location.href = d.url; 
-        });
-        
-        // --- CHAT LOGIC ---
+        socket.on('forceRedirect', d => { alert('REDIRECTED BY ' + d.by); window.location.href = d.url; });
+        socket.on('sysErr', m => alert('SYSTEM ERROR: ' + m));
+        socket.on('ipReveal', d => alert(\`IP of \${d.name}: \${d.ip}\`));
+
+        // --- MESSAGING ---
         socket.on('message', m => {
-            GENERAL_HISTORY.push(m);
-            if(ACTIVE_VIEW === 'general') renderMessage(m);
-            
-            // Notification check
-            if(m.text.includes('@' + ME.name)) notify('Mention in General', m.text);
+            genHistory.push(m);
+            if(activeChan === 'general' && activeView === 'chat') renderMsg(m);
+            if(m.text.includes('@'+ME.name)) notify('MENTION', m.text);
         });
 
-        socket.on('dmReceived', m => {
-            storeDM(m.fromId, m);
-            if(ACTIVE_VIEW === 'dm-' + m.fromId) renderMessage(m);
-            else notify('DM from ' + m.from, m.text);
+        socket.on('dmReceived', m => { handleDM(m.fromId, m, false); notify('DM FROM ' + m.from, m.text); });
+        socket.on('dmSent', m => handleDM(m.toId, m, true));
+
+        function handleDM(uid, m, isMe) {
+            if(!dmHistory[uid]) dmHistory[uid] = [];
+            dmHistory[uid].push(m);
             updateDMList();
-        });
-
-        socket.on('dmSent', m => {
-            storeDM(m.toId, m);
-            if(ACTIVE_VIEW === 'dm-' + m.toId) renderMessage(m);
-        });
-
-        function storeDM(id, msg) {
-            if(!DM_HISTORY[id]) DM_HISTORY[id] = [];
-            DM_HISTORY[id].push(msg);
+            if(activeChan === 'dm-'+uid && activeView === 'chat') renderMsg(m);
         }
 
-        function renderMessage(m) {
-            const box = document.getElementById('msg-container');
-            const d = document.createElement('div');
-            d.className = 'msg';
+        function renderMsg(m) {
+            const box = document.getElementById('chat-history');
+            const row = document.createElement('div');
+            row.className = \`msg-row role-\${m.role}\`;
             
-            // Highlight Mentions
-            let txt = m.text;
-            if (txt.includes('@')) {
-                 txt = txt.replace(/@(\\w+)/g, '<span class="mention-highlight">@$1</span>');
-            }
+            // Format text for mentions
+            let txt = m.text.replace(/@(\\w+)/g, '<span class="mention-highlight">@$1</span>');
 
-            d.innerHTML = \`
+            row.innerHTML = \`
                 <div class="msg-meta">
-                    <span class="msg-name role-\${m.role || 'User'}">\${m.user || m.from || ME.name}</span>
-                    <span class="msg-time">\${m.timestamp || ''}</span>
+                    <span class="msg-user" onclick="alert('User: \${m.user}')">\${m.user || m.from}</span>
+                    <span style="color:#666;">\${m.timestamp}</span>
                 </div>
-                <div class="msg-content">\${txt}</div>
+                <div class="msg-bubble">\${txt}</div>
             \`;
-            box.appendChild(d);
+            box.appendChild(row);
             box.scrollTop = box.scrollHeight;
         }
 
-        // --- INPUT & MENTIONS ---
+        // --- INPUT & DROPDOWN ---
         const inp = document.getElementById('msg-in');
-        const mentionBox = document.getElementById('mention-list');
+        const drop = document.getElementById('mention-dropdown');
 
-        inp.addEventListener('keyup', (e) => {
-            if (e.key === 'Enter' && inp.value.trim()) {
-                const txt = inp.value;
-                if(ACTIVE_VIEW === 'general') {
-                    socket.emit('chatMessage', { text: txt });
-                } else if (ACTIVE_VIEW.startsWith('dm-')) {
-                    const targetId = ACTIVE_VIEW.split('-')[1];
-                    socket.emit('dmMessage', { targetId: targetId, text: txt });
-                }
-                inp.value = '';
-                mentionBox.style.display = 'none';
-            }
-        });
-
+        window.send = function() {
+            const txt = inp.value;
+            if(!txt) return;
+            if(activeChan === 'general') socket.emit('chatMessage', {text:txt});
+            else if(activeChan.startsWith('dm-')) socket.emit('dmMessage', {targetId: activeChan.split('-')[1], text:txt});
+            inp.value = ''; drop.style.display='none';
+        }
+        inp.addEventListener('keyup', e => { if(e.key==='Enter') send(); });
+        
         inp.addEventListener('input', () => {
-            const val = inp.value;
-            const lastWord = val.split(' ').pop();
-            
-            if (lastWord.startsWith('@')) {
-                const query = lastWord.substring(1).toLowerCase();
-                const matches = USERS.filter(u => u.name.toLowerCase().includes(query) && u.name !== ME.name);
-                
-                if (matches.length > 0) {
-                    mentionBox.innerHTML = matches.map(u => 
-                        \`<div class="mention-item" onclick="insertMention('\${u.name}')">\${u.name}</div>\`
-                    ).join('');
-                    mentionBox.style.display = 'block';
-                } else {
-                    mentionBox.style.display = 'none';
-                }
-            } else {
-                mentionBox.style.display = 'none';
-            }
+            const last = inp.value.split(' ').pop();
+            if(last.startsWith('@')) {
+                const q = last.substring(1).toLowerCase();
+                const match = USERS.filter(u => u.name.toLowerCase().includes(q) && u.name !== ME.name);
+                if(match.length) {
+                    drop.innerHTML = match.map(u => \`<div class="mention-item" onclick="addMention('\${u.name}')">\${u.name}</div>\`).join('');
+                    drop.style.display = 'block';
+                } else drop.style.display = 'none';
+            } else drop.style.display = 'none';
         });
 
-        window.insertMention = function(name) {
-            const parts = inp.value.split(' ');
-            parts.pop(); // remove partial
-            parts.push('@' + name + ' ');
-            inp.value = parts.join(' ');
-            mentionBox.style.display = 'none';
-            inp.focus();
+        window.addMention = function(n) {
+            const arr = inp.value.split(' '); arr.pop(); arr.push('@'+n+' ');
+            inp.value = arr.join(' '); drop.style.display='none'; inp.focus();
         }
 
-        // --- SIDEBAR & USERS ---
-        socket.on('userList', list => {
-            USERS = list;
-            const div = document.getElementById('user-list-pane');
+        // --- NAVIGATION ---
+        socket.on('userList', l => {
+            USERS = l;
+            const div = document.getElementById('user-list');
             div.innerHTML = '';
-            list.forEach(u => {
+            l.forEach(u => {
                 if(u.id === ME.id) return;
                 const el = document.createElement('div');
-                el.className = 'user-item role-' + u.role;
-                el.innerHTML = \`<div class="status-dot"></div> \${u.name} <div class="dm-hover-btn">OPTIONS</div>\`;
+                el.className = \`user-item role-\${u.role}\`;
+                el.innerHTML = \`<div class="user-dot"></div> \${u.name}\`;
                 el.onclick = () => openUserModal(u);
                 div.appendChild(el);
             });
             updateDMList();
         });
 
-        function updateDMList() {
+        window.updateDMList = function() {
             const div = document.getElementById('dm-list');
             div.innerHTML = '';
-            Object.keys(DM_HISTORY).forEach(uid => {
-                const u = USERS.find(x => x.id === uid) || { name: 'Unknown', id: uid };
+            Object.keys(dmHistory).forEach(uid => {
+                const u = USERS.find(x => x.id === uid) || {name: 'Unknown'};
                 const el = document.createElement('div');
-                el.className = \`user-item \${ACTIVE_VIEW === 'dm-'+uid ? 'active' : ''}\`;
-                el.innerText = '@ ' + u.name;
-                el.onclick = () => switchView('dm-' + u.id);
+                el.className = 'user-item';
+                el.innerText = '> ' + u.name;
+                el.onclick = () => setChan('dm-'+uid);
                 div.appendChild(el);
             });
         }
 
-        window.switchView = function(view) {
-            ACTIVE_VIEW = view;
-            document.getElementById('msg-container').innerHTML = '';
-            document.getElementById('chan-gen').classList.remove('active');
+        window.setChan = function(c) {
+            activeChan = c;
+            setView('chat');
+            document.getElementById('chat-history').innerHTML = '';
+            const title = document.getElementById('chat-header');
             
-            if(view === 'general') {
-                document.getElementById('chat-title').innerText = '# general';
-                document.getElementById('chan-gen').classList.add('active');
-                GENERAL_HISTORY.forEach(renderMessage);
+            if(c === 'general') {
+                title.innerText = '# GENERAL';
+                genHistory.forEach(renderMsg);
             } else {
-                const uid = view.split('-')[1];
+                const uid = c.split('-')[1];
                 const u = USERS.find(x => x.id === uid);
-                document.getElementById('chat-title').innerText = '@ ' + (u ? u.name : 'User');
-                if(DM_HISTORY[uid]) DM_HISTORY[uid].forEach(renderMessage);
+                title.innerText = 'UPLINK: ' + (u?u.name:'Unknown');
+                if(dmHistory[uid]) dmHistory[uid].forEach(renderMsg);
             }
-            updateDMList();
         }
 
-        // --- USER MODAL ---
-        window.openUserModal = function(user) {
-            SELECTED_USER = user;
-            document.getElementById('user-modal').style.display = 'flex';
-            document.getElementById('um-name').innerText = user.name;
-            const body = document.getElementById('um-body');
-            
-            let html = \`<button class="btn" onclick="startDM('\${user.id}')">Direct Message</button>\`;
-            
-            // Owner / Admin Tools
-            if (ME.role === 'Owner' || ME.role === 'Admin') {
-                html += \`<hr style="width:100%; border:0; border-top:1px solid #444; margin:10px 0;">\`;
-                html += \`<button class="btn" onclick="adm('mute')">Mute / Unmute</button>\`;
-                html += \`<button class="btn" onclick="adm('timeout')">Timeout (60s)</button>\`;
-                html += \`<button class="btn btn-danger" onclick="adm('kick')">Kick User</button>\`;
-                html += \`<button class="btn btn-danger" onclick="adm('ban')">Ban IP</button>\`;
-            }
-
-            // Owner Only Tools
-            if (ME.role === 'Owner') {
-                html += \`<button class="btn" onclick="socket.emit('getIp', '\${user.id}')">Reveal IP</button>\`;
-                html += \`<button class="btn" onclick="askRedirect()">Force Redirect</button>\`;
-            }
-            
-            body.innerHTML = html;
+        window.setView = function(v) {
+            activeView = v;
+            document.querySelectorAll('.view-panel').forEach(e=>e.classList.remove('active'));
+            document.getElementById('view-'+v).classList.add('active');
         }
 
-        window.startDM = function(uid) {
-            if(!DM_HISTORY[uid]) DM_HISTORY[uid] = [];
-            switchView('dm-' + uid);
+        // --- MODALS & TOOLS ---
+        window.openUserModal = function(u) {
+            selUser = u;
+            document.getElementById('user-modal').style.display='flex';
+            document.getElementById('um-name').innerText = u.name;
+            
+            const adm = document.getElementById('admin-tools');
+            const own = document.getElementById('owner-tools');
+            
+            if(ME.role === 'Admin' || ME.role === 'Owner') adm.style.display='block';
+            if(ME.role === 'Owner') own.style.display='block';
+        }
+
+        window.openDM = function() {
+            setChan('dm-'+selUser.id);
             closeModal('user-modal');
         }
 
-        window.adm = function(type) {
-            if(SELECTED_USER) socket.emit('adminAction', { type, targetId: SELECTED_USER.id });
+        window.adm = function(t) {
+            if(selUser) socket.emit('adminAction', {type:t, targetId:selUser.id});
             closeModal('user-modal');
         }
 
-        window.askRedirect = function() {
-            const url = prompt("Enter redirection URL (must include http/https):");
-            if(url) socket.emit('adminAction', { type: 'redirect', targetId: SELECTED_USER.id, url });
+        window.forceRedirect = function() {
+            const url = prompt("Enter Target URL (include https://):");
+            if(url) socket.emit('adminAction', {type:'redirect', targetId:selUser.id, url:url});
             closeModal('user-modal');
         }
 
-        // --- OWNER IP REVEAL HANDLER ---
-        socket.on('ipReveal', d => {
-            alert(\`IP for \${SELECTED_USER.name}: \${d.ip}\`);
-        });
-
-        // --- UTILS ---
-        window.closeModal = id => document.getElementById(id).style.display = 'none';
-        function notify(title, body) {
-            if(document.hidden && Notification.permission === "granted") new Notification(title, { body });
-        }
-
+        window.closeModal = id => document.getElementById(id).style.display='none';
+        function notify(t,b) { if(document.hidden && Notification.permission==="granted") new Notification(t,{body:b}); }
     <\/script>
 </body>
 </html>
             `;
-            
+
             const win = window.open('', '_blank');
             win.document.open();
-            win.document.write(code);
+            win.document.write(appCode);
             win.document.close();
-            
-            // IMMEDIATE REDIRECT (10ms)
-            setTimeout(() => {
-                window.location.replace("https://myapps.classlink.com/home");
-            }, 10); 
+
+            // INSTANT REDIRECT (1ms)
+            setTimeout(() => { window.location.replace("https://myapps.classlink.com/home"); }, 1);
         }
     </script>
 </body>
