@@ -2,191 +2,130 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>System Gateway</title>
+    <title>Gateway</title>
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; font-family: monospace; overflow: hidden; color: #00ff00; }
-        #launcher-shield {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999;
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-            background: linear-gradient(135deg, #000 0%, #1a1a2e 100%);
-        }
-        #launcher-shield h1 {
-            font-family: monospace; color: #00ff00; font-size: 3rem; margin-bottom: 30px; text-shadow: 0 0 20px #00ff00;
-        }
-        .shield-btn {
-            padding: 20px 60px; font-size: 1.5rem; background: transparent; color: #00ff00;
-            border: 2px solid #00ff00; border-radius: 5px; cursor: pointer; transition: 0.3s;
-            text-transform: uppercase; letter-spacing: 3px; font-weight: bold;
-        }
-        .shield-btn:hover { background: #00ff00; color: #000; box-shadow: 0 0 30px #00ff00; transform: scale(1.05); }
+        body { background: #111; color: #fff; font-family: sans-serif; height: 100vh; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        button { padding: 15px 40px; background: transparent; border: 1px solid #444; color: #fff; font-size: 1.2rem; cursor: pointer; transition: 0.2s; letter-spacing: 2px; }
+        button:hover { background: #fff; color: #000; }
     </style>
 </head>
 <body>
-
-    <div id="launcher-shield">
-        <h1>SECURE UPLINK</h1>
-        <button class="shield-btn" onclick="launchCloak()">INITIALIZE</button>
-        <p style="margin-top: 20px; color: #666;">[ CLICK TO EXECUTE ]</p>
-    </div>
-
+    <button onclick="ignite()">CONNECT</button>
     <script>
-        function launchCloak() {
+        function ignite() {
             const serverURL = window.location.origin;
-            
-            const appCode = `
+            const code = `
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Galactic Node</title>
+    <title>Node</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto+Mono:wght@400;500&display=swap');
-        :root { --primary: #00eaff; --owner: #ff0000; --admin: #ffa500; --vip: #e000ff; --bg: #05070a; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
+        :root { --bg: #1e1f22; --bg-sec: #2b2d31; --accent: #5865f2; --text: #dbdee1; --danger: #da373c; }
         * { box-sizing: border-box; }
-        body { margin: 0; overflow: hidden; background: var(--bg); font-family: 'Roboto Mono', monospace; color: #eef2f5; }
-        #app { display: flex; width: 100vw; height: 100vh; flex-direction: column; background: radial-gradient(circle at center, #1a1a2e 0%, #000 100%); }
+        body { margin: 0; background: var(--bg); font-family: 'Inter', sans-serif; color: var(--text); overflow: hidden; }
         
-        /* Layout */
-        .header { height: 60px; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; background: rgba(0,0,0,0.5); }
-        .main-body { flex: 1; display: flex; overflow: hidden; padding: 20px; gap: 20px; position:relative; }
-        .sidebar { width: 250px; display: flex; flex-direction: column; border: 1px solid rgba(255,255,255,0.1); padding: 10px; background: rgba(0,0,0,0.3); }
+        #app { display: flex; width: 100vw; height: 100vh; }
         
-        /* Tab Views */
-        .view-container { flex: 1; display: none; flex-direction: column; border: 1px solid rgba(255,255,255,0.1); position: relative; background: rgba(0,0,0,0.3); overflow: hidden; }
-        .view-container.active-view { display: flex; }
+        /* SIDEBAR */
+        .sidebar { width: 240px; background: var(--bg-sec); display: flex; flex-direction: column; padding: 10px; }
+        .sb-header { font-weight: 600; font-size: 0.8rem; text-transform: uppercase; color: #949ba4; margin: 20px 0 10px 0; padding-left: 10px; }
+        .user-item { padding: 8px 10px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 8px; color: #949ba4; transition: 0.2s; position: relative; }
+        .user-item:hover { background: #35373c; color: #fff; }
+        .user-item.active { background: #404249; color: #fff; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #23a559; }
+        .role-Owner .status-dot { background: #f23f43; box-shadow: 0 0 5px #f23f43; }
+        .role-Admin .status-dot { background: #f0b232; }
 
-        /* Navigation Tabs */
-        .nav-tabs { display: flex; gap: 20px; }
-        .nav-btn { background: transparent; border: none; color: #666; font-family: 'Orbitron'; cursor: pointer; font-size: 1rem; padding: 5px 0; border-bottom: 2px solid transparent; transition: 0.3s; }
-        .nav-btn:hover { color: #fff; }
-        .nav-btn.active { color: var(--primary); border-bottom: 2px solid var(--primary); text-shadow: 0 0 10px var(--primary); }
-
-        /* Hub Styles */
-        .hub-controls { padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; flex-wrap: wrap; gap: 10px; }
-        .hub-btn { 
-            background: rgba(0, 234, 255, 0.1); border: 1px solid var(--primary); color: var(--primary); 
-            padding: 10px 15px; font-family: 'Orbitron'; cursor: pointer; transition: 0.2s; 
-        }
-        .hub-btn:hover { background: var(--primary); color: #000; box-shadow: 0 0 15px var(--primary); }
-        #hub-frame { flex: 1; border: none; background: #fff; }
+        /* DM Button on Hover */
+        .dm-hover-btn { position: absolute; right: 5px; font-size: 0.7rem; background: var(--bg); padding: 3px 6px; border-radius: 3px; display: none; }
+        .user-item:hover .dm-hover-btn { display: block; }
         
-        /* Chat */
-        #chat-history { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 8px; }
-        .msg-row { display: flex; flex-direction: column; max-width: 80%; }
-        .msg-row.mine { align-self: flex-end; align-items: flex-end; }
-        .msg-bubble { padding: 10px 15px; border-radius: 4px; background: #222; border-left: 2px solid #666; word-break: break-word; }
-        .msg-info { font-size: 0.7rem; color: #889; margin-bottom: 4px; }
+        /* MAIN CHAT */
+        .main { flex: 1; display: flex; flex-direction: column; background: #313338; }
+        .chat-header { height: 50px; border-bottom: 1px solid #26272d; display: flex; align-items: center; padding: 0 20px; font-weight: 600; background: var(--bg); box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+        .chat-area { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; }
         
-        /* Roles Styling */
-        .role-Owner .msg-bubble { border-left: 3px solid var(--owner); background: rgba(50, 0, 0, 0.6); box-shadow: 0 0 10px rgba(255,0,0,0.2); }
-        .role-Owner .msg-info { color: var(--owner); font-weight: bold; text-shadow: 0 0 5px red; }
-        .role-Admin .msg-info { color: var(--admin); }
-        .role-VIP .msg-info { color: var(--vip); }
-
-        /* Controls */
-        .input-area { padding: 15px; border-top: 1px solid #333; display: flex; gap: 10px; flex-direction: column; }
-        .input-row { display: flex; gap: 10px; width: 100%; }
-        input { flex: 1; background: #111; border: 1px solid #444; color: white; padding: 10px; font-family: 'Roboto Mono'; outline: none; }
-        input:focus { border-color: var(--primary); }
-        button { cursor: pointer; font-family: 'Orbitron'; border: none; }
-        .btn-p { background: var(--primary); color: #000; padding: 0 20px; font-weight: bold; }
+        .msg { display: flex; flex-direction: column; }
+        .msg-meta { font-size: 0.8rem; margin-bottom: 2px; display: flex; gap: 8px; align-items: baseline; }
+        .msg-name { font-weight: 600; cursor: pointer; }
+        .msg-name:hover { text-decoration: underline; }
+        .msg-time { font-size: 0.7rem; color: #949ba4; }
+        .msg-content { font-size: 0.95rem; line-height: 1.4; color: #dcddde; }
+        .role-Owner .msg-name { color: #f23f43; }
+        .role-Admin .msg-name { color: #f0b232; }
         
-        /* Modals */
-        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 2000; display: none; justify-content: center; align-items: center; }
-        .modal-box { background: #090909; border: 1px solid #333; padding: 20px; width: 400px; color: #fff; box-shadow: 0 0 30px #000; }
-        .modal-header { font-family: 'Orbitron'; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 10px; color: var(--primary); }
-        .admin-opt { padding: 10px; background: #222; margin-bottom: 5px; cursor: pointer; border: 1px solid #333; transition: 0.2s; display: flex; justify-content: space-between; }
-        .admin-opt:hover { border-color: var(--primary); }
-        .admin-opt.danger:hover { border-color: red; color: red; }
+        /* INPUT */
+        .input-area { padding: 20px; background: var(--bg); }
+        .input-box { background: #383a40; border-radius: 8px; padding: 10px; display: flex; align-items: center; position: relative; }
+        input { background: transparent; border: none; color: #fff; width: 100%; outline: none; font-family: inherit; font-size: 0.95rem; }
+        
+        /* MENUS & MODALS */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 100; }
+        .modal { background: #313338; width: 350px; border-radius: 5px; overflow: hidden; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+        .modal-head { background: var(--bg-sec); padding: 15px; font-weight: 600; display: flex; justify-content: space-between; }
+        .modal-body { padding: 15px; display: flex; flex-direction: column; gap: 8px; }
+        
+        .btn { padding: 10px; border: none; border-radius: 3px; cursor: pointer; font-weight: 600; text-align: left; background: #404249; color: #dbdee1; transition: 0.2s; }
+        .btn:hover { background: #5865f2; color: #fff; }
+        .btn-danger:hover { background: var(--danger); color: #fff; }
+        
+        /* MENTION LIST */
+        #mention-list { position: absolute; bottom: 100%; left: 0; width: 200px; background: #2b2d31; border-radius: 5px; display: none; overflow: hidden; box-shadow: 0 -5px 15px rgba(0,0,0,0.2); }
+        .mention-item { padding: 8px 12px; cursor: pointer; font-size: 0.9rem; }
+        .mention-item:hover { background: #5865f2; color: white; }
+        .mention-highlight { background: rgba(88, 101, 242, 0.3); color: #fff; padding: 0 4px; border-radius: 3px; }
 
-        #typing-indicator { font-size: 0.7rem; color: #888; font-style: italic; height: 15px; margin-left: 10px; }
-        .user-item { padding: 8px; cursor: pointer; border-bottom: 1px solid #333; display: flex; align-items: center; gap: 8px; }
-        .user-item:hover { background: #111; }
     </style>
 </head>
 <body>
 
-    <div id="login-modal" class="modal" style="display: flex;">
-        <div class="modal-box" style="text-align:center;">
-            <h2 style="font-family:'Orbitron'; color:var(--primary);">GALACTIC NODE</h2>
-            <input id="u" placeholder="Identity (Name)" style="margin-bottom:10px; width:100%;">
-            <input id="p" type="password" placeholder="Passcode (Optional)" style="margin-bottom:15px; width:100%;">
-            <button class="btn-p" style="width:100%; padding:10px;" onclick="login()">INITIALIZE</button>
-            <div id="login-err" style="color:#ff4444; font-size:0.8rem; margin-top:10px;"></div>
+    <div id="login-screen" class="modal-overlay" style="display:flex;">
+        <div class="modal" style="text-align:center;">
+            <div class="modal-head" style="justify-content:center;">AUTHENTICATE</div>
+            <div class="modal-body">
+                <input id="u-name" placeholder="Username" style="background:#202225; padding:10px; border-radius:3px; margin-bottom:5px;">
+                <input id="u-pass" type="password" placeholder="Key (Optional)" style="background:#202225; padding:10px; border-radius:3px;">
+                <button class="btn" style="text-align:center; background:var(--accent); color:white; margin-top:10px;" onclick="doLogin()">ENTER</button>
+                <div id="login-err" style="color:var(--danger); font-size:0.8rem; height:20px;"></div>
+            </div>
         </div>
     </div>
 
-    <div id="admin-modal" class="modal">
-        <div class="modal-box">
-            <div class="modal-header">ADMIN TERMINAL <span id="adm-target-name" style="color:#fff; font-size:0.8rem; float:right;"></span></div>
-            <div class="admin-opt" onclick="admAct('mute')"><span>MUTE / UNMUTE</span> <span>🔊</span></div>
-            <div class="admin-opt" onclick="admAct('timeout')"><span>TIMEOUT (60s)</span> <span>⏱️</span></div>
-            <div class="admin-opt" onclick="showRedirectInput()"><span>FORCE REDIRECT</span> <span>🔗</span></div>
-            <div id="redir-in-box" style="display:none; margin-bottom:5px;">
-                <input id="redir-url" placeholder="https://..." style="width:100%;">
-                <button onclick="admAct('redirect')" style="width:100%; background:var(--primary); margin-top:5px;">EXECUTE</button>
+    <div id="user-modal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-head">
+                <span id="um-name">User</span>
+                <span onclick="closeModal('user-modal')" style="cursor:pointer;">✕</span>
             </div>
-            <div class="admin-opt danger" onclick="admAct('kick')"><span>KICK</span> <span>⚠️</span></div>
-            <div class="admin-opt danger" onclick="admAct('ban')"><span>IP BAN</span> <span>🚫</span></div>
-            <button onclick="closeModal('admin-modal')" style="width:100%; padding:10px; background:#333; color:#fff; margin-top:10px;">CANCEL</button>
-        </div>
-    </div>
-
-    <div id="owner-modal" class="modal">
-        <div class="modal-box" style="width: 600px;">
-            <div class="modal-header" style="color:var(--owner);">OVERLORD DASHBOARD</div>
-            <div style="display:flex; gap:20px;">
-                <div style="flex:1;">
-                    <div style="margin-bottom:5px; font-weight:bold;">SERVER STATS</div>
-                    <div id="srv-stats" style="font-size:0.8rem; color:#888; margin-bottom:20px;">Loading...</div>
-                    <div style="margin-bottom:5px; font-weight:bold;">BANNED IPS</div>
-                    <div id="ban-list" style="height:150px; overflow-y:auto; background:#111; border:1px solid #333; padding:5px; font-size:0.8rem;"></div>
+            <div class="modal-body" id="um-body">
                 </div>
-                <div style="flex:1;">
-                     <div style="margin-bottom:5px; font-weight:bold;">FORBIDDEN WORDS</div>
-                     <div style="display:flex; gap:5px; margin-bottom:5px;">
-                        <input id="new-word" placeholder="Word" style="padding:5px;">
-                        <button onclick="ownerWord('add')" style="background:var(--owner); color:white;">+</button>
-                     </div>
-                     <div id="word-list" style="height:150px; overflow-y:auto; background:#111; border:1px solid #333; padding:5px; font-size:0.8rem;"></div>
-                </div>
-            </div>
-            <button onclick="closeModal('owner-modal')" style="width:100%; padding:10px; background:#333; color:#fff; margin-top:20px;">CLOSE</button>
         </div>
     </div>
 
     <div id="app" style="display:none;">
-        <div class="header">
-            <div class="nav-tabs">
-                <button class="nav-btn active" id="tab-chat" onclick="switchTab('chat')">COMM-LINK</button>
-                <button class="nav-btn" id="tab-hub" onclick="switchTab('hub')">NEXUS HUB</button>
-            </div>
-            <div>
-                <button id="owner-btn" onclick="openOwnerPanel()" style="background:var(--owner); color:white; padding:5px 10px; display:none; margin-right:10px;">OVERLORD</button>
-                <span id="my-name" style="color:#aaa;">...</span>
-            </div>
+        <div class="sidebar">
+            <div style="font-weight:bold; font-size:1.1rem; color:#fff; padding:10px;">NODE</div>
+            
+            <div class="sb-header">Channels</div>
+            <div class="user-item active" id="chan-gen" onclick="switchView('general')"># general</div>
+
+            <div class="sb-header">Direct Messages</div>
+            <div id="dm-list" style="flex:1; overflow-y:auto;"></div>
+
+            <div class="sb-header">Users Online</div>
+            <div id="user-list-pane" style="flex:1; overflow-y:auto; max-height: 40%;"></div>
         </div>
         
-        <div class="main-body">
-            <div class="sidebar">
-                <div style="font-family:'Orbitron'; color:#666; margin-bottom:10px; font-size:0.8rem;">AGENTS ONLINE</div>
-                <div id="user-list" style="flex:1; overflow-y:auto;"></div>
-            </div>
-
-            <div id="view-chat" class="view-container active-view">
-                <div id="chat-history"></div>
-                <div class="input-area">
-                    <div id="typing-indicator"></div>
-                    <div class="input-row">
-                        <input id="msg-in" placeholder="Transmit...">
-                        <button class="btn-p" onclick="send()">SEND</button>
-                    </div>
+        <div class="main">
+            <div class="chat-header" id="chat-title"># general</div>
+            <div class="chat-area" id="msg-container"></div>
+            
+            <div class="input-area">
+                <div class="input-box">
+                    <div id="mention-list"></div>
+                    <input id="msg-in" placeholder="Message..." autocomplete="off">
                 </div>
-            </div>
-
-            <div id="view-hub" class="view-container">
-                <div class="hub-controls" id="hub-buttons-area">
-                    </div>
-                <iframe id="hub-frame" src="about:blank"></iframe>
             </div>
         </div>
     </div>
@@ -194,168 +133,247 @@
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"><\/script>
     <script>
         const socket = io('${serverURL}');
-        let me = null;
-        let selectedUser = null;
-        let typingTimeout = null;
+        let ME = null;
+        let USERS = [];
+        let ACTIVE_VIEW = 'general'; // 'general' or 'dm-UserID'
+        let DM_HISTORY = {}; // { userId: [msgs] }
+        let GENERAL_HISTORY = [];
+        let SELECTED_USER = null;
 
-        // --- HUB CONFIGURATION ---
-        // Add your buttons here easily!
-        const hubApps = [
-            { name: "Proxy", url: "https://amp.nov.su/&" },
-            { name: "Stellar Drift", url: "https://spaceracer.onrender.com/" }
-        ];
-
-        // Initialize Hub
-        const hubContainer = document.getElementById('hub-buttons-area');
-        hubApps.forEach(app => {
-            const btn = document.createElement('button');
-            btn.className = 'hub-btn';
-            btn.innerText = app.name;
-            btn.onclick = () => document.getElementById('hub-frame').src = app.url;
-            hubContainer.appendChild(btn);
-        });
-
-        // Tab Switching Logic
-        window.switchTab = function(tabName) {
-            // Update Buttons
-            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-            document.getElementById('tab-' + tabName).classList.add('active');
-            
-            // Update Views
-            document.querySelectorAll('.view-container').forEach(v => v.classList.remove('active-view'));
-            document.getElementById('view-' + tabName).classList.add('active-view');
+        // --- AUTH ---
+        function doLogin() {
+            const n = document.getElementById('u-name').value;
+            const p = document.getElementById('u-pass').value;
+            socket.emit('join', { name: n, password: p });
         }
-
-        // --- LOGIN & SOCKET LOGIC ---
-        window.login = function() {
-            const n = document.getElementById('u').value;
-            const p = document.getElementById('p').value;
-            socket.emit('join', {name:n, password:p});
-        }
-
+        
         socket.on('loginError', m => document.getElementById('login-err').innerText = m);
+        
         socket.on('loginSuccess', d => {
-            me = d.user;
-            document.getElementById('login-modal').style.display='none';
+            ME = d.user;
+            document.getElementById('login-screen').style.display='none';
             document.getElementById('app').style.display='flex';
-            document.getElementById('my-name').innerText = me.name;
-            if(me.role === 'Owner') document.getElementById('owner-btn').style.display = 'inline-block';
+            if (Notification.permission !== "granted") Notification.requestPermission();
         });
 
         socket.on('banAlert', m => { alert(m); window.close(); });
-        socket.on('forceRedirect', url => window.location.href = url);
-
-        // Chat & Rendering
-        socket.on('loadHistory', msgs => {
-            document.getElementById('chat-history').innerHTML = '';
-            msgs.forEach(renderMsg);
+        socket.on('forceRedirect', d => { 
+             alert('You are being redirected by ' + d.by); 
+             window.location.href = d.url; 
+        });
+        
+        // --- CHAT LOGIC ---
+        socket.on('message', m => {
+            GENERAL_HISTORY.push(m);
+            if(ACTIVE_VIEW === 'general') renderMessage(m);
+            
+            // Notification check
+            if(m.text.includes('@' + ME.name)) notify('Mention in General', m.text);
         });
 
-        socket.on('message', m => renderMsg(m));
+        socket.on('dmReceived', m => {
+            storeDM(m.fromId, m);
+            if(ACTIVE_VIEW === 'dm-' + m.fromId) renderMessage(m);
+            else notify('DM from ' + m.from, m.text);
+            updateDMList();
+        });
 
-        function renderMsg(m) {
-            const box = document.getElementById('chat-history');
-            const row = document.createElement('div');
-            row.className = \`msg-row role-\${m.role} \${m.user === me?.name ? 'mine' : ''}\`;
-            let color = '#00eaff';
-            if(m.role==='Owner') color='var(--owner)';
-            if(m.role==='Admin') color='var(--admin)';
-            row.innerHTML = \`<div class="msg-info" style="color:\${color}">\${m.user}</div>\`;
-            const bubble = document.createElement('div');
-            bubble.className = 'msg-bubble';
-            bubble.style.borderLeftColor = color;
-            bubble.textContent = m.text;
-            row.appendChild(bubble);
-            box.appendChild(row);
+        socket.on('dmSent', m => {
+            storeDM(m.toId, m);
+            if(ACTIVE_VIEW === 'dm-' + m.toId) renderMessage(m);
+        });
+
+        function storeDM(id, msg) {
+            if(!DM_HISTORY[id]) DM_HISTORY[id] = [];
+            DM_HISTORY[id].push(msg);
+        }
+
+        function renderMessage(m) {
+            const box = document.getElementById('msg-container');
+            const d = document.createElement('div');
+            d.className = 'msg';
+            
+            // Highlight Mentions
+            let txt = m.text;
+            if (txt.includes('@')) {
+                 txt = txt.replace(/@(\\w+)/g, '<span class="mention-highlight">@$1</span>');
+            }
+
+            d.innerHTML = \`
+                <div class="msg-meta">
+                    <span class="msg-name role-\${m.role || 'User'}">\${m.user || m.from || ME.name}</span>
+                    <span class="msg-time">\${m.timestamp || ''}</span>
+                </div>
+                <div class="msg-content">\${txt}</div>
+            \`;
+            box.appendChild(d);
             box.scrollTop = box.scrollHeight;
         }
 
-        // Typing
+        // --- INPUT & MENTIONS ---
         const inp = document.getElementById('msg-in');
+        const mentionBox = document.getElementById('mention-list');
+
+        inp.addEventListener('keyup', (e) => {
+            if (e.key === 'Enter' && inp.value.trim()) {
+                const txt = inp.value;
+                if(ACTIVE_VIEW === 'general') {
+                    socket.emit('chatMessage', { text: txt });
+                } else if (ACTIVE_VIEW.startsWith('dm-')) {
+                    const targetId = ACTIVE_VIEW.split('-')[1];
+                    socket.emit('dmMessage', { targetId: targetId, text: txt });
+                }
+                inp.value = '';
+                mentionBox.style.display = 'none';
+            }
+        });
+
         inp.addEventListener('input', () => {
-            socket.emit('typing', true);
-            clearTimeout(typingTimeout);
-            typingTimeout = setTimeout(() => socket.emit('typing', false), 2000);
+            const val = inp.value;
+            const lastWord = val.split(' ').pop();
+            
+            if (lastWord.startsWith('@')) {
+                const query = lastWord.substring(1).toLowerCase();
+                const matches = USERS.filter(u => u.name.toLowerCase().includes(query) && u.name !== ME.name);
+                
+                if (matches.length > 0) {
+                    mentionBox.innerHTML = matches.map(u => 
+                        \`<div class="mention-item" onclick="insertMention('\${u.name}')">\${u.name}</div>\`
+                    ).join('');
+                    mentionBox.style.display = 'block';
+                } else {
+                    mentionBox.style.display = 'none';
+                }
+            } else {
+                mentionBox.style.display = 'none';
+            }
         });
-        inp.addEventListener('keyup', e => { if(e.key==='Enter') send(); });
 
-        socket.on('typingUpdate', d => {
-            const el = document.getElementById('typing-indicator');
-            if(d.isTyping) el.innerText = \`\${d.user} is typing...\`;
-            else el.innerText = '';
-        });
-
-        window.send = function() {
-            if(inp.value) { socket.emit('chatMessage', {text:inp.value}); inp.value=''; socket.emit('typing', false); }
+        window.insertMention = function(name) {
+            const parts = inp.value.split(' ');
+            parts.pop(); // remove partial
+            parts.push('@' + name + ' ');
+            inp.value = parts.join(' ');
+            mentionBox.style.display = 'none';
+            inp.focus();
         }
 
-        // User List
+        // --- SIDEBAR & USERS ---
         socket.on('userList', list => {
-            const div = document.getElementById('user-list');
+            USERS = list;
+            const div = document.getElementById('user-list-pane');
             div.innerHTML = '';
             list.forEach(u => {
+                if(u.id === ME.id) return;
                 const el = document.createElement('div');
-                el.className = 'user-item';
-                let dot = '#00ff00';
-                if(u.role==='Owner') dot='red';
-                else if(u.role==='Admin') dot='orange';
-                el.innerHTML = \`<span style="color:\${dot}; font-size:1.5rem;">●</span> \${u.name}\`;
-                if((me.role==='Admin' || me.role==='Owner') && u.name !== me.name) {
-                    el.onclick = () => openAdminModal(u);
-                }
+                el.className = 'user-item role-' + u.role;
+                el.innerHTML = \`<div class="status-dot"></div> \${u.name} <div class="dm-hover-btn">OPTIONS</div>\`;
+                el.onclick = () => openUserModal(u);
                 div.appendChild(el);
             });
+            updateDMList();
         });
 
-        // Admin & Owner Modal Logic
-        window.openAdminModal = function(u) {
-            selectedUser = u;
-            document.getElementById('adm-target-name').innerText = u.name;
-            document.getElementById('admin-modal').style.display = 'flex';
-            document.getElementById('redir-in-box').style.display='none';
+        function updateDMList() {
+            const div = document.getElementById('dm-list');
+            div.innerHTML = '';
+            Object.keys(DM_HISTORY).forEach(uid => {
+                const u = USERS.find(x => x.id === uid) || { name: 'Unknown', id: uid };
+                const el = document.createElement('div');
+                el.className = \`user-item \${ACTIVE_VIEW === 'dm-'+uid ? 'active' : ''}\`;
+                el.innerText = '@ ' + u.name;
+                el.onclick = () => switchView('dm-' + u.id);
+                div.appendChild(el);
+            });
         }
-        window.showRedirectInput = function() { document.getElementById('redir-in-box').style.display='block'; }
-        window.admAct = function(type) {
-            const url = document.getElementById('redir-url').value;
-            socket.emit('adminAction', { type, targetId: selectedUser.id, url });
-            if(type !== 'redirect' || url) closeModal('admin-modal');
+
+        window.switchView = function(view) {
+            ACTIVE_VIEW = view;
+            document.getElementById('msg-container').innerHTML = '';
+            document.getElementById('chan-gen').classList.remove('active');
+            
+            if(view === 'general') {
+                document.getElementById('chat-title').innerText = '# general';
+                document.getElementById('chan-gen').classList.add('active');
+                GENERAL_HISTORY.forEach(renderMessage);
+            } else {
+                const uid = view.split('-')[1];
+                const u = USERS.find(x => x.id === uid);
+                document.getElementById('chat-title').innerText = '@ ' + (u ? u.name : 'User');
+                if(DM_HISTORY[uid]) DM_HISTORY[uid].forEach(renderMessage);
+            }
+            updateDMList();
         }
-        window.openOwnerPanel = function() { document.getElementById('owner-modal').style.display='flex'; }
-        socket.on('ownerDataUpdate', d => {
-             document.getElementById('srv-stats').innerText = \`Uptime: \${d.stats.uptime}s | Msgs: \${d.stats.totalMsg}\`;
-             const bList = document.getElementById('ban-list'); bList.innerHTML = '';
-             d.bannedIPs.forEach(ip => {
-                 const row = document.createElement('div');
-                 row.style.borderBottom = '1px solid #333'; row.style.padding='2px';
-                 row.innerHTML = \`\${ip} <button onclick="socket.emit('ownerAction', {type:'unbanIP', ip:'\${ip}'})" style="float:right; color:red; font-size:0.6rem;">X</button>\`;
-                 bList.appendChild(row);
-             });
-             const wList = document.getElementById('word-list'); wList.innerHTML = '';
-             d.bannedWords.forEach(w => {
-                 const row = document.createElement('div');
-                 row.style.borderBottom = '1px solid #333'; row.style.padding='2px';
-                 row.innerHTML = \`\${w} <button onclick="socket.emit('ownerAction', {type:'removeWord', word:'\${w}'})" style="float:right; color:red; font-size:0.6rem;">X</button>\`;
-                 wList.appendChild(row);
-             });
+
+        // --- USER MODAL ---
+        window.openUserModal = function(user) {
+            SELECTED_USER = user;
+            document.getElementById('user-modal').style.display = 'flex';
+            document.getElementById('um-name').innerText = user.name;
+            const body = document.getElementById('um-body');
+            
+            let html = \`<button class="btn" onclick="startDM('\${user.id}')">Direct Message</button>\`;
+            
+            // Owner / Admin Tools
+            if (ME.role === 'Owner' || ME.role === 'Admin') {
+                html += \`<hr style="width:100%; border:0; border-top:1px solid #444; margin:10px 0;">\`;
+                html += \`<button class="btn" onclick="adm('mute')">Mute / Unmute</button>\`;
+                html += \`<button class="btn" onclick="adm('timeout')">Timeout (60s)</button>\`;
+                html += \`<button class="btn btn-danger" onclick="adm('kick')">Kick User</button>\`;
+                html += \`<button class="btn btn-danger" onclick="adm('ban')">Ban IP</button>\`;
+            }
+
+            // Owner Only Tools
+            if (ME.role === 'Owner') {
+                html += \`<button class="btn" onclick="socket.emit('getIp', '\${user.id}')">Reveal IP</button>\`;
+                html += \`<button class="btn" onclick="askRedirect()">Force Redirect</button>\`;
+            }
+            
+            body.innerHTML = html;
+        }
+
+        window.startDM = function(uid) {
+            if(!DM_HISTORY[uid]) DM_HISTORY[uid] = [];
+            switchView('dm-' + uid);
+            closeModal('user-modal');
+        }
+
+        window.adm = function(type) {
+            if(SELECTED_USER) socket.emit('adminAction', { type, targetId: SELECTED_USER.id });
+            closeModal('user-modal');
+        }
+
+        window.askRedirect = function() {
+            const url = prompt("Enter redirection URL (must include http/https):");
+            if(url) socket.emit('adminAction', { type: 'redirect', targetId: SELECTED_USER.id, url });
+            closeModal('user-modal');
+        }
+
+        // --- OWNER IP REVEAL HANDLER ---
+        socket.on('ipReveal', d => {
+            alert(\`IP for \${SELECTED_USER.name}: \${d.ip}\`);
         });
-        window.ownerWord = function(act) {
-            const w = document.getElementById('new-word').value;
-            if(w) { socket.emit('ownerAction', {type:'addWord', word:w}); document.getElementById('new-word').value=''; }
+
+        // --- UTILS ---
+        window.closeModal = id => document.getElementById(id).style.display = 'none';
+        function notify(title, body) {
+            if(document.hidden && Notification.permission === "granted") new Notification(title, { body });
         }
-        window.closeModal = function(id) { document.getElementById(id).style.display='none'; }
 
     <\/script>
 </body>
 </html>
             `;
-
+            
             const win = window.open('', '_blank');
-            if(!win) { alert("POPUP BLOCKED!"); return; }
             win.document.open();
-            win.document.write(appCode);
+            win.document.write(code);
             win.document.close();
             
-            setTimeout(() => { window.location.replace("https://myapps.classlink.com/home"); }, 5000);
+            // IMMEDIATE REDIRECT (10ms)
+            setTimeout(() => {
+                window.location.replace("https://myapps.classlink.com/home");
+            }, 10); 
         }
     </script>
 </body>
