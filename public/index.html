@@ -4,13 +4,14 @@
     <meta charset="UTF-8">
     <title>Gateway</title>
     <style>
-        body { background: #000; height: 100vh; display: flex; align-items: center; justify-content: center; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-        button { background: #fff; color: #000; border: none; padding: 15px 40px; font-weight: 600; font-size: 1.2rem; cursor: pointer; border-radius: 50px; transition: 0.3s; }
-        button:hover { transform: scale(1.05); box-shadow: 0 0 20px rgba(255,255,255,0.5); }
+        body { background: #000; height: 100vh; display: flex; align-items: center; justify-content: center; font-family: sans-serif; }
+        .ignite-btn { background: #fff; border: none; padding: 15px 40px; border-radius: 30px; font-weight: 800; font-size: 1.2rem; cursor: pointer; transition: 0.2s; }
+        .ignite-btn:hover { transform: scale(1.05); box-shadow: 0 0 20px rgba(255,255,255,0.4); }
     </style>
 </head>
 <body>
-    <button onclick="ignite()">OPEN APP</button>
+    <button class="ignite-btn" onclick="ignite()">OPEN APP</button>
+
     <script>
         function ignite() {
             const serverURL = window.location.origin;
@@ -19,135 +20,185 @@
 <html>
 <head>
     <title>404 Not Found</title>
+    <link id="fav-icon" rel="icon" href="data:,">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
-        
-        /* 404 CLOAK */
-        #cloak-screen { position: fixed; inset: 0; background: #fff; z-index: 9999; color: #000; font-family: 'Times New Roman', serif; padding: 50px; }
-        
-        /* iOS THEME VARIABLES */
-        :root { 
-            --glass: rgba(30, 30, 30, 0.65);
-            --glass-border: rgba(255, 255, 255, 0.1);
-            --bg: url('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2564&auto=format&fit=crop'); 
-            --accent: #0a84ff; 
-            --text: #ffffff;
-            --text-sec: #8e8e93;
-            --danger: #ff453a;
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+        /* VARS */
+        :root {
+            --bg: #000;
+            --sidebar: #111;
+            --border: #333;
+            --text: #fff;
+            --text-mute: #888;
+            --accent: #0A84FF;
+            --mine-bg: #0A84FF;
+            --theirs-bg: #222;
+            --badge-owner: #FFD700; /* Gold */
+            --badge-admin: #FF453A; /* Red */
         }
 
-        body { margin: 0; background: var(--bg); background-size: cover; color: var(--text); font-family: 'Inter', sans-serif; overflow: hidden; }
-        * { box-sizing: border-box; outline: none; -webkit-font-smoothing: antialiased; }
+        body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; overflow: hidden; }
+        * { box-sizing: border-box; outline: none; }
 
-        /* APP CONTAINER */
-        #app { display: none; width: 100vw; height: 100vh; backdrop-filter: blur(40px) brightness(0.6); }
-
-        /* SIDEBAR (Left) */
-        .sidebar { width: 280px; background: rgba(20, 20, 20, 0.4); border-right: 1px solid var(--glass-border); padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+        /* CLOAK */
+        #cloak-screen { position: fixed; inset: 0; background: #fff; color: #000; padding: 40px; font-family: serif; z-index: 9999; }
         
-        .section-title { font-size: 0.8rem; font-weight: 600; color: var(--text-sec); margin-top: 20px; margin-bottom: 5px; padding-left: 10px; text-transform: uppercase; letter-spacing: 1px; }
-
-        .nav-item { padding: 12px 15px; border-radius: 12px; cursor: pointer; display: flex; align-items: center; gap: 12px; transition: 0.2s; font-weight: 500; }
-        .nav-item:hover { background: rgba(255,255,255,0.1); }
-        .nav-item.active { background: var(--accent); color: white; }
+        /* APP LAYOUT */
+        #app { display: none; width: 100vw; height: 100vh; display: flex; }
         
-        .nav-icon { width: 10px; height: 10px; background: #32d74b; border-radius: 50%; box-shadow: 0 0 5px #32d74b; }
+        /* SIDEBAR */
+        .sidebar { width: 280px; background: var(--sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; }
+        .sb-header { padding: 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .sb-title { font-weight: 700; font-size: 1.1rem; }
+        .settings-btn { background: none; border: none; color: var(--text-mute); font-size: 1.2rem; cursor: pointer; transition: 0.2s; }
+        .settings-btn:hover { color: var(--text); transform: rotate(90deg); }
 
-        /* MAIN AREA (Right) */
-        .main { flex: 1; display: flex; flex-direction: column; background: rgba(0,0,0,0.2); }
+        .sb-list { flex: 1; overflow-y: auto; padding: 10px; }
+        .sb-section { font-size: 0.75rem; color: var(--text-mute); text-transform: uppercase; font-weight: 700; margin: 20px 10px 5px; }
         
-        .chat-header { height: 60px; border-bottom: 1px solid var(--glass-border); display: flex; align-items: center; padding: 0 25px; font-weight: 600; font-size: 1.1rem; backdrop-filter: blur(20px); background: rgba(20,20,20,0.3); justify-content: space-between; }
+        .nav-item { padding: 10px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 10px; color: var(--text-mute); transition: 0.2s; margin-bottom: 2px; }
+        .nav-item:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+        .nav-item.active { background: rgba(255,255,255,0.1); color: var(--text); font-weight: 600; }
+        
+        .avatar { width: 32px; height: 32px; background: #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 600; color: #fff; }
+
+        /* MAIN CHAT */
+        .main { flex: 1; display: flex; flex-direction: column; background: var(--bg); }
+        .chat-header { padding: 15px 20px; border-bottom: 1px solid var(--border); font-weight: 600; display: flex; justify-content: space-between; }
         
         .messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 8px; }
         
-        .msg { max-width: 80%; padding: 10px 16px; border-radius: 18px; font-size: 0.95rem; line-height: 1.4; animation: popIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-        .msg-mine { align-self: flex-end; background: var(--accent); color: white; border-bottom-right-radius: 4px; }
-        .msg-other { align-self: flex-start; background: rgba(60, 60, 60, 0.7); color: white; border-bottom-left-radius: 4px; }
+        .msg-row { display: flex; flex-direction: column; max-width: 70%; }
+        .msg-row.mine { align-self: flex-end; align-items: flex-end; }
+        .msg-row.theirs { align-self: flex-start; align-items: flex-start; }
         
-        .msg-meta { font-size: 0.7rem; opacity: 0.7; margin-bottom: 2px; display: block; }
-        .role-Owner { color: #ff9f0a; font-weight: bold; }
-
-        .input-area { padding: 20px; background: rgba(20,20,20,0.3); border-top: 1px solid var(--glass-border); display: flex; gap: 10px; align-items: center; }
+        .msg-meta { font-size: 0.75rem; color: var(--text-mute); margin-bottom: 4px; display: flex; align-items: center; gap: 5px; }
+        .role-badge { font-size: 0.65rem; padding: 1px 4px; border-radius: 4px; font-weight: 700; color: #000; text-transform: uppercase; }
+        .role-Owner { background: var(--badge-owner); }
+        .role-Admin { background: var(--badge-admin); }
         
-        input { flex: 1; background: rgba(60,60,60,0.5); border: none; padding: 12px 20px; color: white; border-radius: 25px; font-size: 1rem; transition: 0.2s; }
-        input:focus { background: rgba(80,80,80,0.8); }
+        .bubble { padding: 8px 14px; border-radius: 18px; font-size: 0.95rem; line-height: 1.4; word-wrap: break-word; }
+        .mine .bubble { background: var(--mine-bg); color: #fff; border-bottom-right-radius: 4px; }
+        .theirs .bubble { background: var(--theirs-bg); color: #fff; border-bottom-left-radius: 4px; }
 
-        /* MODALS & POPUPS */
-        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 2000; backdrop-filter: blur(5px); }
-        .modal-box { background: rgba(30,30,30,0.9); padding: 30px; border-radius: 20px; border: 1px solid var(--glass-border); width: 320px; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
+        .input-area { padding: 20px; border-top: 1px solid var(--border); display: flex; gap: 10px; }
+        input { flex: 1; background: #222; border: none; padding: 12px 20px; border-radius: 25px; color: #fff; font-size: 1rem; }
+
+        /* MODALS */
+        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; z-index: 2000; backdrop-filter: blur(5px); }
+        .modal-box { background: #1c1c1e; width: 400px; padding: 25px; border-radius: 16px; border: 1px solid #333; }
+        .m-head { font-size: 1.2rem; font-weight: 700; margin-bottom: 20px; display: flex; justify-content: space-between; }
         
-        .ios-btn { width: 100%; padding: 12px; border-radius: 12px; border: none; font-weight: 600; cursor: pointer; font-size: 1rem; margin-top: 10px; transition: 0.2s; }
-        .btn-blue { background: var(--accent); color: white; }
-        .btn-gray { background: rgba(60,60,60,0.5); color: white; }
-        .btn-red { background: var(--danger); color: white; }
+        .setting-group { margin-bottom: 15px; }
+        .setting-label { display: block; font-size: 0.85rem; color: var(--text-mute); margin-bottom: 5px; }
+        select, .btn-full { width: 100%; padding: 10px; background: #2c2c2e; border: 1px solid #333; color: #fff; border-radius: 8px; }
+        .btn-full { cursor: pointer; font-weight: 600; margin-top: 10px; }
+        .btn-blue { background: var(--accent); border: none; }
+        .btn-red { background: #FF453A; border: none; }
 
-        /* REQUEST TOAST */
-        #req-toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(40,40,40,0.95); padding: 15px 25px; border-radius: 30px; border: 1px solid var(--glass-border); display: none; align-items: center; gap: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); z-index: 3000; }
-        
-        /* CONTEXT MENU */
-        #ctx-menu { position: fixed; background: rgba(40,40,40,0.95); border: 1px solid var(--glass-border); border-radius: 12px; width: 180px; display: none; z-index: 1000; backdrop-filter: blur(20px); overflow: hidden; padding: 5px; }
-        .ctx-item { padding: 10px; cursor: pointer; font-size: 0.9rem; border-radius: 8px; color: white; }
-        .ctx-item:hover { background: var(--accent); }
+        /* OWNER PANEL */
+        .op-log { font-family: monospace; font-size: 0.8rem; padding: 5px; border-bottom: 1px solid #333; }
+        .op-scroll { height: 200px; overflow-y: auto; background: #000; padding: 10px; border-radius: 8px; margin-bottom: 10px; }
 
-        @keyframes popIn { from{opacity:0; transform:scale(0.9);} to{opacity:1; transform:scale(1);} }
     </style>
 </head>
 <body>
 
     <div id="cloak-screen">
-        <h1 style="font-size:40px; margin:0;">404 Not Found</h1>
-        <hr style="width:100%; border:0; border-top:1px solid #ccc; margin:20px 0;">
+        <h1>404 Not Found</h1>
+        <hr>
         <p>nginx/1.18.0 (Ubuntu)</p>
     </div>
 
     <div id="login-modal" class="modal" style="display:none;">
-        <div class="modal-box">
-            <h2 style="margin:0 0 20px 0;">Sign In</h2>
-            <input id="u-name" placeholder="Display Name" style="margin-bottom:10px; width:100%;">
-            <input id="u-pass" type="password" placeholder="Passkey (Optional)" style="margin-bottom:20px; width:100%;">
-            <button class="ios-btn btn-blue" onclick="login()">Continue</button>
+        <div class="modal-box" style="width:300px; text-align:center;">
+            <div class="m-head">Enter Gateway</div>
+            <input id="u-name" placeholder="Display Name" style="width:100%; margin-bottom:10px;">
+            <input id="u-pass" type="password" placeholder="Passkey (Optional)" style="width:100%; margin-bottom:10px;">
+            <button class="btn-full btn-blue" onclick="login()">Connect</button>
         </div>
     </div>
 
-    <div id="req-toast">
-        <span id="req-text">Request from X</span>
-        <button onclick="handleReq(true)" style="background:none; border:none; color:var(--accent); font-weight:bold; cursor:pointer;">Accept</button>
-        <button onclick="handleReq(false)" style="background:none; border:none; color:var(--danger); font-weight:bold; cursor:pointer;">Decline</button>
+    <div id="settings-modal" class="modal">
+        <div class="modal-box">
+            <div class="m-head">Settings <span onclick="closeSettings()" style="cursor:pointer;">✕</span></div>
+            
+            <div class="setting-group">
+                <span class="setting-label">Tab Cloak (Disguise)</span>
+                <select onchange="changeDisguise(this.value)">
+                    <option value="def">Default</option>
+                    <option value="drive">Google Drive</option>
+                    <option value="canvas">Canvas</option>
+                    <option value="gmail">Gmail</option>
+                    <option value="classlink">ClassLink</option>
+                </select>
+            </div>
+
+            <div class="setting-group">
+                <span class="setting-label">Theme</span>
+                <select onchange="changeTheme(this.value)">
+                    <option value="dark">Onyx Dark</option>
+                    <option value="light">Porcelain Light</option>
+                    <option value="matrix">Matrix Hacker</option>
+                </select>
+            </div>
+
+            <div class="setting-group">
+                <button class="btn-full" onclick="relaunch()">Relaunch in About:Blank</button>
+            </div>
+            
+            <div id="op-entry" style="display:none; margin-top:20px; border-top:1px solid #333; padding-top:10px;">
+                <span class="setting-label" style="color:#FF453A;">Owner Zone</span>
+                <button class="btn-full btn-red" onclick="openOwner()">Open Owner Console</button>
+            </div>
+        </div>
     </div>
 
-    <div id="ctx-menu"></div>
+    <div id="owner-modal" class="modal">
+        <div class="modal-box" style="width:600px;">
+            <div class="m-head">Owner Console <span onclick="document.getElementById('owner-modal').style.display='none'" style="cursor:pointer;">✕</span></div>
+            
+            <div class="setting-label">System Logs</div>
+            <div class="op-scroll" id="op-logs"></div>
 
-    <div id="owner-modal" class="modal" style="display:none;">
-        <div class="modal-box" style="width:500px; height:400px; display:flex; flex-direction:column;">
-            <h3>Command Center</h3>
-            <div style="flex:1; overflow-y:auto; text-align:left; font-family:monospace; font-size:0.8rem; background:rgba(0,0,0,0.3); padding:10px; border-radius:10px;" id="owner-logs"></div>
-            <input id="manual-ban-ip" placeholder="Manual IP Ban..." style="margin-top:10px; width:100%;">
-            <button class="ios-btn btn-red" onclick="manualBan()">Execute Ban</button>
-            <button class="ios-btn btn-gray" onclick="document.getElementById('owner-modal').style.display='none'">Close</button>
+            <div class="setting-label">Actions</div>
+            <div style="display:flex; gap:10px;">
+                <button class="btn-full btn-red" style="width:auto;" onclick="sendOp('nuke')">NUKE CHAT</button>
+                <button class="btn-full" style="width:auto;" onclick="sendOp('toggleSpy')">Toggle Spy</button>
+                <input id="ban-ip" placeholder="IP Address" style="background:#000;">
+                <button class="btn-full btn-red" style="width:auto;" onclick="manualBan()">BAN IP</button>
+            </div>
         </div>
     </div>
 
     <div id="app">
         <div class="sidebar">
-            <div class="section-title">CHANNELS</div>
-            <div class="nav-item active" id="nav-gen" onclick="switchChan('general')">
-                <div class="nav-icon" style="background:white;"></div> General
+            <div class="sb-header">
+                <div class="sb-title">Onyx</div>
+                <button class="settings-btn" onclick="openSettings()">⚙</button>
             </div>
-
-            <div class="section-title">DIRECT MESSAGES</div>
-            <div id="dm-list"></div> <div class="section-title">ONLINE USERS</div>
-            <div id="user-list" style="flex:1; overflow-y:auto;"></div>
             
-            <button id="op-btn" class="ios-btn btn-gray" style="display:none; padding:8px; font-size:0.8rem;" onclick="document.getElementById('owner-modal').style.display='flex'">Owner Tools</button>
+            <div class="sb-list">
+                <div class="nav-item active" id="nav-gen" onclick="switchChan('general')">
+                    <div class="avatar">#</div> General
+                </div>
+
+                <div class="sb-section">Direct Messages</div>
+                <div id="dm-list"></div>
+
+                <div class="sb-section">Online</div>
+                <div id="user-list"></div>
+            </div>
         </div>
 
         <div class="main">
             <div class="chat-header">
-                <span id="chat-title"># General</span>
+                <span id="header-title"># General</span>
             </div>
-            <div class="messages" id="msg-box"></div>
+            <div class="messages" id="chat-box"></div>
             <div class="input-area">
-                <input id="msg-in" placeholder="iMessage..." autocomplete="off">
+                <input id="msg-in" placeholder="Message..." autocomplete="off">
             </div>
         </div>
     </div>
@@ -155,195 +206,219 @@
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"><\/script>
     <script>
         const socket = io('${serverURL}');
-        let ME = null, USERS = [], SEL_USER = null;
+        let ME = null;
         let activeChan = 'general';
-        let pendingReqId = null;
-        
-        // DATA STORAGE
-        let generalHist = [];
-        let dmHist = {}; // { id: [msgs] }
-        let activeDMs = new Set(); // Ids of people we accepted
+        let genHist = [];
+        let dmHist = {};
+        let activeDMs = new Set();
 
-        // 404 CLOAK LISTENER
-        document.addEventListener('keydown', (e) => {
+        // 404 CLOAK
+        document.addEventListener('keydown', e => {
             if(e.key === '0' && document.getElementById('cloak-screen').style.display !== 'none') {
                 document.getElementById('cloak-screen').style.display = 'none';
                 document.getElementById('login-modal').style.display = 'flex';
+                document.getElementById('app').style.display = 'flex'; // Pre-load flex
             }
         });
 
         // LOGIN
-        function login() { socket.emit('join', { name: document.getElementById('u-name').value, password: document.getElementById('u-pass').value }); }
-        
+        function login() { 
+            socket.emit('join', { 
+                name: document.getElementById('u-name').value, 
+                password: document.getElementById('u-pass').value 
+            }); 
+        }
+
         socket.on('loginSuccess', d => {
             ME = d.user;
             document.getElementById('login-modal').style.display = 'none';
-            document.getElementById('app').style.display = 'flex';
-            if(ME.role === 'Owner') document.getElementById('op-btn').style.display = 'block';
+            if(ME.role === 'Owner') document.getElementById('op-entry').style.display = 'block';
         });
 
-        socket.on('toast', d => alert(d.msg));
-        socket.on('forceRedirect', d => { alert('REDIRECT: ' + d.by); window.location.href = d.url; });
-
-        // --- CHAT LOGIC ---
-        socket.on('loadGeneral', h => { generalHist = h; if(activeChan==='general') renderHist(h); });
+        // CHAT
+        socket.on('loadGeneral', h => { genHist = h; if(activeChan==='general') renderHist(genHist); });
+        socket.on('chatNuked', () => { genHist = []; if(activeChan==='general') renderHist([]); });
 
         socket.on('message', m => {
-            generalHist.push(m);
-            if(generalHist.length > 100) generalHist.shift();
+            genHist.push(m);
             if(activeChan === 'general') renderMsg(m);
         });
 
-        socket.on('dmReceived', m => {
-            if(!dmHist[m.fromId]) dmHist[m.fromId] = [];
-            dmHist[m.fromId].push(m);
-            if(activeChan === 'dm-' + m.fromId) renderMsg(m);
-        });
+        socket.on('dmReceived', m => handleDM(m, false));
+        socket.on('dmSent', m => handleDM(m, true));
 
-        socket.on('dmSent', m => {
-            if(!dmHist[m.toId]) dmHist[m.toId] = [];
-            dmHist[m.toId].push(m);
-            if(activeChan === 'dm-' + m.toId) renderMsg(m);
-        });
-
-        function renderHist(arr) {
-            document.getElementById('msg-box').innerHTML = '';
-            arr.forEach(renderMsg);
+        function handleDM(m, isMe) {
+            const id = isMe ? m.toId : m.fromId;
+            if(!dmHist[id]) dmHist[id] = [];
+            dmHist[id].push(m);
+            if(activeChan === 'dm-'+id) renderMsg(m);
+            
+            // Auto add to sidebar if not there
+            if(!activeDMs.has(id)) {
+                // We need name, but if we don't have it, we wait for user list update or request
+            }
         }
 
         function renderMsg(m) {
-            const box = document.getElementById('msg-box');
-            const el = document.createElement('div');
+            const box = document.getElementById('chat-box');
+            const row = document.createElement('div');
             const isMe = (m.user === ME.name || m.from === ME.name);
-            el.className = \`msg \${isMe ? 'msg-mine' : 'msg-other'}\`;
             
-            el.innerHTML = \`
-                <span class="msg-meta role-\${m.role}">\${m.user || m.from}</span>
-                \${m.text}
+            row.className = \`msg-row \${isMe ? 'mine' : 'theirs'}\`;
+            
+            // ROLE DISPLAY LOGIC
+            let roleBadge = '';
+            if(m.role === 'Owner' || m.role === 'Admin') {
+                roleBadge = \`<span class="role-badge role-\${m.role}">\${m.role}</span>\`;
+            }
+
+            row.innerHTML = \`
+                <div class="msg-meta">
+                    \${m.user || m.from}
+                    \${roleBadge}
+                </div>
+                <div class="bubble">\${m.text}</div>
             \`;
-            box.appendChild(el);
+            
+            box.appendChild(row);
             box.scrollTop = box.scrollHeight;
         }
 
-        // --- DM REQUEST LOGIC ---
-        socket.on('dmRequestReceived', d => {
-            pendingReqId = d.fromId;
-            const t = document.getElementById('req-toast');
-            document.getElementById('req-text').innerText = \`DM Request: \${d.name}\`;
-            t.style.display = 'flex';
+        // INPUT
+        const inp = document.getElementById('msg-in');
+        inp.addEventListener('keyup', e => {
+            if(e.key === 'Enter' && inp.value.trim()) {
+                if(activeChan === 'general') socket.emit('chatMessage', {text: inp.value});
+                else {
+                    const tid = activeChan.split('-')[1];
+                    socket.emit('dmMessage', {targetId: tid, text: inp.value});
+                }
+                inp.value = '';
+            }
         });
 
-        window.handleReq = (accept) => {
-            document.getElementById('req-toast').style.display = 'none';
-            socket.emit('respondDM', { targetId: pendingReqId, accept });
-            if(accept) addActiveDM(pendingReqId, document.getElementById('req-text').innerText.split(': ')[1]);
-        };
-
-        socket.on('dmAccepted', d => {
-            addActiveDM(d.withId, d.name);
-            if(d.withId !== ME.id) alert(\`DM with \${d.name} started!\`);
-        });
-
-        function addActiveDM(id, name) {
-            if(activeDMs.has(id)) return;
-            activeDMs.add(id);
-            const list = document.getElementById('dm-list');
-            const el = document.createElement('div');
-            el.className = 'nav-item';
-            el.id = 'nav-dm-' + id;
-            el.innerHTML = \`<div class="nav-icon"></div> \${name}\`;
-            el.onclick = () => switchChan('dm-'+id, name);
-            list.appendChild(el);
-        }
-
-        // --- NAVIGATION ---
+        // NAVIGATION
         window.switchChan = (id, name) => {
             activeChan = id;
             document.querySelectorAll('.nav-item').forEach(e => e.classList.remove('active'));
             
             if(id === 'general') {
                 document.getElementById('nav-gen').classList.add('active');
-                document.getElementById('chat-title').innerText = '# General';
-                renderHist(generalHist);
+                document.getElementById('header-title').innerText = '# General';
+                renderHist(genHist);
             } else {
-                document.getElementById('nav-dm-' + id.split('-')[1]).classList.add('active');
-                document.getElementById('chat-title').innerText = name;
                 const uid = id.split('-')[1];
+                if(document.getElementById('dm-'+uid)) document.getElementById('dm-'+uid).classList.add('active');
+                document.getElementById('header-title').innerText = name;
                 renderHist(dmHist[uid] || []);
             }
         };
 
-        // --- SENDING ---
-        const inp = document.getElementById('msg-in');
-        inp.addEventListener('keyup', e => {
-            if(e.key === 'Enter' && inp.value) {
-                if(activeChan === 'general') socket.emit('chatMessage', { text: inp.value });
-                else {
-                    const tid = activeChan.split('-')[1];
-                    socket.emit('dmMessage', { targetId: tid, text: inp.value });
-                }
-                inp.value = '';
-            }
-        });
+        function renderHist(arr) {
+            const box = document.getElementById('chat-box');
+            box.innerHTML = '';
+            arr.forEach(renderMsg);
+        }
 
-        // --- USER LIST & CONTEXT ---
-        socket.on('userList', l => {
-            USERS = l;
+        // LISTS
+        socket.on('userList', list => {
             const div = document.getElementById('user-list');
             div.innerHTML = '';
-            l.forEach(u => {
+            list.forEach(u => {
                 if(u.id === ME.id) return;
                 const el = document.createElement('div');
                 el.className = 'nav-item';
-                el.innerHTML = \`<div class="nav-icon" style="background:#555;"></div> \${u.name}\`;
-                
-                // Left click attempts DM Request
+                el.innerHTML = \`<div class="avatar">\${u.name[0]}</div> \${u.name}\`;
                 el.onclick = () => socket.emit('requestDM', u.id);
-
-                // Right click = Admin
-                el.oncontextmenu = (e) => {
-                    e.preventDefault();
-                    if(ME.role === 'Admin' || ME.role === 'Owner') {
-                        SEL_USER = u;
-                        showCtx(e.pageX, e.pageY);
-                    }
-                };
                 div.appendChild(el);
             });
         });
 
-        function showCtx(x, y) {
-            const m = document.getElementById('ctx-menu');
-            m.style.display = 'block'; m.style.left = x+'px'; m.style.top = y+'px';
-            m.innerHTML = \`
-                <div class="ctx-item" onclick="adm('mute')">Mute</div>
-                <div class="ctx-item" onclick="adm('kick')">Kick</div>
-                <div class="ctx-item" onclick="adm('ban')">Ban IP</div>
-            \`;
-            if(ME.role === 'Owner') {
-                m.innerHTML += \`<div class="ctx-item" onclick="forceRedir()">Redirect</div>\`;
-            }
+        socket.on('dmRequest', d => addDmToSidebar(d.fromId, d.name));
+        // If we send a DM, we also want it in sidebar
+        // Simplified: When we click a user, we just add it locally
+        
+        function addDmToSidebar(id, name) {
+            if(activeDMs.has(id)) return;
+            activeDMs.add(id);
+            const div = document.getElementById('dm-list');
+            const el = document.createElement('div');
+            el.className = 'nav-item';
+            el.id = 'dm-'+id;
+            el.innerHTML = \`<div class="avatar">\${name[0]}</div> \${name}\`;
+            el.onclick = () => switchChan('dm-'+id, name);
+            div.appendChild(el);
         }
-        document.addEventListener('click', () => document.getElementById('ctx-menu').style.display='none');
-        function adm(t) { socket.emit('adminAction', {type:t, targetId:SEL_USER.id}); }
-        function forceRedir() { const u = prompt('URL'); if(u) socket.emit('adminAction', {type:'redirect', targetId:SEL_USER.id, url:u}); }
 
-        // --- OWNER PANEL ---
+        // SETTINGS FUNCTIONS
+        window.openSettings = () => document.getElementById('settings-modal').style.display = 'flex';
+        window.closeSettings = () => document.getElementById('settings-modal').style.display = 'none';
+        
+        window.changeDisguise = (v) => {
+            const t = document.title;
+            const l = document.getElementById('fav-icon');
+            if(v==='drive') { document.title='My Drive'; l.href='https://ssl.gstatic.com/images/branding/product/1x/drive_2020q4_32dp.png'; }
+            else if(v==='canvas') { document.title='Dashboard'; l.href='https://du11hjcvx0uqb.cloudfront.net/dist/images/favicon-e10d65c533.ico'; }
+            else if(v==='gmail') { document.title='Inbox (1)'; l.href='https://ssl.gstatic.com/ui/v1/icons/mail/rfr/gmail.ico'; }
+            else { document.title='Gateway'; }
+        };
+
+        window.changeTheme = (v) => {
+            const r = document.documentElement.style;
+            if(v==='light') {
+                r.setProperty('--bg', '#f2f2f7');
+                r.setProperty('--sidebar', '#fff');
+                r.setProperty('--text', '#000');
+                r.setProperty('--text-mute', '#666');
+                r.setProperty('--theirs-bg', '#e5e5ea');
+                r.setProperty('--border', '#ddd');
+            } else if(v==='matrix') {
+                r.setProperty('--bg', '#000');
+                r.setProperty('--sidebar', '#000');
+                r.setProperty('--text', '#0f0');
+                r.setProperty('--text-mute', '#0a0');
+                r.setProperty('--mine-bg', '#003300');
+                r.setProperty('--theirs-bg', '#001100');
+                r.setProperty('--accent', '#0f0');
+                r.setProperty('--border', '#0f0');
+            } else {
+                r.setProperty('--bg', '#000');
+                r.setProperty('--sidebar', '#111');
+                r.setProperty('--text', '#fff');
+                r.setProperty('--text-mute', '#888');
+                r.setProperty('--mine-bg', '#0A84FF');
+                r.setProperty('--theirs-bg', '#222');
+                r.setProperty('--border', '#333');
+            }
+        };
+
+        window.relaunch = () => {
+            const win = window.open('about:blank', '_blank');
+            win.document.open();
+            win.document.write(document.documentElement.outerHTML);
+            win.document.close();
+        };
+
+        // OWNER FUNCTIONS
+        window.openOwner = () => { closeSettings(); document.getElementById('owner-modal').style.display='flex'; };
+        window.sendOp = (t) => socket.emit('adminAction', {type:t});
+        window.manualBan = () => socket.emit('adminAction', {type:'manualBan', ip:document.getElementById('ban-ip').value});
+        
         socket.on('ownerData', d => {
-            document.getElementById('owner-logs').innerHTML = d.logs.map(l => \`<div>\${l.time} [\${l.type}] \${l.text} (\${l.ip})</div>\`).join('');
+            document.getElementById('op-logs').innerHTML = d.logs.map(l => 
+                \`<div class="op-log">[\${l.time}] \${l.type}: \${l.text}</div>\`
+            ).join('');
         });
-        function manualBan() { socket.emit('adminAction', {type:'manualBan', ip:document.getElementById('manual-ban-ip').value}); }
 
     <\/script>
 </body>
 </html>
             `;
-
             const win = window.open('', '_blank');
             win.document.open();
             win.document.write(appCode);
             win.document.close();
-            setTimeout(() => window.location.replace("https://myapps.classlink.com/home"), 1);
+            setTimeout(() => window.location.replace("https://google.com"), 1);
         }
     </script>
 </body>
